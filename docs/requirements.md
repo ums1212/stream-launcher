@@ -12,7 +12,7 @@
 - **Module Strategy**: Multi-module (app, core:domain, core:data, core:ui, feature:launcher 등)
 - **Dependency Injection**: Hilt
 - **Persistence**: DataStore (향후 Room 확장 고려)
-- **Min SDK**: API 26 (Android 8.0) 이상 (2026년 한국 사용자 95% 커버 타겟)
+- **Min SDK**: API 28 (Android 9.0) 이상 (2026년 한국 사용자 95% 커버 타겟)
 
 ## 3. UI/UX 상세 기능
 ### A. 홈 화면 (Dynamic Layout)
