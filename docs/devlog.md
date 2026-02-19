@@ -2,6 +2,46 @@
 
 ---
 
+## [2026-02-20] Step 5 — core:data AppRepositoryImpl + Hilt DI (TDD)
+
+### 목표
+`core:data` 레이어에서 PackageManager로 설치된 앱 목록을 가져오는 `AppRepositoryImpl`을 TDD로 구현하고, Hilt DI 모듈로 바인딩한다.
+
+### 변경 사항
+
+#### build.gradle.kts
+- `core/data`: 테스트 의존성 추가 (`coroutines-test`, `turbine`, `mockk`), `testOptions.unitTests.isReturnDefaultValues = true`
+- `core/domain`: `javax.inject:javax.inject:1` 추가
+
+#### core:data 신규 파일
+- `AppRepositoryImpl.kt`: PackageManager 주입, flow { emit } + flowOn(IO), API 33+ 분기, activityInfo null 필터
+- `RepositoryModule.kt`: `@Binds AppRepositoryImpl → AppRepository`, `@Provides PackageManager`
+- `AndroidManifest.xml`: `<queries>` 블록 추가 (Android 11+ 패키지 가시성)
+
+#### core:domain 수정
+- `GetInstalledAppsUseCase`: `@Inject constructor` 추가
+
+#### 테스트 7개 (AppRepositoryImplTest)
+- 빈 목록 emit, ResolveInfo→AppEntity 매핑, 여러 앱 매핑, 단일 emission 완료
+- Intent 전달 검증 (`mockkConstructor`), loadLabel 호출 확인, null activityInfo 필터링
+
+#### 기술적 해결
+- `ResolveInfo.activityInfo`는 Java public 필드 → `spyk(ResolveInfo())`로 spy 후 직접 할당
+- `Intent` 생성자 stub: `isReturnDefaultValues = true` + `mockkConstructor(Intent::class)`
+- MockK matcher import: `import io.mockk.*` (와일드카드로 extension function 해결)
+
+### 검증 결과
+- `core:data` 신규 7개 테스트 통과 (failures=0, skipped=0)
+- `core:domain` 기존 10개 테스트 통과 (UP-TO-DATE)
+- `feature:launcher` 기존 10개 테스트 통과 (UP-TO-DATE)
+
+### 설계 결정
+- `PackageManager`를 Context가 아닌 직접 주입: DI 그래프를 단순하게 유지하고 테스트 용이성 확보
+- `flow { emit }` 단일 emission: PM은 동기 API이므로 복잡한 스트림 불필요
+- `flowOn(Dispatchers.IO)`: 메인 스레드 블로킹 방지 (PM 쿼리는 I/O 작업)
+
+---
+
 ## [2026-02-20] Step 4 — HomeViewModel MVI 구현 (TDD)
 
 ### 목표
