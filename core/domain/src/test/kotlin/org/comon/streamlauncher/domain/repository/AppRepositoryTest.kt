@@ -4,21 +4,21 @@ import app.cash.turbine.test
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
-import org.comon.streamlauncher.domain.model.AppInfo
+import org.comon.streamlauncher.domain.model.AppEntity
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class AppRepositoryTest {
 
     private val fakeApps = listOf(
-        AppInfo(
+        AppEntity(
             packageName = "com.example.one",
-            appName = "App One",
+            label = "App One",
             activityName = "com.example.one.MainActivity"
         ),
-        AppInfo(
+        AppEntity(
             packageName = "com.example.two",
-            appName = "App Two",
+            label = "App Two",
             activityName = "com.example.two.MainActivity"
         )
     )
@@ -26,7 +26,7 @@ class AppRepositoryTest {
     private val repository: AppRepository = FakeAppRepository(fakeApps)
 
     @Test
-    fun `getInstalledApps emits list of AppInfo via Flow`() = runTest {
+    fun `getInstalledApps emits list of AppEntity via Flow`() = runTest {
         repository.getInstalledApps().test {
             val items = awaitItem()
             assertEquals(2, items.size)
@@ -35,13 +35,13 @@ class AppRepositoryTest {
     }
 
     @Test
-    fun `getInstalledApps emits correct AppInfo data`() = runTest {
+    fun `getInstalledApps emits correct AppEntity data`() = runTest {
         repository.getInstalledApps().test {
             val items = awaitItem()
             assertEquals("com.example.one", items[0].packageName)
-            assertEquals("App One", items[0].appName)
+            assertEquals("App One", items[0].label)
             assertEquals("com.example.two", items[1].packageName)
-            assertEquals("App Two", items[1].appName)
+            assertEquals("App Two", items[1].label)
             awaitComplete()
         }
     }
@@ -57,6 +57,6 @@ class AppRepositoryTest {
     }
 }
 
-private class FakeAppRepository(private val apps: List<AppInfo>) : AppRepository {
-    override fun getInstalledApps(): Flow<List<AppInfo>> = flowOf(apps)
+private class FakeAppRepository(private val apps: List<AppEntity>) : AppRepository {
+    override fun getInstalledApps(): Flow<List<AppEntity>> = flowOf(apps)
 }

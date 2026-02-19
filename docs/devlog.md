@@ -2,6 +2,52 @@
 
 ---
 
+## [2026-02-20] Step 4 — HomeViewModel MVI 구현 (TDD)
+
+### 목표
+`AppInfo` → `AppEntity` 리네이밍 후 `core:domain` UseCase 추가, `feature:launcher`에 MVI 기반 `HomeViewModel`을 TDD로 구현한다.
+
+### 변경 사항
+
+#### Phase A: core:domain 리팩터링
+- `AppInfo` → `AppEntity` 리네이밍 (`appName` → `label`)
+- `AppRepository` 인터페이스: `Flow<List<AppInfo>>` → `Flow<List<AppEntity>>`
+- `AppInfoTest` → `AppEntityTest` (필드명 반영)
+- `AppRepositoryTest` 업데이트 (AppEntity + label)
+- `GetInstalledAppsUseCase` 신규 추가 (repository 위임 패턴)
+- `GetInstalledAppsUseCaseTest` 2개 테스트
+
+#### Phase B: feature:launcher HomeViewModel
+- `GridCell` enum: TOP_LEFT / TOP_RIGHT / BOTTOM_LEFT / BOTTOM_RIGHT
+- `HomeContract` (HomeState, HomeIntent, HomeSideEffect)
+- `HomeViewModel` (@HiltViewModel, init에서 LoadApps 자동 호출)
+  - `distributeApps()`: 가나다순 정렬 후 4등분 배분
+  - `loadJob` 중복 방지 처리
+  - `loadApps()` 예외 처리: `CancellationException` 재전파, 그 외 `Exception` → `isLoading = false` + `ShowError` SideEffect
+- `HomeViewModelTest` 12개 테스트 (MockK + Turbine)
+
+#### Phase C: 정리
+- `feature:launcher` `ExampleUnitTest.kt` 삭제
+
+### 검증 결과
+```
+총 22개 테스트 통과 (failures=0, errors=0)
+- AppEntityTest:              5개
+- AppRepositoryTest:          3개
+- GetInstalledAppsUseCaseTest: 2개
+- HomeViewModelTest:          12개
+  - 기본 동작 10개 (초기 상태, 로딩, 셀 토글, 앱 배분, SideEffect 등)
+  - 예외 처리 2개 (ShowError SideEffect 발생, isLoading 복구)
+```
+
+### 설계 결정 및 근거
+- **애니메이션 제외**: expandRatio 등 UI 애니메이션 값은 ViewModel 상태에 미포함. Compose `animateFloatAsState` / `updateTransition`으로 UI 레이어에서 처리.
+- **앱 분배**: 전체 앱 리스트를 label 기준 가나다순 정렬 후 4등분. 앱 수가 4의 배수가 아닐 때는 올림 청크 + 빈 리스트 패딩.
+- **Flow 중복 수집 방지**: `loadJob?.cancel()` 패턴으로 재로드 시 이전 Job 취소.
+- **예외 처리**: `CancellationException`은 반드시 재전파 — `catch (Exception)`이 코루틴 취소를 삼키면 `loadJob?.cancel()` 패턴이 오작동함. 그 외 예외는 `isLoading` 복구 후 `ShowError`로 UI에 위임.
+
+---
+
 ## [2026-02-20] 멀티 모듈 구조 설계 및 core:domain TDD
 
 ### 목표

@@ -4,77 +4,77 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Test
 
-class AppInfoTest {
+class AppEntityTest {
 
     @Test
-    fun `AppInfo holds packageName, appName, and activityName`() {
-        val appInfo = AppInfo(
+    fun `AppEntity holds packageName, label, and activityName`() {
+        val appEntity = AppEntity(
             packageName = "com.example.app",
-            appName = "Example App",
+            label = "Example App",
             activityName = "com.example.app.MainActivity"
         )
 
-        assertEquals("com.example.app", appInfo.packageName)
-        assertEquals("Example App", appInfo.appName)
-        assertEquals("com.example.app.MainActivity", appInfo.activityName)
+        assertEquals("com.example.app", appEntity.packageName)
+        assertEquals("Example App", appEntity.label)
+        assertEquals("com.example.app.MainActivity", appEntity.activityName)
     }
 
     @Test
-    fun `AppInfo data class equality is based on all fields`() {
-        val appInfo1 = AppInfo(
+    fun `AppEntity data class equality is based on all fields`() {
+        val appEntity1 = AppEntity(
             packageName = "com.example.app",
-            appName = "Example App",
+            label = "Example App",
             activityName = "com.example.app.MainActivity"
         )
-        val appInfo2 = AppInfo(
+        val appEntity2 = AppEntity(
             packageName = "com.example.app",
-            appName = "Example App",
+            label = "Example App",
             activityName = "com.example.app.MainActivity"
         )
 
-        assertEquals(appInfo1, appInfo2)
+        assertEquals(appEntity1, appEntity2)
     }
 
     @Test
-    fun `AppInfo data class inequality when fields differ`() {
-        val appInfo1 = AppInfo(
+    fun `AppEntity data class inequality when fields differ`() {
+        val appEntity1 = AppEntity(
             packageName = "com.example.app",
-            appName = "Example App",
+            label = "Example App",
             activityName = "com.example.app.MainActivity"
         )
-        val appInfo2 = AppInfo(
+        val appEntity2 = AppEntity(
             packageName = "com.other.app",
-            appName = "Other App",
+            label = "Other App",
             activityName = "com.other.app.MainActivity"
         )
 
-        assertNotEquals(appInfo1, appInfo2)
+        assertNotEquals(appEntity1, appEntity2)
     }
 
     @Test
-    fun `AppInfo hashCode is equal for equal instances`() {
-        val appInfo1 = AppInfo(
+    fun `AppEntity hashCode is equal for equal instances`() {
+        val appEntity1 = AppEntity(
             packageName = "com.example.app",
-            appName = "Example App",
+            label = "Example App",
             activityName = "com.example.app.MainActivity"
         )
-        val appInfo2 = AppInfo(
+        val appEntity2 = AppEntity(
             packageName = "com.example.app",
-            appName = "Example App",
+            label = "Example App",
             activityName = "com.example.app.MainActivity"
         )
 
-        assertEquals(appInfo1.hashCode(), appInfo2.hashCode())
+        assertEquals(appEntity1.hashCode(), appEntity2.hashCode())
     }
 
     @Test
-    fun `AppInfo toString contains all fields`() {
-        val appInfo = AppInfo(
+    fun `AppEntity toString contains all fields`() {
+        val appEntity = AppEntity(
             packageName = "com.example.app",
-            appName = "Example App",
+            label = "Example App",
             activityName = "com.example.app.MainActivity"
         )
-        val str = appInfo.toString()
+        val str = appEntity.toString()
 
         assert(str.contains("com.example.app"))
         assert(str.contains("Example App"))
