@@ -7,7 +7,12 @@
       "Bash(java -version:*)",
       "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew:*)",
       "Bash(find:*)",
-      "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew assembleDebug:*)"
+      "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew assembleDebug:*)",
+      "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew test:*)",
+      "Bash(done)",
+      "Bash(while read f)",
+      "Bash(do grep -oP 'tests=\"\"\\\\K[^\"\"]+' \"$f\")",
+      "Bash(echo:*)"
     ]
   }
 }

@@ -2,6 +2,52 @@
 
 ---
 
+## [2026-02-20] Step 6 — Hilt 최종 연결 및 실데이터 확인
+
+### 목표
+Step 1~5에서 구현된 멀티모듈 DI 그래프를 `:app` 진입점에 연결하고, 임시 UI로 설치 앱 목록이 실제로 표시되는지 E2E 흐름을 검증한다.
+
+### 변경 사항
+
+| 파일 | 변경 내용 |
+|------|----------|
+| `gradle/libs.versions.toml` | `lifecycle-runtime-compose`, `lifecycle-viewmodel-ktx` 라이브러리 항목 추가 (`version.ref = lifecycleRuntimeKtx`) |
+| `app/build.gradle.kts` | `lifecycle-runtime-compose` 의존성 추가 (`collectAsStateWithLifecycle` 사용) |
+| `core/ui/build.gradle.kts` | `lifecycle-viewmodel-ktx` 추가 (BaseViewModel의 `ViewModel`/`viewModelScope` 명시적 선언) |
+| `app/.../StreamLauncherApplication.kt` | **신규** — `@HiltAndroidApp class StreamLauncherApplication : Application()` |
+| `app/src/main/AndroidManifest.xml` | `<application android:name=".StreamLauncherApplication">` 추가 |
+| `app/.../MainActivity.kt` | `@AndroidEntryPoint`, `hiltViewModel<HomeViewModel>()`, `collectAsStateWithLifecycle()`, `LaunchedEffect`로 SideEffect 로그, `TempAppList` Composable 추가, 기존 `Greeting`/Preview 제거 |
+
+#### TempAppList 임시 UI 구조
+```
+LazyColumn
+├── [isLoading] → Text("Loading...")
+└── forEach GridCell (TOP_LEFT / TOP_RIGHT / BOTTOM_LEFT / BOTTOM_RIGHT)
+    ├── Section header: "── {cell.name} ({size}개) ──"
+    └── items: "{app.label} ({app.packageName})"
+```
+
+### 검증 결과
+```
+./gradlew :app:assembleDebug  →  BUILD SUCCESSFUL (122 tasks)
+./gradlew test                →  BUILD SUCCESSFUL (245 tasks, failures=0)
+```
+- `core:domain`: AppEntityTest(5) + AppRepositoryTest(3) + UseCaseTest(2) = 10개
+- `core:data`: AppRepositoryImplTest(7) = 7개
+- `feature:launcher`: HomeViewModelTest(12) = 12개
+- 기타 placeholder: app(1) + core:ui(1) + feature:apps-drawer(1) = 3개
+
+### 설계 결정 및 근거
+
+| 결정 | 근거 |
+|------|------|
+| `TempAppList`를 별도 Composable로 분리 | 추후 실제 Launcher UI로 교체할 때 MainActivity 변경 최소화 |
+| `collectAsStateWithLifecycle()` 사용 | `collectAsState()` 대비 Lifecycle STARTED 이하에서 Flow 수집 중단 → 배터리/자원 절약 |
+| SideEffect를 `LaunchedEffect(Unit)` 단일 블록으로 수집 | `effect`는 Channel 기반이므로 한 곳에서 collect하면 중복 소비 없음 |
+| `core:ui`에 `lifecycle-viewmodel-ktx` 직접 선언 | Release variant 컴파일 시 transitive dep 미포함 버그 방지 (`compileReleaseKotlin FAILED` 재현 방지) |
+
+---
+
 ## [2026-02-20] Step 5 — core:data AppRepositoryImpl + Hilt DI (TDD)
 
 ### 목표
