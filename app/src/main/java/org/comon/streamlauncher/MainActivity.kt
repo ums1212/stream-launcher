@@ -7,22 +7,17 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dagger.hilt.android.AndroidEntryPoint
 import org.comon.streamlauncher.launcher.HomeIntent
 import org.comon.streamlauncher.launcher.HomeSideEffect
 import org.comon.streamlauncher.launcher.HomeViewModel
+import org.comon.streamlauncher.launcher.ui.HomeScreen
 import org.comon.streamlauncher.navigation.CrossPagerNavigation
 import org.comon.streamlauncher.ui.theme.StreamLauncherTheme
 
@@ -37,7 +32,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             StreamLauncherTheme {
-                viewModel.uiState.collectAsStateWithLifecycle()
+                val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
                 LaunchedEffect(Unit) {
                     viewModel.effect.collect { effect ->
@@ -51,12 +46,7 @@ class MainActivity : ComponentActivity() {
                 }
 
                 CrossPagerNavigation(resetTrigger = resetTrigger) {
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier.fillMaxSize(),
-                    ) {
-                        Text("Home", style = MaterialTheme.typography.headlineSmall)
-                    }
+                    HomeScreen(state = uiState, onIntent = viewModel::handleIntent)
                 }
             }
         }

@@ -1,5 +1,70 @@
 # StreamLauncher 개발 로그
 
+## [2026-02-20] Step 9 — 동적 2x2 그리드 애니메이션 구현
+
+### 목표
+중앙 홈 페이지의 `Text("Home")` 플레이스홀더를 실제 2x2 동적 그리드로 교체한다. 셀 클릭 시 해당 셀이 확장(0.8f)되고 나머지가 축소(0.2f)되는 `animateFloatAsState` 기반 애니메이션을 구현한다. ViewModel/State 레이어(`expandedCell`, `ClickGrid`, `toggleCell`)는 Step 4에서 완성된 상태이므로 **Compose UI 작업만** 필요하다.
+
+### 변경 사항
+
+| # | 파일 | 변경 내용 |
+|---|------|----------|
+| 1 | `feature/launcher/build.gradle.kts` | `implementation(libs.androidx.compose.foundation)` 추가 (`LazyColumn` 사용) |
+| 2 | `feature/launcher/.../launcher/ui/HomeScreen.kt` | **신규** — 2x2 그리드 + 애니메이션 구현 |
+| 3 | `app/.../MainActivity.kt` | `val uiState by viewModel.uiState.collectAsStateWithLifecycle()` 바인딩, `Box(Text("Home"))` → `HomeScreen(state=uiState, onIntent=viewModel::handleIntent)` 교체, 미사용 import (`Box`, `Text`, `Alignment`, `Modifier`, `MaterialTheme`, `fillMaxSize`) 제거 |
+
+#### HomeScreen.kt 구조
+
+```
+HomeScreen(state: HomeState, onIntent: (HomeIntent) -> Unit, modifier: Modifier)
+└─ Column(fillMaxSize, padding=8.dp)
+   ├─ Row(weight=topRowWeight, fillMaxWidth, paddingBottom=4.dp)
+   │   ├─ GridCellContent(TOP_LEFT,  weight=leftColWeight)
+   │   └─ GridCellContent(TOP_RIGHT, weight=rightColWeight)
+   └─ Row(weight=bottomRowWeight, fillMaxWidth, paddingTop=4.dp)
+       ├─ GridCellContent(BOTTOM_LEFT,  weight=leftColWeight)
+       └─ GridCellContent(BOTTOM_RIGHT, weight=rightColWeight)
+```
+
+#### 애니메이션 로직
+
+| 변수 | 미확장 | 해당 축 확장 | 반대 축 확장 |
+|------|--------|-------------|-------------|
+| `topRowWeight` | 0.5f | 0.8f (TOP_*) | 0.2f (BOTTOM_*) |
+| `bottomRowWeight` | 0.5f | 0.2f | 0.8f |
+| `leftColWeight` | 0.5f | 0.8f (*_LEFT) | 0.2f (*_RIGHT) |
+| `rightColWeight` | 0.5f | 0.2f | 0.8f |
+
+- `animateFloatAsState` × 2개 (`topRowWeight`, `leftColWeight`), 나머지 2개는 `1f - animated`로 파생
+- `tween(400ms, FastOutSlowInEasing)`
+
+#### GridCellContent (private RowScope 확장)
+
+- `Surface(onClick, RoundedCornerShape(12.dp), surfaceVariant)`
+- 확장 시: `LazyColumn` 앱 목록 + `alpha = ((weight - 0.6f) / 0.2f).coerceIn(0f, 1f)` 로 페이드인
+- 축소 시: 셀 이름(`cell.name`) 중앙 정렬
+
+### 검증 결과
+
+```
+./gradlew assembleDebug  →  BUILD SUCCESSFUL (162 tasks, 42s)
+./gradlew test           →  BUILD SUCCESSFUL (245 tasks, 22s, failures=0)
+기존 테스트 전원 통과 (회귀 없음)
+```
+
+### 설계 결정 및 근거
+
+| 결정 | 근거 |
+|------|------|
+| `animateFloatAsState` 2개 + 파생값 2개 | 4개 독립 애니메이션 대신 Row·Col 각 축당 1개만 사용해 weights가 항상 정확히 1.0f로 합산됨. 불일치 레이아웃 오류 원천 차단 |
+| `tween(400ms, FastOutSlowInEasing)` | 400ms는 확장 전환에 충분히 느껴지지 않으면서도 응답성 손실 없는 경계값. FastOutSlowIn은 머테리얼 권장 강조 이징 |
+| `contentAlpha = ((weight - 0.6f) / 0.2f).coerceIn(0f, 1f)` | 확장 애니메이션 후반부(weight 0.6→0.8 구간)에서만 앱 목록을 페이드인. 셀이 충분히 커지기 전에 텍스트가 노출되는 UX 문제 방지 |
+| `RowScope` 확장 함수로 `GridCellContent` 정의 | `Modifier.weight()` 를 컴포저블 내부에서 직접 사용 가능 → 호출부가 weight 계산에 관여하지 않아 관심사 분리 |
+| `isExpanded` 즉시 전환 + weight 지연 전환 병행 | Boolean 전환(즉시)으로 표시 콘텐츠를 결정하고, float 전환(tween)으로 크기를 결정. 앱 목록은 alpha로 소프트하게 등장하므로 두 전환 타이밍 차이가 사용자에게 자연스럽게 보임 |
+| `bottomRowWeight = 1f - topRowWeight` 파생 | 단순 산술. 두 weight가 항상 합산 1.0f → Compose Column이 의도한 비율로 정확히 분배 |
+
+---
+
 ## [2026-02-20] Step 8 — 시스템 홈 버튼 복귀 로직 구현
 
 ### 목표
