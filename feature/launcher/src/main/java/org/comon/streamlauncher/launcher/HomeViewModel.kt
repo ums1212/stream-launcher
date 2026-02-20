@@ -25,6 +25,7 @@ class HomeViewModel @Inject constructor(
     override fun handleIntent(intent: HomeIntent) {
         when (intent) {
             is HomeIntent.LoadApps -> loadApps()
+            is HomeIntent.ResetHome -> updateState { copy(expandedCell = null) }
             is HomeIntent.ClickGrid -> toggleCell(intent.cell)
             is HomeIntent.ClickApp -> sendEffect(HomeSideEffect.NavigateToApp(intent.app.packageName))
         }

@@ -14,6 +14,7 @@ data class HomeState(
 
 sealed interface HomeIntent : UiIntent {
     data object LoadApps : HomeIntent
+    data object ResetHome : HomeIntent
     data class ClickGrid(val cell: GridCell) : HomeIntent
     data class ClickApp(val app: AppEntity) : HomeIntent
 }

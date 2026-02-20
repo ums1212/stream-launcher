@@ -1,20 +1,26 @@
 package org.comon.streamlauncher
 
+import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dagger.hilt.android.AndroidEntryPoint
+import org.comon.streamlauncher.launcher.HomeIntent
 import org.comon.streamlauncher.launcher.HomeSideEffect
 import org.comon.streamlauncher.launcher.HomeViewModel
 import org.comon.streamlauncher.navigation.CrossPagerNavigation
@@ -22,12 +28,15 @@ import org.comon.streamlauncher.ui.theme.StreamLauncherTheme
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    private val viewModel: HomeViewModel by viewModels()
+    private var resetTrigger by mutableIntStateOf(0)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             StreamLauncherTheme {
-                val viewModel: HomeViewModel = hiltViewModel()
                 viewModel.uiState.collectAsStateWithLifecycle()
 
                 LaunchedEffect(Unit) {
@@ -41,7 +50,7 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                CrossPagerNavigation {
+                CrossPagerNavigation(resetTrigger = resetTrigger) {
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier.fillMaxSize(),
@@ -50,6 +59,17 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent.hasCategory(Intent.CATEGORY_HOME) &&
+            lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
+        ) {
+            resetTrigger++
+            viewModel.handleIntent(HomeIntent.ResetHome)
         }
     }
 }

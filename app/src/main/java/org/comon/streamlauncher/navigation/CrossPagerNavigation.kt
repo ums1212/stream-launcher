@@ -1,6 +1,7 @@
 package org.comon.streamlauncher.navigation
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -14,6 +15,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -41,6 +43,7 @@ import kotlin.math.absoluteValue
 @Composable
 fun CrossPagerNavigation(
     modifier: Modifier = Modifier,
+    resetTrigger: Int = 0,
     homeContent: @Composable () -> Unit,
 ) {
     val verticalPagerState = rememberPagerState(initialPage = 1, pageCount = { 3 })
@@ -48,6 +51,13 @@ fun CrossPagerNavigation(
     val scope = rememberCoroutineScope()
 
     val isAtCenter = verticalPagerState.currentPage == 1 && horizontalPagerState.currentPage == 1
+
+    LaunchedEffect(resetTrigger) {
+        if (resetTrigger > 0) {
+            verticalPagerState.animateScrollToPage(1, animationSpec = tween(300))
+            horizontalPagerState.animateScrollToPage(1, animationSpec = tween(300))
+        }
+    }
 
     BackHandler(enabled = !isAtCenter) {
         scope.launch {
