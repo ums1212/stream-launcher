@@ -3,6 +3,7 @@ package org.comon.streamlauncher.launcher.ui
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,6 +22,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import org.comon.streamlauncher.domain.model.AppEntity
 import org.comon.streamlauncher.launcher.HomeIntent
@@ -119,9 +122,13 @@ private fun RowScope.GridCellContent(
     modifier: Modifier = Modifier,
 ) {
     val contentAlpha = ((weight - 0.6f) / 0.2f).coerceIn(0f, 1f)
+    val haptic = LocalHapticFeedback.current
 
     Surface(
-        onClick = { onIntent(HomeIntent.ClickGrid(cell)) },
+        onClick = {
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            onIntent(HomeIntent.ClickGrid(cell))
+        },
         shape = RoundedCornerShape(12.dp),
         color = MaterialTheme.colorScheme.surfaceVariant,
         modifier = modifier
@@ -139,7 +146,13 @@ private fun RowScope.GridCellContent(
                     Text(
                         text = app.label,
                         style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(vertical = 4.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                onIntent(HomeIntent.ClickApp(app))
+                            }
+                            .padding(vertical = 4.dp),
                     )
                 }
             }

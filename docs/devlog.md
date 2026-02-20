@@ -1,5 +1,64 @@
 # StreamLauncher 개발 로그
 
+---
+
+## [2026-02-20] Step 11 — 실제 앱 실행 기능 구현 및 햅틱 피드백 추가
+
+### 목표
+`HomeSideEffect.NavigateToApp` 수신 시 `Log.d()`만 출력되던 스텁을 실제 앱 실행 로직으로 교체한다.
+확장된 그리드 셀 내 앱 아이템을 클릭 가능하게 하고, 클릭 시 상태를 초기화한다.
+그리드 셀 토글, 앱 아이템 선택, 앱 서랍 아이템 선택 모두에 햅틱 피드백을 추가한다.
+
+### 변경 사항
+
+| # | 파일 | 변경 내용 |
+|---|------|----------|
+| 1 | `app/.../MainActivity.kt` | `NavigateToApp` 수신 시 `packageManager.getLaunchIntentForPackage()` → `startActivity()` 실행; null 반환 및 `ActivityNotFoundException` try-catch 방어 처리 |
+| 2 | `feature/launcher/.../HomeViewModel.kt` | `ClickApp` 처리 시 `sendEffect(NavigateToApp)` **후** `resetHome()` 호출 — 그리드 접힘 + 검색어 초기화 |
+| 3 | `feature/launcher/.../ui/HomeScreen.kt` | 확장 셀 `LazyColumn` 내 앱 `Text`에 `fillMaxWidth + clickable { ClickApp }` 추가; `Surface.onClick` 및 앱 아이템 `clickable`에 `LocalHapticFeedback.LongPress` 추가 |
+| 4 | `app/.../navigation/AppDrawerScreen.kt` | `AppDrawerItem` `clickable` 내 `LocalHapticFeedback.LongPress` 추가 |
+
+#### 앱 실행 흐름
+
+```
+사용자 클릭 (그리드 셀 앱 or 앱 서랍 아이템)
+  → HomeIntent.ClickApp(app)
+  → HomeViewModel: sendEffect(NavigateToApp(packageName)) + resetHome()
+  → MainActivity LaunchedEffect:
+      getLaunchIntentForPackage(packageName)
+      ├─ 성공 → startActivity(intent)
+      └─ null  → Log.w (삭제된 앱 등)
+      └─ ActivityNotFoundException → Log.w (catch)
+  → 사용자가 런처로 복귀 시 이미 resetHome() 적용된 초기 상태
+```
+
+#### 상태 초기화 정책
+
+| 진입 경로 | 트리거 | 결과 |
+|-----------|--------|------|
+| 앱 실행 | `ClickApp` → `resetHome()` | 그리드 접힘, 검색어 초기화 |
+| 홈 버튼 복귀 | `onNewIntent` → `ResetHome` → `resetHome()` | 동일 |
+
+### 검증 결과
+
+```
+./gradlew testDebugUnitTest  →  BUILD SUCCESSFUL (failures=0, 전체 회귀 없음)
+./gradlew assembleDebug      →  BUILD SUCCESSFUL
+```
+
+### 설계 결정 및 근거
+
+| 결정 | 근거 |
+|------|------|
+| `getLaunchIntentForPackage` null 체크 | 앱 목록 로드 후 앱이 삭제된 경우 null 반환 가능. Crash 방지를 위해 null 분기 처리 |
+| `ActivityNotFoundException` try-catch | `startActivity`는 매니페스트에 exported=false인 경우 등 드물게 throw. 런처 앱 특성상 Crash는 치명적이므로 방어 처리 |
+| `sendEffect` 직후 `resetHome()` 호출 | 이펙트와 상태 변경을 분리하지 않고 하나의 인텐트 핸들러에서 처리. 앱 전환 후 백스택으로 런처 복귀 시에도 깨끗한 상태 보장 |
+| `LocalHapticFeedback` Compose API 사용 | Android View의 `View.performHapticFeedback()`보다 Compose 레이어에서 통합 관리 가능. `HapticFeedbackType.LongPress`는 앱 선택 같은 "실행" 동작에 적합한 피드백 강도 |
+| 그리드 셀 토글과 앱 아이템 클릭 모두 햅틱 | 셀 확장·축소도 사용자 행동 변화이므로 동일한 피드백 제공. 일관된 터치 경험 |
+
+
+---
+
 ## [2026-02-20] Step 10 — 앱 서랍(App Drawer) 고도화 및 초성 검색
 
 ### 목표
@@ -71,6 +130,7 @@ HomeViewModelTest    →  18개 통과 (기존 12 + 신규 6, failures=0)
 | `state.filteredApps` 직접 참조 (derivedStateOf 제거) | `derivedStateOf`는 Compose Snapshot State 변경만 감지함. `HomeState`는 일반 data class이므로 감지 대상 외. 람다가 초기 `state`를 캡처해 항상 빈 리스트 반환하는 버그 → 직접 참조로 수정 |
 | 페이지 이탈 시 `LocalSoftwareKeyboardController.hide()` | DownPage를 벗어나도 키보드가 다른 페이지에 남아 레이아웃을 밀어올리는 현상 방지. `verticalPagerState.currentPage` 감지 |
 | `appDrawerContent` 슬롯을 `CrossPagerNavigation` 파라미터로 | HomeViewModel 인스턴스는 `app` 모듈 `MainActivity`에서만 생성됨. 서랍 컴포저블을 슬롯으로 주입하면 DownPage가 ViewModel에 직접 의존하지 않아도 됨 (관심사 분리) |
+
 
 ---
 

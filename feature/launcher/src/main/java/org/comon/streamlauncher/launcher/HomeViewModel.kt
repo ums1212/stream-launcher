@@ -41,7 +41,10 @@ class HomeViewModel @Inject constructor(
             is HomeIntent.LoadApps -> loadApps()
             is HomeIntent.ResetHome -> resetHome()
             is HomeIntent.ClickGrid -> toggleCell(intent.cell)
-            is HomeIntent.ClickApp -> sendEffect(HomeSideEffect.NavigateToApp(intent.app.packageName))
+            is HomeIntent.ClickApp -> {
+                sendEffect(HomeSideEffect.NavigateToApp(intent.app.packageName))
+                resetHome()
+            }
             is HomeIntent.Search -> search(intent.query)
         }
     }

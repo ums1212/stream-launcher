@@ -27,6 +27,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import org.comon.streamlauncher.domain.model.AppEntity
 import org.comon.streamlauncher.launcher.HomeIntent
@@ -93,10 +95,15 @@ private fun AppDrawerItem(
     app: AppEntity,
     onClick: () -> Unit,
 ) {
+    val haptic = LocalHapticFeedback.current
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .clickable {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                onClick()
+            }
             .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

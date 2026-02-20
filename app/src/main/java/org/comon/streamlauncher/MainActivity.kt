@@ -1,5 +1,6 @@
 package org.comon.streamlauncher
 
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
@@ -38,8 +39,18 @@ class MainActivity : ComponentActivity() {
                 LaunchedEffect(Unit) {
                     viewModel.effect.collect { effect ->
                         when (effect) {
-                            is HomeSideEffect.NavigateToApp ->
-                                Log.d("MainActivity", "Navigate: ${effect.packageName}")
+                            is HomeSideEffect.NavigateToApp -> {
+                                val launchIntent = packageManager.getLaunchIntentForPackage(effect.packageName)
+                                if (launchIntent != null) {
+                                    try {
+                                        startActivity(launchIntent)
+                                    } catch (e: ActivityNotFoundException) {
+                                        Log.w("MainActivity", "앱 실행 실패: ${effect.packageName}", e)
+                                    }
+                                } else {
+                                    Log.w("MainActivity", "앱 실행 실패: ${effect.packageName}")
+                                }
+                            }
                             is HomeSideEffect.ShowError ->
                                 Log.e("MainActivity", "Error: ${effect.message}")
                         }
