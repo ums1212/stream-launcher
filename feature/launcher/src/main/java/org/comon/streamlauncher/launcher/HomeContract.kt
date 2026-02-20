@@ -10,6 +10,8 @@ data class HomeState(
     val expandedCell: GridCell? = null,
     val appsInCells: Map<GridCell, List<AppEntity>> = emptyMap(),
     val isLoading: Boolean = false,
+    val searchQuery: String = "",
+    val filteredApps: List<AppEntity> = emptyList(),
 ) : UiState
 
 sealed interface HomeIntent : UiIntent {
@@ -17,6 +19,7 @@ sealed interface HomeIntent : UiIntent {
     data object ResetHome : HomeIntent
     data class ClickGrid(val cell: GridCell) : HomeIntent
     data class ClickApp(val app: AppEntity) : HomeIntent
+    data class Search(val query: String) : HomeIntent
 }
 
 sealed interface HomeSideEffect : UiSideEffect {

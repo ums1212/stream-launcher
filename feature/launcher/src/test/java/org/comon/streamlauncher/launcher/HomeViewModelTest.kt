@@ -17,6 +17,7 @@ import org.comon.streamlauncher.launcher.model.GridCell
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -54,7 +55,6 @@ class HomeViewModelTest {
     // 1. 초기 상태 확인
     @Test
     fun `초기 상태 - expandedCell null, isLoading false, appsInCells 비어있음`() {
-        // HomeViewModel init 전 직접 확인 (init에서 LoadApps 호출하기 때문에 별도 ViewModel 생성)
         val freshUseCase: GetInstalledAppsUseCase = mockk()
         every { freshUseCase() } returns flowOf(emptyList())
         val freshVm = HomeViewModel(freshUseCase)
@@ -62,8 +62,6 @@ class HomeViewModelTest {
         val initialState = freshVm.uiState.value
         assertNull(initialState.expandedCell)
         assertFalse(initialState.isLoading)
-        // appsInCells는 init에서 LoadApps 트리거 전 직접 접근 불가 — init이 즉시 실행되므로
-        // 이 테스트는 초기값 타입만 확인
         assertTrue(initialState.appsInCells is Map<*, *>)
     }
 
@@ -168,13 +166,9 @@ class HomeViewModelTest {
         every { freshUseCase() } returns flowOf(sampleApps)
 
         viewModel.uiState.test {
-            // HomeViewModel 생성 전이므로 새 인스턴스에서 확인
             val freshVm = HomeViewModel(freshUseCase)
 
-            // 초기 상태 또는 첫 emission (init에서 LoadApps 호출)
             val firstEmission = awaitItem()
-            // isLoading은 true였다가 false로 변하므로 최소 1개 emission 있음
-            // 테스트 디스패처에서는 동기적으로 처리되므로 최종 상태만 확인
             assertFalse(firstEmission.isLoading)
 
             cancelAndIgnoreRemainingEvents()
@@ -191,7 +185,6 @@ class HomeViewModelTest {
             testDispatcher.scheduler.advanceUntilIdle()
         }
 
-        // 홀수 클릭이므로 확장 상태
         assertEquals(GridCell.TOP_RIGHT, viewModel.uiState.value.expandedCell)
     }
 
@@ -224,5 +217,105 @@ class HomeViewModelTest {
         testDispatcher.scheduler.advanceUntilIdle()
 
         assertFalse(errorVm.uiState.value.isLoading)
+    }
+
+    // 13. Search 인텐트로 searchQuery 즉시 업데이트
+    @Test
+    fun `Search 인텐트로 searchQuery가 즉시 업데이트됨`() = runTest {
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.handleIntent(HomeIntent.Search("ㅋ"))
+
+        assertEquals("ㅋ", viewModel.uiState.value.searchQuery)
+    }
+
+    // 14. 빈 검색어 시 filteredApps = 전체 앱 (정렬된 상태)
+    @Test
+    fun `빈 검색어 시 filteredApps는 전체 앱을 정렬한 것과 같음`() = runTest {
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.handleIntent(HomeIntent.Search(""))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val filtered = viewModel.uiState.value.filteredApps
+        val allSorted = sampleApps.sortedBy { it.label }
+        assertEquals(allSorted, filtered)
+    }
+
+    // 15. 초성 검색 시 해당 앱만 필터링
+    @Test
+    fun `초성 ㅋ 검색 시 카카오앱만 필터링됨`() = runTest {
+        val searchApps = listOf(
+            AppEntity("com.kakao", "카카오", "com.kakao.Main"),
+            AppEntity("com.naver", "네이버", "com.naver.Main"),
+            AppEntity("com.google", "구글", "com.google.Main"),
+        )
+        val searchUseCase: GetInstalledAppsUseCase = mockk()
+        every { searchUseCase() } returns flowOf(searchApps)
+        val searchVm = HomeViewModel(searchUseCase)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        searchVm.handleIntent(HomeIntent.Search("ㅋ"))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val filtered = searchVm.uiState.value.filteredApps
+        assertEquals(1, filtered.size)
+        assertEquals("카카오", filtered[0].label)
+    }
+
+    // 16. 영문 대소문자 무시 검색 동작
+    @Test
+    fun `영문 대소문자 무시 검색 동작`() = runTest {
+        val englishApps = listOf(
+            AppEntity("com.settings", "Settings", "com.settings.Main"),
+            AppEntity("com.gallery", "Gallery", "com.gallery.Main"),
+        )
+        val englishUseCase: GetInstalledAppsUseCase = mockk()
+        every { englishUseCase() } returns flowOf(englishApps)
+        val englishVm = HomeViewModel(englishUseCase)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        englishVm.handleIntent(HomeIntent.Search("set"))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val filtered = englishVm.uiState.value.filteredApps
+        assertEquals(1, filtered.size)
+        assertEquals("Settings", filtered[0].label)
+    }
+
+    // 17. ResetHome 시 searchQuery도 "" 초기화
+    @Test
+    fun `ResetHome 시 searchQuery가 빈 문자열로 초기화됨`() = runTest {
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.handleIntent(HomeIntent.Search("ㅋ"))
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertEquals("ㅋ", viewModel.uiState.value.searchQuery)
+
+        viewModel.handleIntent(HomeIntent.ResetHome)
+
+        assertEquals("", viewModel.uiState.value.searchQuery)
+    }
+
+    // 18. Search + ClickApp 연계 동작
+    @Test
+    fun `검색 후 filteredApps에서 앱 클릭 시 NavigateToApp SideEffect 발생`() = runTest {
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.handleIntent(HomeIntent.Search("앱"))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val firstFilteredApp = viewModel.uiState.value.filteredApps.firstOrNull()
+        assertNotNull(firstFilteredApp)
+
+        viewModel.effect.test {
+            viewModel.handleIntent(HomeIntent.ClickApp(firstFilteredApp!!))
+            testDispatcher.scheduler.advanceUntilIdle()
+
+            val effect = awaitItem()
+            assertTrue(effect is HomeSideEffect.NavigateToApp)
+            assertEquals(firstFilteredApp.packageName, (effect as HomeSideEffect.NavigateToApp).packageName)
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 }

@@ -1,5 +1,79 @@
 # StreamLauncher 개발 로그
 
+## [2026-02-20] Step 10 — 앱 서랍(App Drawer) 고도화 및 초성 검색
+
+### 목표
+CrossPagerNavigation의 DownPage(`Text("App Drawer")` 스텁)를 실제 앱 서랍으로 교체한다. 전체 앱 리스트, 한국어 초성 검색, 아이콘 표시, 앱 실행 기능을 구현한다.
+
+### 변경 사항
+
+| # | 파일 | 변경 내용 |
+|---|------|----------|
+| 1 | `core/domain/.../util/ChosungMatcher.kt` | **신규** — `extractChosung` + `matchesChosung` 순수 JVM 유틸 |
+| 2 | `core/domain/.../util/ChosungMatcherTest.kt` | **신규** — 11개 단위 테스트 |
+| 3 | `feature/launcher/.../HomeContract.kt` | `HomeState`에 `searchQuery`, `filteredApps` 추가; `HomeIntent.Search` 추가 |
+| 4 | `feature/launcher/.../HomeViewModel.kt` | `_searchQuery MutableStateFlow` + `debounce(100ms)` 검색 디바운싱; `filterApps`, `resetHome` 헬퍼; `loadApps` 시 `filteredApps` 갱신 |
+| 5 | `feature/launcher/.../HomeViewModelTest.kt` | 신규 6개 테스트 추가 (총 18개) |
+| 6 | `app/.../navigation/AppIcon.kt` | **신규** — `produceState` + `Dispatchers.IO` 비동기 아이콘 로딩 |
+| 7 | `app/.../navigation/AppDrawerScreen.kt` | **신규** — `FocusRequester` 자동 포커스, `OutlinedTextField`, `LazyColumn`; `derivedStateOf` 제거 버그픽스 포함 |
+| 8 | `app/.../navigation/CrossPagerNavigation.kt` | `appDrawerContent: @Composable () -> Unit` 파라미터 추가; DownPage 스텁 교체; 페이지 이탈 시 키보드 자동 숨김 |
+| 9 | `app/.../MainActivity.kt` | `AppDrawerScreen` 연결 (`appDrawerContent` 슬롯 전달) |
+
+#### ChosungMatcher 로직
+
+```kotlin
+// 한글 완성형 (U+AC00~U+D7A3) → 초성 인덱스 = (char - 0xAC00) / (21 * 28)
+// 단일 자모 (U+3131~U+314E) 및 비한글 → 그대로 통과
+
+fun matchesChosung(label: String, query: String): Boolean
+// query가 순수 자모(ㄱ~ㅎ)이면 → extractChosung(label).contains(query)
+// 그 외 → label.lowercase().contains(query.lowercase())
+```
+
+#### HomeViewModel 검색 플로우
+
+```
+사용자 입력 → Search(query)
+├─ 즉시: updateState { copy(searchQuery = query) }  ← TextField 반응성
+└─ 100ms 후 (debounce): filterApps(appsInCells.flatten(), query) → updateState { copy(filteredApps = ...) }
+
+loadApps() 완료 시: filteredApps = filterApps(allSorted, currentState.searchQuery)
+ResetHome 시: _searchQuery.value = "" + searchQuery, filteredApps 초기화
+```
+
+#### AppDrawerScreen 구조
+
+```
+AppDrawerScreen(state: HomeState, onIntent: (HomeIntent) -> Unit)
+├─ OutlinedTextField (focusRequester, leadingIcon: Search, trailingIcon: Clear)
+├─ LazyColumn (key = packageName)
+│   └─ AppDrawerItem: AppIcon(40dp) + label Text
+└─ LaunchedEffect(Unit) → focusRequester.requestFocus()
+```
+
+### 검증 결과
+
+```
+ChosungMatcherTest   →  11개 통과 (failures=0)
+HomeViewModelTest    →  18개 통과 (기존 12 + 신규 6, failures=0)
+./gradlew assembleDebug  →  BUILD SUCCESSFUL
+./gradlew test           →  BUILD SUCCESSFUL (failures=0, 전체 회귀 없음)
+```
+
+### 설계 결정 및 근거
+
+| 결정 | 근거 |
+|------|------|
+| `ChosungMatcher`를 `core:domain`에 배치 | 순수 JVM 로직으로 Android 의존성 없음. JVM 테스트로 빠르게 검증 가능. `feature:launcher`와 향후 다른 모듈에서도 재사용 가능 |
+| `debounce(100ms)` + 즉시 `searchQuery` 업데이트 분리 | `searchQuery`는 즉시 업데이트해 TextField가 사용자 입력에 끊김 없이 반응. `filteredApps` 계산은 100ms 디바운싱으로 빠른 타이핑 시 불필요한 연산 절감 |
+| `_searchQuery MutableStateFlow` 별도 관리 | `ResetHome` 등 외부에서 검색어를 초기화할 때 debounce 파이프라인도 함께 리셋되어야 하므로 Flow 기반 관리가 적합 |
+| `produceState` + `Dispatchers.IO`로 아이콘 로딩 | `PackageManager.getApplicationIcon()`은 IPC를 포함하므로 UI 스레드 블로킹 위험. `key1 = packageName`으로 동일 앱 재계산 방지 |
+| `state.filteredApps` 직접 참조 (derivedStateOf 제거) | `derivedStateOf`는 Compose Snapshot State 변경만 감지함. `HomeState`는 일반 data class이므로 감지 대상 외. 람다가 초기 `state`를 캡처해 항상 빈 리스트 반환하는 버그 → 직접 참조로 수정 |
+| 페이지 이탈 시 `LocalSoftwareKeyboardController.hide()` | DownPage를 벗어나도 키보드가 다른 페이지에 남아 레이아웃을 밀어올리는 현상 방지. `verticalPagerState.currentPage` 감지 |
+| `appDrawerContent` 슬롯을 `CrossPagerNavigation` 파라미터로 | HomeViewModel 인스턴스는 `app` 모듈 `MainActivity`에서만 생성됨. 서랍 컴포저블을 슬롯으로 주입하면 DownPage가 ViewModel에 직접 의존하지 않아도 됨 (관심사 분리) |
+
+---
+
 ## [2026-02-20] Step 9 — 동적 2x2 그리드 애니메이션 구현
 
 ### 목표

@@ -13,7 +13,8 @@
       "Bash(while read f)",
       "Bash(do grep -oP 'tests=\"\"\\\\K[^\"\"]+' \"$f\")",
       "Bash(echo:*)",
-      "Bash(bc:*)"
+      "Bash(bc:*)",
+      "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew :core:domain:test:*)"
     ]
   }
 }

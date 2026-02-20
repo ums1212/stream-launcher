@@ -18,6 +18,7 @@ import org.comon.streamlauncher.launcher.HomeIntent
 import org.comon.streamlauncher.launcher.HomeSideEffect
 import org.comon.streamlauncher.launcher.HomeViewModel
 import org.comon.streamlauncher.launcher.ui.HomeScreen
+import org.comon.streamlauncher.navigation.AppDrawerScreen
 import org.comon.streamlauncher.navigation.CrossPagerNavigation
 import org.comon.streamlauncher.ui.theme.StreamLauncherTheme
 
@@ -45,7 +46,15 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                CrossPagerNavigation(resetTrigger = resetTrigger) {
+                CrossPagerNavigation(
+                    resetTrigger = resetTrigger,
+                    appDrawerContent = {
+                        AppDrawerScreen(
+                            state = uiState,
+                            onIntent = viewModel::handleIntent,
+                        )
+                    },
+                ) {
                     HomeScreen(state = uiState, onIntent = viewModel::handleIntent)
                 }
             }

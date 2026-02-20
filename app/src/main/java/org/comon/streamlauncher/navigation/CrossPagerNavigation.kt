@@ -20,6 +20,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.util.lerp
 import kotlinx.coroutines.launch
 import kotlin.math.absoluteValue
@@ -34,21 +35,24 @@ import kotlin.math.absoluteValue
  *   │       ├─ [0] LeftPage  — Feed & Announcements
  *   │       ├─ [1] homeContent()
  *   │       └─ [2] RightPage — Widget Area
- *   └─ [2] DownPage   — App Drawer
+ *   └─ [2] DownPage   — App Drawer (appDrawerContent())
  *
  * 뒤로가기: 중앙이 아닐 때 animateScrollToPage(1)로 홈 복귀
  * 제스처 간섭 방지: 한 Pager 스크롤 중 다른 Pager userScrollEnabled = false
  * Alpha 효과: 중앙에 가까울수록 1.0f, 멀수록 0.5f
+ * 키보드 정리: DownPage(2)에서 벗어나면 소프트 키보드 자동 숨김
  */
 @Composable
 fun CrossPagerNavigation(
     modifier: Modifier = Modifier,
     resetTrigger: Int = 0,
+    appDrawerContent: @Composable () -> Unit,
     homeContent: @Composable () -> Unit,
 ) {
     val verticalPagerState = rememberPagerState(initialPage = 1, pageCount = { 3 })
     val horizontalPagerState = rememberPagerState(initialPage = 1, pageCount = { 3 })
     val scope = rememberCoroutineScope()
+    val keyboardController = LocalSoftwareKeyboardController.current
 
     val isAtCenter = verticalPagerState.currentPage == 1 && horizontalPagerState.currentPage == 1
 
@@ -56,6 +60,13 @@ fun CrossPagerNavigation(
         if (resetTrigger > 0) {
             verticalPagerState.animateScrollToPage(1, animationSpec = tween(300))
             horizontalPagerState.animateScrollToPage(1, animationSpec = tween(300))
+        }
+    }
+
+    // DownPage(2)에서 벗어날 때 키보드 숨기기
+    LaunchedEffect(verticalPagerState.currentPage) {
+        if (verticalPagerState.currentPage != 2) {
+            keyboardController?.hide()
         }
     }
 
@@ -82,7 +93,11 @@ fun CrossPagerNavigation(
                 horizontalPagerState = horizontalPagerState,
                 homeContent = homeContent,
             )
-            2 -> DownPage(pagerState = verticalPagerState, page = verticalPage)
+            2 -> DownPage(
+                pagerState = verticalPagerState,
+                page = verticalPage,
+                content = appDrawerContent,
+            )
         }
     }
 }
@@ -137,7 +152,11 @@ private fun UpPage(pagerState: PagerState, page: Int) {
 }
 
 @Composable
-private fun DownPage(pagerState: PagerState, page: Int) {
+private fun DownPage(
+    pagerState: PagerState,
+    page: Int,
+    content: @Composable () -> Unit,
+) {
     Surface(
         modifier = Modifier
             .fillMaxSize()
@@ -145,12 +164,11 @@ private fun DownPage(pagerState: PagerState, page: Int) {
         color = MaterialTheme.colorScheme.surfaceVariant,
     ) {
         Box(
-            contentAlignment = Alignment.Center,
             modifier = Modifier
                 .fillMaxSize()
                 .navigationBarsPadding(),
         ) {
-            Text("App Drawer", style = MaterialTheme.typography.headlineSmall)
+            content()
         }
     }
 }
