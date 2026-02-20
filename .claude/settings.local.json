@@ -12,7 +12,8 @@
       "Bash(done)",
       "Bash(while read f)",
       "Bash(do grep -oP 'tests=\"\"\\\\K[^\"\"]+' \"$f\")",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "Bash(bc:*)"
     ]
   }
 }
