@@ -2,6 +2,134 @@
 
 ---
 
+## [2026-02-20] Hotfix — LazyColumn 중복 키 크래시 수정
+
+### 목표
+Step 12에서 `animateItem()` 추가 후 발생한 `IllegalArgumentException: Key was already used` 런타임 크래시를 수정한다.
+
+### 현상
+
+```
+FATAL EXCEPTION: main
+java.lang.IllegalArgumentException: Key "com.google.android.googlequicksearchbox" was already used.
+If you are using LazyColumn/Row please make sure you provide a unique key for each item.
+  at LazyLayoutItemAnimator.onMeasured(LazyLayoutItemAnimator.kt:255)
+```
+
+앱 서랍을 열고 스크롤하면 즉시 크래시 발생.
+
+### 원인 분석
+
+```
+com.google.android.googlequicksearchbox
+  ├─ Activity 1: GEL (Google 위젯 런처 엔트리)   ← packageName 동일
+  └─ Activity 2: GEL 앱 실행용                  ← packageName 동일
+  → AppRepositoryImpl이 MAIN/LAUNCHER 인텐트로 쿼리 시 AppEntity 2개 반환
+```
+
+`animateItem()` 이전에는 `LazyLayoutItemAnimator`가 비활성화 상태로, 중복 key가 묵인되었음.
+`animateItem()` 추가로 Animator가 활성화되면서 중복 key 감지 → 크래시.
+
+### 변경 사항
+
+| # | 파일 | 변경 내용 |
+|---|------|----------|
+| 1 | `app/.../navigation/AppDrawerScreen.kt` | LazyColumn `key = { it.packageName }` → `key = { it.activityName }` — activityName은 FQCN으로 기기 전체에서 고유 |
+| 2 | `feature/launcher/.../HomeViewModel.kt` | `loadApps()` 내 `apps.distinctBy { it.packageName }` 추가 — 그리드·서랍 양쪽에서 중복 앱 미표시 |
+
+### 검증 결과
+
+```
+./gradlew test  →  BUILD SUCCESSFUL (245 tasks, failures=0, 전체 회귀 없음)
+실기기: 앱 서랍 스크롤 크래시 없음 확인
+```
+
+### 설계 결정 및 근거
+
+| 결정 | 근거 |
+|------|------|
+| `activityName`을 LazyColumn key로 사용 | `packageName`은 멀티 런처 엔트리 앱에서 중복 가능. `activityName`(FQCN)은 ActivityManager가 보장하는 전역 고유값 |
+| `distinctBy { it.packageName }` 위치를 ViewModel의 `loadApps()`로 선택 | Repository 계층은 PackageManager 원본 데이터를 그대로 반환하는 단일 책임 유지. 중복 제거는 "런처에서 앱당 1개 표시" 라는 UI 정책이므로 ViewModel에서 처리 |
+| 두 수정을 모두 적용 | `activityName` key — animateItem 외 다른 LazyColumn 사용처의 미래 크래시 예방. `distinctBy` — 그리드 셀 앱 목록의 잠재적 중복도 동시 해결 |
+
+---
+
+## [2026-02-20] Step 12 — 비주얼 고도화 및 테마 시스템 구현
+
+### 목표
+Android Studio 기본 템플릿 상태로 남아있던 런처 UI에 커스텀 컬러 시스템, Glassmorphism, spring 애니메이션, Noto Sans KR 폰트를 적용하여 스트리머 팬덤 감성의 세련된 런처 UI를 완성한다.
+
+### 변경 사항
+
+| # | 파일 | 변경 내용 |
+|---|------|----------|
+| 1 | `app/src/main/res/font/noto_sans_kr.ttf` | **신규** — Google Fonts GitHub에서 Noto Sans KR Variable Font (~10.4MB) 다운로드 및 배치 |
+| 2 | `app/.../ui/theme/Type.kt` | `NotoSansKrFontFamily` (Variable 폰트, `FontVariation.Settings` Weight 400/500/700) 정의; Material3 Typography 15개 스타일 전면 재정의 (`@file:OptIn(ExperimentalTextApi::class)` 적용) |
+| 3 | `app/.../ui/theme/Color.kt` | `StreamLauncherColors` `@Immutable` data class 추가 (7개 컬러 속성); `DarkStreamLauncherColors` / `LightStreamLauncherColors` 정적 인스턴스; `LocalStreamLauncherColors = staticCompositionLocalOf { DarkStreamLauncherColors }` |
+| 4 | `app/.../ui/theme/Theme.kt` | `StreamLauncherTheme` object + `colors` 접근자 추가; `CompositionLocalProvider(LocalStreamLauncherColors provides streamColors)` 래핑; Dynamic Color(API 31+) 연동 — `colorScheme.primary` → `accentPrimary`, `gridBorderExpanded`, `searchBarFocused` 등 동적 반영 |
+| 5 | `app/.../ui/modifier/GlassEffect.kt` | **신규** — `fun Modifier.glassEffect(blurRadius, overlayColor)`: API 31+ `Modifier.blur()` + `drawBehind`, API 28-30 `drawBehind` 폴백 |
+| 6 | `feature/launcher/.../ui/HomeScreen.kt` | `tween(400ms, FastOutSlowInEasing)` → `spring(DampingRatioLowBouncy, StiffnessMedium)` 교체 (두 축 모두); `GridCellContent`에 `Modifier.border()` 추가 — 확장: `primary` 2dp, 축소: `outlineVariant` 1dp |
+| 7 | `app/.../navigation/AppDrawerScreen.kt` | `AppDrawerItem`에 `modifier: Modifier` 파라미터 추가; `LazyColumn items`에 `Modifier.animateItem(fadeInSpec=tween(300), placementSpec=spring(NoBouncy, MediumLow))` 적용; `OutlinedTextFieldDefaults.colors(focusedBorderColor, cursorColor, focusedLeadingIconColor)` 적용 |
+| 8 | `app/.../navigation/CrossPagerNavigation.kt` | DownPage: `Surface` → `Box` 구조 변경 — 배경 레이어(`glassEffect(overlayColor=glassSurface)`) + 콘텐츠 레이어(선명) 분리 |
+
+#### 폰트 구성 (Variable Font)
+
+```kotlin
+val NotoSansKrFontFamily = FontFamily(
+    Font(R.font.noto_sans_kr, FontWeight.Normal,  FontVariation.Settings(FontVariation.weight(400))),
+    Font(R.font.noto_sans_kr, FontWeight.Medium,  FontVariation.Settings(FontVariation.weight(500))),
+    Font(R.font.noto_sans_kr, FontWeight.Bold,    FontVariation.Settings(FontVariation.weight(700))),
+)
+```
+
+#### 컬러 시스템 구조
+
+```
+StreamLauncherColors
+├─ gridBorder          — 그리드 셀 기본 테두리
+├─ gridBorderExpanded  — 확장 셀 포인트 테두리 (accentPrimary 연동)
+├─ searchBarFocused    — 검색바 포커스 테두리 (accentPrimary 연동)
+├─ glassSurface        — 글래스 배경 반투명 색상
+├─ glassOnSurface      — 글래스 위 콘텐츠 색상
+├─ accentPrimary       — 주 포인트 컬러 (API 31+: colorScheme.primary)
+└─ accentSecondary     — 보조 포인트 컬러 (API 31+: colorScheme.tertiary)
+```
+
+#### DownPage Glass 구조
+
+```
+Box (fillMaxSize, graphicsLayer alpha)
+├─ Box [배경 레이어] — glassEffect(overlayColor = glassSurface)
+│   └─ drawBehind { drawRect(glassSurface) } + blur(20.dp) [API 31+]
+└─ Box [콘텐츠 레이어] — navigationBarsPadding
+    └─ appDrawerContent()  ← 선명하게 렌더링
+```
+
+### 검증 결과
+
+```
+./gradlew test           →  BUILD SUCCESSFUL (245 actionable tasks, failures=0)
+./gradlew assembleDebug  →  BUILD SUCCESSFUL (162 actionable tasks)
+전체 단위 테스트 회귀 없음 (총 56개 테스트 통과)
+```
+
+트러블슈팅:
+- `FontVariation.Settings` → `@ExperimentalTextApi` Opt-in 필요 → `@file:OptIn(...)` 추가로 해결
+
+### 설계 결정 및 근거
+
+| 결정 | 근거 |
+|------|------|
+| Variable Font 단일 파일 (`NotoSansKR[wght].ttf`) 사용 | Google Fonts 저장소에서 Weight별 개별 파일 대신 Variable Font 제공. 단일 파일로 100–900 전 weight 커버, APK 내 폰트 파일 수 최소화 |
+| `staticCompositionLocalOf` 사용 (vs `compositionLocalOf`) | 테마 색상은 리컴포지션 중간에 변경되지 않음. `staticCompositionLocalOf`는 변경 시 전체 트리를 리컴포즈하지만, 테마 전환은 드문 이벤트이므로 성능상 이점 (불필요한 람다 생성 없음) |
+| Dynamic Color(API 31+)에서 `colorScheme.*`을 `StreamLauncherColors`에 맵핑 | Material3 Dynamic Color가 이미 배경화면에서 추출한 색상을 제공. 이를 `StreamLauncherColors`의 accent/border 속성에 연결하면 별도 Palette 추출 없이 배경화면-런처 UI 색상 일체감 달성 |
+| `feature:launcher`에서 `MaterialTheme.colorScheme.*` 직접 사용 (vs `StreamLauncherColors`) | `feature:launcher`는 `app` 모듈을 참조할 수 없음 (역방향 의존성 금지). `StreamLauncherColors`는 `app` 모듈에 선언되어 있으므로, `feature` 모듈에서는 Material3의 `colorScheme.primary` / `outlineVariant`를 사용. Theme.kt에서 두 시스템이 같은 색상으로 연동되므로 시각적 일관성 유지 |
+| `spring(DampingRatioLowBouncy, StiffnessMedium)` | tween 400ms 대비 물리 기반 애니메이션으로 더 자연스러운 "쫀득한" 탄성감 제공. `LowBouncy`는 오버슈트 없이 적절한 탄성, `StiffnessMedium`은 즉각 반응성과 부드러움의 균형 |
+| `Modifier.glassEffect` — 배경 레이어에만 적용, 콘텐츠 레이어 분리 | `Modifier.blur()`는 해당 Composable 내 콘텐츠를 블러 처리. 콘텐츠(앱 목록, 검색바)가 흐려지지 않도록 배경 레이어와 콘텐츠 레이어를 별도 Box로 분리 |
+| `animateItem()` — `fadeOutSpec = tween(200)` 포함 | 검색 결과 필터링 시 아이템 제거 애니메이션도 자연스럽게 처리. `placementSpec = spring(NoBouncy, MediumLow)` — 리스트 아이템 위치 이동에는 탄성 없이 부드럽게 |
+
+---
+
 ## [2026-02-20] Step 11 — 실제 앱 실행 기능 구현 및 햅틱 피드백 추가
 
 ### 목표

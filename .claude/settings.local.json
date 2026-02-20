@@ -14,7 +14,9 @@
       "Bash(do grep -oP 'tests=\"\"\\\\K[^\"\"]+' \"$f\")",
       "Bash(echo:*)",
       "Bash(bc:*)",
-      "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew :core:domain:test:*)"
+      "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew :core:domain:test:*)",
+      "Bash(curl:*)",
+      "Bash(xxd:*)"
     ]
   }
 }

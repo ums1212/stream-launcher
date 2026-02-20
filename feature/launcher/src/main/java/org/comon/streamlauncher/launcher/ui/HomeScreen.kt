@@ -1,8 +1,9 @@
 package org.comon.streamlauncher.launcher.ui
 
-import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -45,7 +46,10 @@ fun HomeScreen(
     }
     val topRowWeight by animateFloatAsState(
         targetValue = topRowTargetWeight,
-        animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing),
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioLowBouncy,
+            stiffness = Spring.StiffnessMedium,
+        ),
         label = "topRowWeight",
     )
     val bottomRowWeight = 1f - topRowWeight
@@ -57,7 +61,10 @@ fun HomeScreen(
     }
     val leftColWeight by animateFloatAsState(
         targetValue = leftColTargetWeight,
-        animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing),
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioLowBouncy,
+            stiffness = Spring.StiffnessMedium,
+        ),
         label = "leftColWeight",
     )
     val rightColWeight = 1f - leftColWeight
@@ -123,17 +130,28 @@ private fun RowScope.GridCellContent(
 ) {
     val contentAlpha = ((weight - 0.6f) / 0.2f).coerceIn(0f, 1f)
     val haptic = LocalHapticFeedback.current
+    val shape = RoundedCornerShape(12.dp)
+
+    // 확장 상태: accentPrimary 2dp / 축소: gridBorder 1dp
+    // feature 모듈은 app 모듈 의존 불가 → MaterialTheme.colorScheme 색상 직접 사용
+    val borderColor = if (isExpanded) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.outlineVariant
+    }
+    val borderWidth = if (isExpanded) 2.dp else 1.dp
 
     Surface(
         onClick = {
             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
             onIntent(HomeIntent.ClickGrid(cell))
         },
-        shape = RoundedCornerShape(12.dp),
+        shape = shape,
         color = MaterialTheme.colorScheme.surfaceVariant,
         modifier = modifier
             .weight(weight)
-            .fillMaxSize(),
+            .fillMaxSize()
+            .border(width = borderWidth, color = borderColor, shape = shape),
     ) {
         if (isExpanded) {
             LazyColumn(

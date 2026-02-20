@@ -55,10 +55,12 @@ class HomeViewModel @Inject constructor(
             updateState { copy(isLoading = true) }
             try {
                 getInstalledAppsUseCase().collect { apps ->
-                    val allSorted = apps.sortedBy { it.label }
+                    // 런처 액티비티 복수 등록 앱(Google Search 등) 중복 제거 — packageName 기준 첫 번째 항목 유지
+                    val unique = apps.distinctBy { it.packageName }
+                    val allSorted = unique.sortedBy { it.label }
                     updateState {
                         copy(
-                            appsInCells = distributeApps(apps),
+                            appsInCells = distributeApps(unique),
                             filteredApps = filterApps(allSorted, searchQuery),
                             isLoading = false,
                         )

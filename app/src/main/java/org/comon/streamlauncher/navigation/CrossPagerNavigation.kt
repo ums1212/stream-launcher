@@ -23,6 +23,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.util.lerp
 import kotlinx.coroutines.launch
+import org.comon.streamlauncher.ui.modifier.glassEffect
+import org.comon.streamlauncher.ui.theme.StreamLauncherTheme
 import kotlin.math.absoluteValue
 
 /**
@@ -35,7 +37,7 @@ import kotlin.math.absoluteValue
  *   │       ├─ [0] LeftPage  — Feed & Announcements
  *   │       ├─ [1] homeContent()
  *   │       └─ [2] RightPage — Widget Area
- *   └─ [2] DownPage   — App Drawer (appDrawerContent())
+ *   └─ [2] DownPage   — App Drawer (appDrawerContent()) — 글래스 배경
  *
  * 뒤로가기: 중앙이 아닐 때 animateScrollToPage(1)로 홈 복귀
  * 제스처 간섭 방지: 한 Pager 스크롤 중 다른 Pager userScrollEnabled = false
@@ -157,12 +159,20 @@ private fun DownPage(
     page: Int,
     content: @Composable () -> Unit,
 ) {
-    Surface(
+    val glassSurface = StreamLauncherTheme.colors.glassSurface
+
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .graphicsLayer { alpha = pageAlpha(pagerState, page) },
-        color = MaterialTheme.colorScheme.surfaceVariant,
     ) {
+        // 배경 레이어: 글래스 효과
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .glassEffect(overlayColor = glassSurface),
+        )
+        // 콘텐츠 레이어: 선명하게 렌더링
         Box(
             modifier = Modifier
                 .fillMaxSize()

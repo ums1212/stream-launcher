@@ -1,5 +1,8 @@
 package org.comon.streamlauncher.navigation
 
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -19,6 +22,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -33,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import org.comon.streamlauncher.domain.model.AppEntity
 import org.comon.streamlauncher.launcher.HomeIntent
 import org.comon.streamlauncher.launcher.HomeState
+import org.comon.streamlauncher.ui.theme.StreamLauncherTheme
 
 @Composable
 fun AppDrawerScreen(
@@ -40,6 +45,7 @@ fun AppDrawerScreen(
     onIntent: (HomeIntent) -> Unit,
 ) {
     val focusRequester = remember { FocusRequester() }
+    val colors = StreamLauncherTheme.colors
 
     Column(modifier = Modifier.fillMaxSize()) {
         OutlinedTextField(
@@ -67,6 +73,11 @@ fun AppDrawerScreen(
                 }
             },
             singleLine = true,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = colors.searchBarFocused,
+                cursorColor = colors.accentPrimary,
+                focusedLeadingIconColor = colors.accentPrimary,
+            ),
         )
 
         LazyColumn(
@@ -75,11 +86,20 @@ fun AppDrawerScreen(
         ) {
             items(
                 items = state.filteredApps,
-                key = { it.packageName },
+                // packageName은 런처 액티비티 복수 등록 시 중복 가능 → activityName(FQCN)으로 고유 키 보장
+                key = { it.activityName },
             ) { app ->
                 AppDrawerItem(
                     app = app,
                     onClick = { onIntent(HomeIntent.ClickApp(app)) },
+                    modifier = Modifier.animateItem(
+                        fadeInSpec = tween(300),
+                        placementSpec = spring(
+                            dampingRatio = Spring.DampingRatioNoBouncy,
+                            stiffness = Spring.StiffnessMediumLow,
+                        ),
+                        fadeOutSpec = tween(200),
+                    ),
                 )
             }
         }
@@ -94,11 +114,12 @@ fun AppDrawerScreen(
 private fun AppDrawerItem(
     app: AppEntity,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val haptic = LocalHapticFeedback.current
 
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clickable {
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
