@@ -18,7 +18,10 @@ data class HomeState(
     val currentSettingsTab: SettingsTab = SettingsTab.MAIN,
     val gridCellImages: Map<GridCell, GridCellImage> = GridCell.entries.associateWith { GridCellImage(it) },
     val colorPresetIndex: Int = 0,
-) : UiState
+    val cellAssignments: Map<GridCell, List<String>> = emptyMap(),
+) : UiState {
+    val pinnedPackages: Set<String> get() = cellAssignments.values.flatten().toSet()
+}
 
 sealed interface HomeIntent : UiIntent {
     data object LoadApps : HomeIntent
@@ -29,6 +32,8 @@ sealed interface HomeIntent : UiIntent {
     data class ChangeSettingsTab(val tab: SettingsTab) : HomeIntent
     data class ChangeAccentColor(val presetIndex: Int) : HomeIntent
     data class SetGridImage(val cell: GridCell, val type: ImageType, val uri: String) : HomeIntent
+    data class AssignAppToCell(val app: AppEntity, val cell: GridCell) : HomeIntent
+    data class UnassignApp(val app: AppEntity) : HomeIntent
 }
 
 sealed interface HomeSideEffect : UiSideEffect {

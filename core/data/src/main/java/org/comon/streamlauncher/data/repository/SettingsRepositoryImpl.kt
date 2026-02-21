@@ -29,6 +29,12 @@ private data class GridCellImageDto(
     val expanded: String? = null,
 )
 
+@Serializable
+private data class CellAssignmentDto(
+    val cell: Int,
+    val packages: List<String>,
+)
+
 @Singleton
 class SettingsRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -36,13 +42,20 @@ class SettingsRepositoryImpl @Inject constructor(
 
     private val colorPresetIndexKey = intPreferencesKey("color_preset_index")
     private val gridCellImagesKey = stringPreferencesKey("grid_cell_images")
+    private val cellAssignmentsKey = stringPreferencesKey("cell_assignments")
 
     override fun getSettings(): Flow<LauncherSettings> =
         context.dataStore.data.map { prefs ->
             val colorPresetIndex = prefs[colorPresetIndexKey] ?: 0
             val imagesJson = prefs[gridCellImagesKey]
             val gridCellImages = parseGridCellImages(imagesJson)
-            LauncherSettings(colorPresetIndex = colorPresetIndex, gridCellImages = gridCellImages)
+            val assignmentsJson = prefs[cellAssignmentsKey]
+            val cellAssignments = parseCellAssignments(assignmentsJson)
+            LauncherSettings(
+                colorPresetIndex = colorPresetIndex,
+                gridCellImages = gridCellImages,
+                cellAssignments = cellAssignments,
+            )
         }
 
     override suspend fun setColorPresetIndex(index: Int) {
@@ -59,6 +72,38 @@ class SettingsRepositoryImpl @Inject constructor(
             current.removeAll { it.cell == cellOrdinal }
             current.add(GridCellImageDto(cell = cellOrdinal, idle = idle, expanded = expanded))
             prefs[gridCellImagesKey] = Json.encodeToString(current)
+        }
+    }
+
+    override suspend fun setCellAssignment(cell: GridCell, packageNames: List<String>) {
+        context.dataStore.edit { prefs ->
+            val currentJson = prefs[cellAssignmentsKey]
+            val current = parseCellAssignmentDtos(currentJson).toMutableList()
+            val cellOrdinal = cell.ordinal
+            current.removeAll { it.cell == cellOrdinal }
+            if (packageNames.isNotEmpty()) {
+                current.add(CellAssignmentDto(cell = cellOrdinal, packages = packageNames))
+            }
+            prefs[cellAssignmentsKey] = Json.encodeToString(current)
+        }
+    }
+
+    private fun parseCellAssignments(json: String?): Map<GridCell, List<String>> {
+        val dtos = parseCellAssignmentDtos(json)
+        val result = mutableMapOf<GridCell, List<String>>()
+        dtos.forEach { dto ->
+            val cell = GridCell.entries.getOrNull(dto.cell) ?: return@forEach
+            result[cell] = dto.packages
+        }
+        return result
+    }
+
+    private fun parseCellAssignmentDtos(json: String?): List<CellAssignmentDto> {
+        if (json.isNullOrBlank()) return emptyList()
+        return try {
+            Json.decodeFromString(json)
+        } catch (e: Exception) {
+            emptyList()
         }
     }
 

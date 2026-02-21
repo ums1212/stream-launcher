@@ -8,4 +8,5 @@ interface SettingsRepository {
     fun getSettings(): Flow<LauncherSettings>
     suspend fun setColorPresetIndex(index: Int)
     suspend fun setGridCellImage(cell: GridCell, idle: String?, expanded: String?)
+    suspend fun setCellAssignment(cell: GridCell, packageNames: List<String>)
 }

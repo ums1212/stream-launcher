@@ -12,9 +12,11 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -28,6 +30,8 @@ import org.comon.streamlauncher.launcher.HomeViewModel
 import org.comon.streamlauncher.launcher.ui.HomeScreen
 import org.comon.streamlauncher.launcher.ui.SettingsScreen
 import org.comon.streamlauncher.navigation.CrossPagerNavigation
+import org.comon.streamlauncher.ui.dragdrop.DragDropState
+import org.comon.streamlauncher.ui.dragdrop.LocalDragDropState
 import org.comon.streamlauncher.ui.theme.StreamLauncherTheme
 import org.comon.streamlauncher.widget.WidgetViewModel
 import org.comon.streamlauncher.widget.ui.WidgetScreen
@@ -109,10 +113,12 @@ class MainActivity : ComponentActivity() {
         setContent {
             val uiState by viewModel.uiState.collectAsStateWithLifecycle()
             val preset = ColorPresets.getByIndex(uiState.colorPresetIndex)
+            val dragDropState = remember { DragDropState() }
             StreamLauncherTheme(
                 accentPrimaryOverride = Color(preset.accentPrimaryArgb),
                 accentSecondaryOverride = Color(preset.accentSecondaryArgb),
             ) {
+            CompositionLocalProvider(LocalDragDropState provides dragDropState) {
                 val widgetSlots by widgetViewModel.widgetSlots.collectAsStateWithLifecycle()
 
                 LaunchedEffect(Unit) {
@@ -150,6 +156,9 @@ class MainActivity : ComponentActivity() {
                             filteredApps = uiState.filteredApps,
                             onSearch = { viewModel.handleIntent(HomeIntent.Search(it)) },
                             onAppClick = { viewModel.handleIntent(HomeIntent.ClickApp(it)) },
+                            onAppAssigned = { app, cell ->
+                                viewModel.handleIntent(HomeIntent.AssignAppToCell(app, cell))
+                            },
                         )
                     },
                     widgetContent = {
@@ -163,9 +172,10 @@ class MainActivity : ComponentActivity() {
                 ) {
                     HomeScreen(state = uiState, onIntent = viewModel::handleIntent)
                 }
-            }
-        }
-    }
+            } // CompositionLocalProvider
+            } // StreamLauncherTheme
+        } // setContent
+    } // onCreate
 
     override fun onStart() {
         super.onStart()

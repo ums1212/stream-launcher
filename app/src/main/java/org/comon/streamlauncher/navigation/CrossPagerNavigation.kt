@@ -1,31 +1,47 @@
 package org.comon.streamlauncher.navigation
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.lerp
 import kotlinx.coroutines.launch
+import org.comon.streamlauncher.apps_drawer.ui.AppIcon
+import org.comon.streamlauncher.ui.dragdrop.LocalDragDropState
 import org.comon.streamlauncher.ui.modifier.glassEffect
 import org.comon.streamlauncher.ui.theme.StreamLauncherTheme
 import kotlin.math.absoluteValue
+import kotlin.math.roundToInt
 
 /**
  * 십자형(상/하/좌/우) 스와이프 내비게이션 컨테이너.
@@ -43,6 +59,7 @@ import kotlin.math.absoluteValue
  * 제스처 간섭 방지: 한 Pager 스크롤 중 다른 Pager userScrollEnabled = false
  * Alpha 효과: 중앙에 가까울수록 1.0f, 멀수록 0.5f
  * 키보드 정리: DownPage(2)에서 벗어나면 소프트 키보드 자동 숨김
+ * 드래그 중: userScrollEnabled = false, 드래그 오버레이 표시
  */
 @Composable
 fun CrossPagerNavigation(
@@ -57,8 +74,19 @@ fun CrossPagerNavigation(
     val horizontalPagerState = rememberPagerState(initialPage = 1, pageCount = { 3 })
     val scope = rememberCoroutineScope()
     val keyboardController = LocalSoftwareKeyboardController.current
+    val dragDropState = LocalDragDropState.current
 
     val isAtCenter = verticalPagerState.currentPage == 1 && horizontalPagerState.currentPage == 1
+
+    // 드래그 시작 시 홈 화면으로 스크롤 콜백 등록
+    LaunchedEffect(Unit) {
+        dragDropState.onScrollToHome = {
+            scope.launch {
+                verticalPagerState.animateScrollToPage(1, animationSpec = tween(300))
+                horizontalPagerState.animateScrollToPage(1, animationSpec = tween(300))
+            }
+        }
+    }
 
     LaunchedEffect(resetTrigger) {
         if (resetTrigger > 0) {
@@ -84,29 +112,81 @@ fun CrossPagerNavigation(
         }
     }
 
-    VerticalPager(
-        state = verticalPagerState,
-        modifier = modifier.fillMaxSize(),
-        beyondViewportPageCount = 1,
-        userScrollEnabled = !horizontalPagerState.isScrollInProgress,
-    ) { verticalPage ->
-        when (verticalPage) {
-            0 -> UpPage(
-                pagerState = verticalPagerState,
-                page = verticalPage,
-                content = settingsContent,
+    Box(modifier = modifier.fillMaxSize()) {
+        VerticalPager(
+            state = verticalPagerState,
+            modifier = Modifier.fillMaxSize(),
+            beyondViewportPageCount = 1,
+            userScrollEnabled = !horizontalPagerState.isScrollInProgress && !dragDropState.isDragging,
+        ) { verticalPage ->
+            when (verticalPage) {
+                0 -> UpPage(
+                    pagerState = verticalPagerState,
+                    page = verticalPage,
+                    content = settingsContent,
+                )
+                1 -> CenterRow(
+                    verticalPagerState = verticalPagerState,
+                    horizontalPagerState = horizontalPagerState,
+                    homeContent = homeContent,
+                    widgetContent = widgetContent,
+                    isDragging = dragDropState.isDragging,
+                )
+                2 -> DownPage(
+                    pagerState = verticalPagerState,
+                    page = verticalPage,
+                    content = appDrawerContent,
+                )
+            }
+        }
+
+        // 드래그 오버레이
+        if (dragDropState.isDragging) {
+            val density = LocalDensity.current
+            val iconSizePx = with(density) { 48.dp.toPx() }
+            val halfIconPx = iconSizePx / 2
+
+            val cancelAlpha by animateFloatAsState(
+                targetValue = if (dragDropState.isInCancelZone) 1f else 0f,
+                animationSpec = tween(200),
+                label = "cancelAlpha",
             )
-            1 -> CenterRow(
-                verticalPagerState = verticalPagerState,
-                horizontalPagerState = horizontalPagerState,
-                homeContent = homeContent,
-                widgetContent = widgetContent,
-            )
-            2 -> DownPage(
-                pagerState = verticalPagerState,
-                page = verticalPage,
-                content = appDrawerContent,
-            )
+
+            dragDropState.draggedApp?.let { app ->
+                Box(
+                    modifier = Modifier
+                        .offset {
+                            IntOffset(
+                                x = (dragDropState.dragOffset.x - halfIconPx).roundToInt(),
+                                y = (dragDropState.dragOffset.y - halfIconPx).roundToInt(),
+                            )
+                        }
+                        .size(48.dp)
+                        .graphicsLayer { alpha = 0.85f },
+                ) {
+                    AppIcon(
+                        packageName = app.packageName,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                    // Cancel Zone 피드백: 반투명 빨간 원 + X 아이콘
+                    if (cancelAlpha > 0f) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .graphicsLayer { alpha = cancelAlpha }
+                                .background(Color.Red.copy(alpha = 0.3f), CircleShape),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "취소",
+                                tint = Color.Red.copy(alpha = 0.8f),
+                                modifier = Modifier.size(32.dp),
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -117,6 +197,7 @@ private fun CenterRow(
     horizontalPagerState: PagerState,
     homeContent: @Composable () -> Unit,
     widgetContent: @Composable () -> Unit,
+    isDragging: Boolean = false,
 ) {
     HorizontalPager(
         state = horizontalPagerState,
@@ -124,7 +205,7 @@ private fun CenterRow(
             .fillMaxSize()
             .graphicsLayer { alpha = pageAlpha(verticalPagerState, 1) },
         beyondViewportPageCount = 1,
-        userScrollEnabled = !verticalPagerState.isScrollInProgress,
+        userScrollEnabled = !verticalPagerState.isScrollInProgress && !isDragging,
     ) { horizontalPage ->
         when (horizontalPage) {
             0 -> LeftPage(pagerState = horizontalPagerState, page = horizontalPage)

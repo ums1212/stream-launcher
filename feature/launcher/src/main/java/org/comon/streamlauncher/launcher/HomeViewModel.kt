@@ -9,13 +9,14 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
 import org.comon.streamlauncher.domain.model.AppEntity
+import org.comon.streamlauncher.domain.model.GridCell
 import org.comon.streamlauncher.domain.model.GridCellImage
 import org.comon.streamlauncher.domain.usecase.GetInstalledAppsUseCase
 import org.comon.streamlauncher.domain.usecase.GetLauncherSettingsUseCase
+import org.comon.streamlauncher.domain.usecase.SaveCellAssignmentUseCase
 import org.comon.streamlauncher.domain.usecase.SaveColorPresetUseCase
 import org.comon.streamlauncher.domain.usecase.SaveGridCellImageUseCase
 import org.comon.streamlauncher.domain.util.ChosungMatcher
-import org.comon.streamlauncher.domain.model.GridCell
 import org.comon.streamlauncher.launcher.model.ImageType
 import org.comon.streamlauncher.launcher.model.SettingsTab
 import org.comon.streamlauncher.ui.BaseViewModel
@@ -28,6 +29,7 @@ class HomeViewModel @Inject constructor(
     private val getLauncherSettingsUseCase: GetLauncherSettingsUseCase,
     private val saveColorPresetUseCase: SaveColorPresetUseCase,
     private val saveGridCellImageUseCase: SaveGridCellImageUseCase,
+    private val saveCellAssignmentUseCase: SaveCellAssignmentUseCase,
 ) : BaseViewModel<HomeState, HomeIntent, HomeSideEffect>(HomeState()) {
 
     private var loadJob: Job? = null
@@ -41,6 +43,7 @@ class HomeViewModel @Inject constructor(
                     copy(
                         colorPresetIndex = settings.colorPresetIndex,
                         gridCellImages = settings.gridCellImages,
+                        cellAssignments = settings.cellAssignments,
                     )
                 }
             }
@@ -70,6 +73,8 @@ class HomeViewModel @Inject constructor(
             is HomeIntent.ChangeSettingsTab -> updateState { copy(currentSettingsTab = intent.tab) }
             is HomeIntent.ChangeAccentColor -> changeAccentColor(intent.presetIndex)
             is HomeIntent.SetGridImage -> setGridImage(intent.cell, intent.type, intent.uri)
+            is HomeIntent.AssignAppToCell -> assignAppToCell(intent.app, intent.cell)
+            is HomeIntent.UnassignApp -> unassignApp(intent.app)
         }
     }
 
@@ -84,7 +89,7 @@ class HomeViewModel @Inject constructor(
                     val allSorted = unique.sortedBy { it.label }
                     updateState {
                         copy(
-                            appsInCells = distributeApps(unique),
+                            appsInCells = distributeApps(unique, cellAssignments),
                             filteredApps = filterApps(allSorted, searchQuery),
                             isLoading = false,
                         )
@@ -143,21 +148,92 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    private fun assignAppToCell(app: AppEntity, cell: GridCell) {
+        val pkg = app.packageName
+        // 다른 셀의 할당에서 해당 앱 제거 후 대상 셀에 추가
+        val newAssignments = currentState.cellAssignments.toMutableMap()
+        GridCell.entries.forEach { c ->
+            val current = newAssignments[c]?.toMutableList() ?: mutableListOf()
+            current.remove(pkg)
+            newAssignments[c] = current
+        }
+        val targetList = newAssignments[cell]?.toMutableList() ?: mutableListOf()
+        if (!targetList.contains(pkg)) {
+            targetList.add(pkg)
+        }
+        newAssignments[cell] = targetList
+
+        val allApps = currentState.appsInCells.values.flatten().distinctBy { it.packageName }
+        updateState {
+            copy(
+                cellAssignments = newAssignments,
+                appsInCells = distributeApps(allApps, newAssignments),
+            )
+        }
+        // DataStore에 변경된 셀들 저장
+        viewModelScope.launch {
+            GridCell.entries.forEach { c ->
+                saveCellAssignmentUseCase(c, newAssignments[c] ?: emptyList())
+            }
+        }
+    }
+
+    private fun unassignApp(app: AppEntity) {
+        val pkg = app.packageName
+        val newAssignments = currentState.cellAssignments.toMutableMap()
+        GridCell.entries.forEach { c ->
+            val current = newAssignments[c]?.toMutableList() ?: mutableListOf()
+            current.remove(pkg)
+            newAssignments[c] = current
+        }
+
+        val allApps = currentState.appsInCells.values.flatten().distinctBy { it.packageName }
+        updateState {
+            copy(
+                cellAssignments = newAssignments,
+                appsInCells = distributeApps(allApps, newAssignments),
+            )
+        }
+        viewModelScope.launch {
+            GridCell.entries.forEach { c ->
+                saveCellAssignmentUseCase(c, newAssignments[c] ?: emptyList())
+            }
+        }
+    }
+
     private fun filterApps(apps: List<AppEntity>, query: String): List<AppEntity> {
         if (query.isEmpty()) return apps
         return apps.filter { ChosungMatcher.matchesChosung(it.label, query) }
     }
 
-    private fun distributeApps(apps: List<AppEntity>): Map<GridCell, List<AppEntity>> {
-        val sorted = apps.sortedBy { it.label }
-        val chunkSize = (sorted.size + 3) / 4  // 올림 나눗셈
-        val chunks = if (chunkSize == 0) {
-            List(4) { emptyList() }
+    /**
+     * 앱 배분 로직:
+     * 1. 핀 고정 앱 우선 배치 (각 셀에 지정된 packageName 순서대로, 알파벳순 정렬)
+     * 2. 미할당 앱만 기존 알파벳 4등분 로직 적용
+     * 3. 각 셀 = [핀 고정 앱 알파벳순] + [자동 배분 앱 알파벳순]
+     */
+    internal fun distributeApps(
+        apps: List<AppEntity>,
+        cellAssignments: Map<GridCell, List<String>> = emptyMap(),
+    ): Map<GridCell, List<AppEntity>> {
+        val assignedPackages = cellAssignments.values.flatten().toSet()
+        val unassigned = apps.filter { it.packageName !in assignedPackages }.sortedBy { it.label }
+
+        // 미할당 앱 4등분
+        val chunkSize = (unassigned.size + 3) / 4
+        val autoChunks = if (chunkSize == 0) {
+            List(4) { emptyList<AppEntity>() }
         } else {
-            val chunked = sorted.chunked(chunkSize)
-            // 4개가 되도록 빈 리스트 패딩
+            val chunked = unassigned.chunked(chunkSize)
             chunked + List(maxOf(0, 4 - chunked.size)) { emptyList() }
         }
-        return GridCell.entries.zip(chunks).toMap()
+
+        return GridCell.entries.zip(autoChunks).associate { (cell, autoApps) ->
+            val pinnedPackageNames = cellAssignments[cell] ?: emptyList()
+            val pinnedApps = pinnedPackageNames
+                .mapNotNull { pkg -> apps.find { it.packageName == pkg } }
+                .sortedBy { it.label }
+            cell to (pinnedApps + autoApps)
+        }
     }
 }

@@ -2,6 +2,79 @@
 
 ---
 
+## [2026-02-21] Step 19 — 드래그 앤 드롭 기반 앱 배치 기능
+
+### 목표
+
+앱 서랍에서 앱을 롱프레스-드래그해 홈 화면 2×2 그리드 셀에 수동 배치할 수 있도록 한다.
+드래그 시작 시 앱 서랍이 자동으로 닫히고 홈 화면으로 전환되며, 호버된 셀에 네온 이펙트가 표시된다.
+배치 정보는 DataStore에 영속화되며 앱 재시작 후에도 유지된다.
+
+### 변경 사항
+
+| # | 모듈 | 파일 | 작업 |
+|---|------|------|------|
+| 1 | `:core:domain` | `model/LauncherSettings.kt` | `cellAssignments: Map<GridCell, List<String>>` 필드 추가 |
+| 2 | `:core:domain` | `repository/SettingsRepository.kt` | `setCellAssignment(cell, packageNames)` 인터페이스 추가 |
+| 3 | `:core:domain` | `usecase/SaveCellAssignmentUseCase.kt` | **신규** — `operator fun invoke(cell, packageNames)` |
+| 4 | `:core:data` | `repository/SettingsRepositoryImpl.kt` | `CellAssignmentDto` + `cellAssignmentsKey` + `setCellAssignment` 구현 (read-modify-write 패턴) |
+| 5 | `:core:ui` | `dragdrop/DragDropState.kt` | **신규** — 전역 드래그 상태 (draggedApp, dragOffset, hoveredCell, cellBounds hit-test, onScrollToHome 콜백) + `LocalDragDropState` |
+| 6 | `:feature:launcher` | `HomeContract.kt` | `cellAssignments`, `pinnedPackages` (computed) 추가; `AssignAppToCell`, `UnassignApp` Intent 추가 |
+| 7 | `:feature:launcher` | `HomeViewModel.kt` | `SaveCellAssignmentUseCase` 주입; `distributeApps(apps, assignments)` 핀 고정 우선 배분 로직; `assignAppToCell` / `unassignApp` 핸들러 |
+| 8 | `:feature:launcher` | `ui/HomeScreen.kt` | `onGloballyPositioned` → `registerCellBounds`; 3단계 글로우 네온 이펙트 (`drawBehind`); 자력 햅틱(`TextHandleMove`); 핀 아이콘(`Star`) + `combinedClickable` 롱프레스 핀 해제 |
+| 9 | `:feature:apps-drawer` | `ui/AppDrawerScreen.kt` | `onAppAssigned` 파라미터 추가; `AppDrawerItem`에 `detectDragGesturesAfterLongPress` 적용 |
+| 10 | `:app` | `navigation/CrossPagerNavigation.kt` | `onScrollToHome` 콜백 등록; 드래그 중 Pager 스크롤 차단; 드래그 오버레이(AppIcon + Cancel Zone 빨간 원·X) |
+| 11 | `:app` | `MainActivity.kt` | `DragDropState` 생성 + `CompositionLocalProvider(LocalDragDropState)`; `onAppAssigned` 콜백 연결 |
+| 12 | `:feature:launcher` | `HomeViewModelTest.kt` | `SaveCellAssignmentUseCase` mock 추가; 신규 테스트 6개 추가 (25~30번) |
+
+#### distributeApps 변경 로직
+
+```
+1. assignedPackages = cellAssignments.values.flatten().toSet()
+2. 각 셀: pinnedPackageNames → apps에서 찾아 알파벳순 정렬 (핀 고정)
+3. 미할당 앱만 기존 알파벳 4등분 로직 적용
+4. 각 셀 = [핀 고정 앱 알파벳순] + [자동 배분 앱 알파벳순]
+```
+
+#### 네온 이펙트 (drawBehind 3단계 글로우)
+
+| 레이어 | 폭 | alpha |
+|--------|-----|-------|
+| 외곽 확산 | 12dp | 0.15 |
+| 중간 | 6dp | 0.30 |
+| 코어 테두리 | 2dp | 0.80 |
+
+`animateFloatAsState(tween(200))`로 on/off 부드럽게 전환.
+
+### 검증 결과
+
+```
+./gradlew assembleDebug  →  BUILD SUCCESSFUL in 29s (197 tasks)
+./gradlew test           →  BUILD SUCCESSFUL in 15s (301 tasks, 실패 0건)
+```
+
+신규 테스트 6개 통과:
+- `AssignAppToCell 처리 시 해당 셀의 cellAssignments에 packageName이 추가됨`
+- `AssignAppToCell 처리 시 다른 셀에서 해당 앱이 제거됨`
+- `AssignAppToCell 처리 후 pinnedPackages에 해당 앱이 포함됨`
+- `UnassignApp 처리 시 모든 셀에서 해당 앱이 제거됨`
+- `distributeApps - 할당된 앱이 핀 고정 셀의 앱 목록 앞에 배치됨`
+- `AssignAppToCell 처리 시 saveCellAssignmentUseCase가 호출됨`
+
+### 설계 결정 및 근거
+
+| 결정 | 근거 |
+|------|------|
+| `DragDropState`를 `core:ui`에 배치 | `feature:apps-drawer`(드래그 시작)와 `feature:launcher`(셀 등록)가 모두 접근 가능하려면 공통 하위 모듈인 `core:ui`에 위치해야 함. `app` 모듈로 올리면 feature 모듈이 참조 불가 |
+| `staticCompositionLocalOf` 사용 | 전역 드래그 상태는 Composition 전체에서 단일 인스턴스로 공유돼야 하며, 상태 변경 시 `DragDropState` 내부 `mutableStateOf`가 세밀한 재구성을 처리하므로 `staticCompositionLocalOf`로 충분 |
+| `positionInRoot()` 좌표계 통일 | 앱 서랍(VerticalPager 하위)과 홈 그리드(HorizontalPager 하위)는 서로 다른 레이아웃 컨텍스트에 있으므로, 루트 기준 절대 좌표만이 두 영역의 좌표를 일관되게 비교 가능 |
+| `beyondViewportPageCount=1` 의존 | 드래그 시작 직후 홈 그리드가 이미 Compose 트리에 있어야 `registerCellBounds`가 유효함. 기존 설정값(1)이 이를 보장 |
+| 핀 아이콘을 `Icons.Default.Star`로 대체 | `Icons.Default.PushPin`은 `material-icons-extended` 의존성 필요. 번들 크기 증가를 피하기 위해 기본 세트의 `Star`로 대체 |
+| `combinedClickable` + `@OptIn(ExperimentalFoundationApi::class)` | 탭(앱 실행)과 롱프레스(핀 해제)를 동일 컴포저블에서 처리하기 위해 `combinedClickable` 사용. Compose 1.x에서 실험적 API이므로 명시적 옵트인 |
+| `cancelDrag()` 후 결과 반환 패턴 | `endDrag()`는 상태를 먼저 캡처 후 초기화하고 결과를 반환하여, 콜백 처리 중 드래그 상태가 남아있지 않도록 보장 |
+
+---
+
 ## [2026-02-21] Hotfix — 테마 컬러 변경 시 그리드·배경색 미반영 버그 수정
 
 ### 목표

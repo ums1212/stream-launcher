@@ -4,6 +4,7 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -26,15 +27,24 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import org.comon.streamlauncher.domain.model.AppEntity
+import org.comon.streamlauncher.domain.model.GridCell
+import org.comon.streamlauncher.ui.dragdrop.LocalDragDropState
 import org.comon.streamlauncher.ui.theme.StreamLauncherTheme
 
 @Composable
@@ -43,6 +53,7 @@ fun AppDrawerScreen(
     filteredApps: List<AppEntity>,
     onSearch: (String) -> Unit,
     onAppClick: (AppEntity) -> Unit,
+    onAppAssigned: (AppEntity, GridCell) -> Unit = { _, _ -> },
 ) {
     val focusRequester = remember { FocusRequester() }
     val colors = StreamLauncherTheme.colors
@@ -92,6 +103,7 @@ fun AppDrawerScreen(
                 AppDrawerItem(
                     app = app,
                     onClick = { onAppClick(app) },
+                    onAppAssigned = onAppAssigned,
                     modifier = Modifier.animateItem(
                         fadeInSpec = tween(300),
                         placementSpec = spring(
@@ -114,13 +126,42 @@ fun AppDrawerScreen(
 private fun AppDrawerItem(
     app: AppEntity,
     onClick: () -> Unit,
+    onAppAssigned: (AppEntity, GridCell) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val haptic = LocalHapticFeedback.current
+    val dragDropState = LocalDragDropState.current
+    var itemRootOffset by remember { mutableStateOf(Offset.Zero) }
 
     Row(
         modifier = modifier
             .fillMaxWidth()
+            .onGloballyPositioned { coords ->
+                itemRootOffset = coords.positionInRoot()
+            }
+            .pointerInput(app) {
+                detectDragGesturesAfterLongPress(
+                    onDragStart = { localOffset ->
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        val rootPosition = itemRootOffset + localOffset
+                        dragDropState.startDrag(app, rootPosition)
+                    },
+                    onDrag = { change, _ ->
+                        change.consume()
+                        val rootPosition = itemRootOffset + change.position
+                        dragDropState.updateDrag(rootPosition)
+                    },
+                    onDragEnd = {
+                        val result = dragDropState.endDrag()
+                        if (result != null) {
+                            onAppAssigned(result.first, result.second)
+                        }
+                    },
+                    onDragCancel = {
+                        dragDropState.cancelDrag()
+                    },
+                )
+            }
             .clickable {
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 onClick()

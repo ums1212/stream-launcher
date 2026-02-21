@@ -15,6 +15,7 @@ import org.comon.streamlauncher.domain.model.GridCell
 import org.comon.streamlauncher.domain.model.LauncherSettings
 import org.comon.streamlauncher.domain.usecase.GetInstalledAppsUseCase
 import org.comon.streamlauncher.domain.usecase.GetLauncherSettingsUseCase
+import org.comon.streamlauncher.domain.usecase.SaveCellAssignmentUseCase
 import org.comon.streamlauncher.domain.usecase.SaveColorPresetUseCase
 import org.comon.streamlauncher.domain.usecase.SaveGridCellImageUseCase
 import org.comon.streamlauncher.launcher.model.ImageType
@@ -44,6 +45,7 @@ class HomeViewModelTest {
     private lateinit var getLauncherSettingsUseCase: GetLauncherSettingsUseCase
     private lateinit var saveColorPresetUseCase: SaveColorPresetUseCase
     private lateinit var saveGridCellImageUseCase: SaveGridCellImageUseCase
+    private lateinit var saveCellAssignmentUseCase: SaveCellAssignmentUseCase
     private lateinit var viewModel: HomeViewModel
 
     @Before
@@ -57,6 +59,7 @@ class HomeViewModelTest {
 
         saveColorPresetUseCase = mockk(relaxed = true)
         saveGridCellImageUseCase = mockk(relaxed = true)
+        saveCellAssignmentUseCase = mockk(relaxed = true)
 
         viewModel = makeViewModel()
     }
@@ -72,11 +75,13 @@ class HomeViewModelTest {
         settingsUseCase: GetLauncherSettingsUseCase = getLauncherSettingsUseCase,
         colorSaveUseCase: SaveColorPresetUseCase = saveColorPresetUseCase,
         imageSaveUseCase: SaveGridCellImageUseCase = saveGridCellImageUseCase,
+        cellAssignmentUseCase: SaveCellAssignmentUseCase = saveCellAssignmentUseCase,
     ): HomeViewModel = HomeViewModel(
         appsUseCase,
         settingsUseCase,
         colorSaveUseCase,
         imageSaveUseCase,
+        cellAssignmentUseCase,
     )
 
     // 1. 초기 상태 확인
@@ -417,5 +422,93 @@ class HomeViewModelTest {
         testDispatcher.scheduler.advanceUntilIdle()
 
         assertEquals(4, restoredVm.uiState.value.colorPresetIndex)
+    }
+
+    // 25. AssignAppToCell → cellAssignments 상태 업데이트
+    @Test
+    fun `AssignAppToCell 처리 시 해당 셀의 cellAssignments에 packageName이 추가됨`() = runTest {
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val targetApp = sampleApps[0]
+        viewModel.handleIntent(HomeIntent.AssignAppToCell(targetApp, GridCell.TOP_LEFT))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val assignments = viewModel.uiState.value.cellAssignments
+        assertTrue(assignments[GridCell.TOP_LEFT]?.contains(targetApp.packageName) == true)
+    }
+
+    // 26. AssignAppToCell → 다른 셀에서 제거됨
+    @Test
+    fun `AssignAppToCell 처리 시 다른 셀에서 해당 앱이 제거됨`() = runTest {
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val targetApp = sampleApps[0]
+        // 먼저 TOP_RIGHT에 할당
+        viewModel.handleIntent(HomeIntent.AssignAppToCell(targetApp, GridCell.TOP_RIGHT))
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.cellAssignments[GridCell.TOP_RIGHT]?.contains(targetApp.packageName) == true)
+
+        // 다시 TOP_LEFT에 할당 → TOP_RIGHT에서 제거됨
+        viewModel.handleIntent(HomeIntent.AssignAppToCell(targetApp, GridCell.TOP_LEFT))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val assignments = viewModel.uiState.value.cellAssignments
+        assertTrue(assignments[GridCell.TOP_LEFT]?.contains(targetApp.packageName) == true)
+        assertTrue(assignments[GridCell.TOP_RIGHT]?.contains(targetApp.packageName) != true)
+    }
+
+    // 27. AssignAppToCell → pinnedPackages에 포함됨
+    @Test
+    fun `AssignAppToCell 처리 후 pinnedPackages에 해당 앱이 포함됨`() = runTest {
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val targetApp = sampleApps[0]
+        viewModel.handleIntent(HomeIntent.AssignAppToCell(targetApp, GridCell.BOTTOM_LEFT))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.pinnedPackages.contains(targetApp.packageName))
+    }
+
+    // 28. UnassignApp → cellAssignments에서 제거
+    @Test
+    fun `UnassignApp 처리 시 모든 셀에서 해당 앱이 제거됨`() = runTest {
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val targetApp = sampleApps[0]
+        viewModel.handleIntent(HomeIntent.AssignAppToCell(targetApp, GridCell.TOP_LEFT))
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.pinnedPackages.contains(targetApp.packageName))
+
+        viewModel.handleIntent(HomeIntent.UnassignApp(targetApp))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.pinnedPackages.contains(targetApp.packageName))
+    }
+
+    // 29. distributeApps — 할당된 앱이 해당 셀의 앞에 배치됨
+    @Test
+    fun `distributeApps - 할당된 앱이 핀 고정 셀의 앱 목록 앞에 배치됨`() {
+        val apps = (1..4).map { i ->
+            AppEntity("pkg$i", "앱$i", "pkg$i.Main")
+        }
+        val assignments = mapOf(GridCell.TOP_LEFT to listOf("pkg3"))
+        val vm = makeViewModel()
+
+        val result = vm.distributeApps(apps, assignments)
+
+        // TOP_LEFT의 첫 번째 앱은 pkg3이어야 함 (핀 고정)
+        assertTrue(result[GridCell.TOP_LEFT]?.firstOrNull()?.packageName == "pkg3")
+    }
+
+    // 30. AssignAppToCell → saveCellAssignmentUseCase 호출됨
+    @Test
+    fun `AssignAppToCell 처리 시 saveCellAssignmentUseCase가 호출됨`() = runTest {
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val targetApp = sampleApps[0]
+        viewModel.handleIntent(HomeIntent.AssignAppToCell(targetApp, GridCell.TOP_LEFT))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        coVerify { saveCellAssignmentUseCase(GridCell.TOP_LEFT, any()) }
     }
 }
