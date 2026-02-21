@@ -49,6 +49,7 @@ fun CrossPagerNavigation(
     modifier: Modifier = Modifier,
     resetTrigger: Int = 0,
     appDrawerContent: @Composable () -> Unit,
+    widgetContent: @Composable () -> Unit = {},
     homeContent: @Composable () -> Unit,
 ) {
     val verticalPagerState = rememberPagerState(initialPage = 1, pageCount = { 3 })
@@ -94,6 +95,7 @@ fun CrossPagerNavigation(
                 verticalPagerState = verticalPagerState,
                 horizontalPagerState = horizontalPagerState,
                 homeContent = homeContent,
+                widgetContent = widgetContent,
             )
             2 -> DownPage(
                 pagerState = verticalPagerState,
@@ -109,6 +111,7 @@ private fun CenterRow(
     verticalPagerState: PagerState,
     horizontalPagerState: PagerState,
     homeContent: @Composable () -> Unit,
+    widgetContent: @Composable () -> Unit,
 ) {
     HorizontalPager(
         state = horizontalPagerState,
@@ -129,7 +132,11 @@ private fun CenterRow(
                     homeContent()
                 }
             }
-            2 -> RightPage(pagerState = horizontalPagerState, page = horizontalPage)
+            2 -> RightPage(
+                pagerState = horizontalPagerState,
+                page = horizontalPage,
+                content = widgetContent,
+            )
         }
     }
 }
@@ -203,20 +210,31 @@ private fun LeftPage(pagerState: PagerState, page: Int) {
 }
 
 @Composable
-private fun RightPage(pagerState: PagerState, page: Int) {
-    Surface(
+private fun RightPage(
+    pagerState: PagerState,
+    page: Int,
+    content: @Composable () -> Unit,
+) {
+    val glassSurface = StreamLauncherTheme.colors.glassSurface
+
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .graphicsLayer { alpha = pageAlpha(pagerState, page) },
-        color = MaterialTheme.colorScheme.surfaceVariant,
     ) {
+        // 배경 레이어: 글래스 효과
         Box(
-            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .fillMaxSize()
+                .glassEffect(overlayColor = glassSurface),
+        )
+        // 콘텐츠 레이어
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .safeDrawingPadding(),
         ) {
-            Text("Widget Area", style = MaterialTheme.typography.headlineSmall)
+            content()
         }
     }
 }

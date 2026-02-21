@@ -2,6 +2,193 @@
 
 ---
 
+## [2026-02-21] Step 15 — 위젯 화면 완성 (편집 모드 · 슬롯 고정 · 터치 수정)
+
+### 목표
+
+Step 13·14에서 구현한 위젯 시스템을 실사용 가능한 수준으로 완성한다.
+- 위젯 위에서 롱프레스로 삭제 버튼이 뜨도록 수정
+- 롱프레스 후 손을 떼도 위젯 내부 버튼이 동작하지 않도록 수정
+- 위젯 삭제 시 인접 위젯이 사라지는 버그 수정
+- 추가·삭제해도 위치가 유지되는 슬롯 기반 저장 구조로 전환
+- 편집 모드 토글 UX 구현 (빈 셀·위젯 롱프레스 → 타이틀바 + 완료·뒤로가기 해제)
+
+### 변경 사항
+
+| # | 파일 | 변경 내용 |
+|---|------|----------|
+| 1 | `core/domain/.../WidgetRepository.kt` | `getWidgetIds/addWidgetId/removeWidgetId` → `getWidgetSlots/setWidgetAtSlot/clearSlot`; `MAX_WIDGETS=6` 유지; `List<Int?>` (고정 6슬롯, null=빈칸) 반환 |
+| 2 | `core/data/.../WidgetRepositoryImpl.kt` | 저장 키 `widget_ids`(팩드 리스트) → `widget_slots`(고정 6칸 문자열, -1=빈칸); `parseSlots/encodeSlots` 헬퍼; 3단계 마이그레이션 (Step13 단일 int → Step14 팩드 리스트 → 현재 슬롯 배열) |
+| 3 | `app/.../WidgetViewModel.kt` | `widgetSlots: StateFlow<List<Int?>>` (initialValue=6칸 null); `setWidgetAtSlot(slot, id)`, `clearSlot(slot)` |
+| 4 | `app/.../navigation/WidgetScreen.kt` | **WidgetContainerView**: `dispatchTouchEvent` 오버라이드 (isDeleteModeActive=true 시 자식 터치 완전 차단), GestureDetector로 롱프레스 감지 (onLongPress에서 isDeleteModeActive 동기 세팅 → ACTION_UP 차단); **WidgetScreen**: `isEditMode` 상태 + `BackHandler` + 타이틀바(AnimatedVisibility 슬라이드 인/아웃); **WidgetCell**: `isEditMode` 파라미터 → 편집 모드 시 삭제 버튼 항상 표시, 롱프레스로 편집 모드 진입; **EmptyCell**: `pointerInput(isEditMode)` 롱프레스로 편집 모드 진입, 편집 모드에서만 "+" 버튼 표시; `key(widgetId)` 추가 |
+| 5 | `app/.../MainActivity.kt` | `widgetSlots` collect; `pendingSlot: Int` 추가; `launchWidgetPicker(slotIndex)` → `setWidgetAtSlot(pendingSlot, id)`; `deleteWidget(slotIndex)` → widgetId 조회 후 `deleteAppWidgetId` + `clearSlot` |
+
+### 핵심 문제 해결 과정
+
+#### 1. 위젯 롱프레스로 삭제 버튼 표시 (3단계 시도)
+
+| 시도 | 방법 | 결과 | 실패 원인 |
+|------|------|------|----------|
+| 1차 | `combinedClickable` on Box | ❌ | AppWidgetHostView가 터치 먼저 소비 |
+| 2차 | `setOnTouchListener` + GestureDetector | ❌ | 자식이 `requestDisallowInterceptTouchEvent(true)` 호출 시 미작동 |
+| 3차 | `dispatchTouchEvent` 오버라이드 | ✅ | 모든 플래그와 무관하게 항상 최우선 호출 |
+
+#### 2. 롱프레스 후 위젯 내부 버튼 동작 차단
+
+```
+onLongPress 콜백 (타이머, 동기):
+  isDeleteModeActive = true  ← 즉시 플래그 세팅 (recomposition 대기 없음)
+  onLongPressListener()      ← Compose 상태 업데이트
+
+다음 dispatchTouchEvent(ACTION_UP):
+  isDeleteModeActive == true → return true (자식 전달 없음) ✅
+```
+
+`requestDisallowInterceptTouchEvent`가 세팅된 이후라도 `dispatchTouchEvent`는 항상 호출됨.
+
+#### 3. 위젯 삭제 시 인접 위젯 사라지는 버그
+
+`key {}` 없는 for 루프에서 Compose는 위치 기준으로 컴포저블을 재사용.
+
+```
+widgetIds=[id1,id2] → id1 삭제 → [id2]
+[수정 전] 슬롯 0: WidgetCell 재사용(id2 파라미터), factory 재호출 ❌ → id1 View 남음
+          슬롯 1: WidgetCell dispose → id2 View 소멸 ❌
+[수정 후] key(widgetId): id1 컴포저블 dispose ✅, id2 컴포저블 슬롯 이동 ✅
+```
+
+#### 4. 슬롯 기반 위치 고정
+
+```
+[이전] "id1,id2"        팩드 리스트 → 항상 앞으로 압축, 삭제 시 위치 이동
+[이후] "id1,-1,-1,-1,-1,id2"  고정 6칸 → 슬롯 인덱스 직접 저장/삭제
+```
+
+탭한 슬롯 인덱스를 `pendingSlot`에 보관 → 선택 완료 시 `setWidgetAtSlot(pendingSlot, id)`.
+
+#### 5. 편집 모드 UX
+
+```
+[일반 모드]  위젯만 표시, 완전한 인터랙션
+[진입 조건]  빈 셀 롱프레스 OR 위젯 롱프레스
+[편집 모드]  타이틀바("위젯 편집" + "완료") 슬라이드 인
+            위젯 셀: 삭제 버튼 항상 표시, 내부 터치 차단
+            빈 셀: "+" 버튼 표시
+[해제 조건]  "완료" 탭 OR 뒤로가기(BackHandler)
+```
+
+### 검증 결과
+
+```
+./gradlew assembleDebug  →  BUILD SUCCESSFUL (모든 단계)
+./gradlew test           →  BUILD SUCCESSFUL (기존 테스트 회귀 없음)
+```
+
+### 설계 결정 및 근거
+
+| 결정 | 근거 |
+|------|------|
+| `dispatchTouchEvent` 오버라이드 선택 | `setOnTouchListener`·`onInterceptTouchEvent`는 `FLAG_DISALLOW_INTERCEPT` 세팅 시 우회됨. `dispatchTouchEvent`는 플래그와 무관하게 항상 최우선 실행 |
+| `isDeleteModeActive`를 `onLongPress`에서 동기 세팅 | recomposition 대기 없이 즉시 플래그 세팅 → 같은 제스처의 ACTION_UP이 자식에 도달하기 전에 차단 |
+| `key(widgetId)` 필수 | Compose 위치 기반 재사용을 막아 AndroidView factory의 widgetId 캡처가 항상 정확히 유지됨 |
+| 슬롯 기반 저장 (`List<Int?>`) | 팩드 리스트는 삭제 시 위치가 압축됨. 고정 슬롯은 인덱스가 곧 위치이므로 추가·삭제해도 다른 슬롯에 영향 없음 |
+| `pendingSlot` 패턴 | ActivityResult 콜백은 비동기이므로 어느 슬롯에 저장할지를 별도 필드로 보관 |
+| `isEditMode`를 WidgetScreen 로컬 상태로 관리 | 화면을 벗어나면 자동 초기화되는 순수 UI 상태; ViewModel에 올릴 필요 없음 |
+| `BackHandler(enabled = isEditMode)` | Compose의 BackHandler는 활성화된 가장 최근 핸들러를 우선하므로 편집 모드일 때만 뒤로가기를 가로챔 |
+
+---
+
+## [2026-02-21] Step 14 — 다중 위젯 지원 구현 (2×3 고정 그리드)
+
+### 목표
+
+위젯 페이지(HorizontalPager index 2)가 위젯 1개만 등록·표시 가능한 구조를 **최대 6개 슬롯의 2×3 고정 그리드**로 변경한다. 빈 슬롯은 "+" 버튼으로 표시하고, 위젯별 개별 삭제를 지원하며, 앱 재시작 후에도 배치가 유지되도록 DataStore 저장 방식을 개선한다.
+
+### 변경 사항
+
+| # | 파일 | 변경 내용 |
+|---|------|----------|
+| 1 | `core/domain/.../repository/WidgetRepository.kt` | `getWidgetId(): Flow<Int>` → `getWidgetIds(): Flow<List<Int>>`; `saveWidgetId / clearWidgetId` → `addWidgetId / removeWidgetId`; `migrateLegacyData()` default no-op 추가; `MAX_WIDGETS = 6` companion 상수 추가 |
+| 2 | `core/data/.../repository/WidgetRepositoryImpl.kt` | 저장키 `intPreferencesKey("widget_id")` → `stringPreferencesKey("widget_ids")` (콤마 구분 문자열, 순서 보장); `addWidgetId`: 중복·MAX 초과 방지 후 append; `removeWidgetId`: 특정 ID만 필터 제거; `migrateLegacyData()`: 레거시 단일 값 → 새 형식 이관 후 레거시 키 삭제; `parseIds()` private 헬퍼 추출 |
+| 3 | `app/.../WidgetViewModel.kt` | `widgetId: StateFlow<Int>` → `widgetIds: StateFlow<List<Int>>` (initialValue = emptyList()); `saveWidget` → `addWidget`; `clearWidget` → `removeWidget(id: Int)`; `init` 블록에서 `migrateLegacyData()` 1회 호출 |
+| 4 | `app/.../navigation/WidgetScreen.kt` | 파라미터 `widgetId: Int` → `widgetIds: List<Int>`, `onDeleteWidgetClick: (Int) -> Unit`; `Column(3행) × Row(2열)` 고정 그리드; 위젯 슬롯 `WidgetCell` (AndroidView + 길게 눌러 삭제 오버레이); 빈 슬롯 `EmptyCell` (+ 버튼); 슬롯 배열은 widgetIds 앞채우고 나머지 null 패딩 |
+| 5 | `app/.../MainActivity.kt` | `widgetId` → `widgetIds` collect; `saveWidget` → `addWidget` (2곳); `deleteCurrentWidget()` → `deleteWidget(id: Int)` (특정 ID만 삭제); WidgetScreen 호출부 파라미터 갱신 |
+
+### 검증 결과
+
+```
+./gradlew assembleDebug  →  BUILD SUCCESSFUL in 16s (162 tasks, 36 executed)
+./gradlew test           →  BUILD SUCCESSFUL in 28s (245 tasks, failures=0)
+```
+
+### 설계 결정 및 근거
+
+| 결정 | 근거 |
+|------|------|
+| 저장 형식을 콤마 구분 문자열로 채택 | DataStore Preferences는 `Set<Int>` 직렬화 시 순서 비보장. 삽입 순서를 유지하여 그리드 배치가 재시작 후에도 동일하게 복원됨 |
+| `migrateLegacyData()`를 ViewModel `init`에서 1회 호출 | 앱 업데이트 시 기존 단일 위젯 사용자 데이터 유실 없이 새 형식으로 이관; 이후 레거시 키 삭제로 이중 저장 방지 |
+| 모든 빈 슬롯에 "+" 버튼 표시 | "첫 번째 빈 칸만 활성" 방식보다 어느 슬롯에든 탭하면 추가되는 방식이 더 직관적이고 일관성 있음 |
+| `MAX_WIDGETS = 6`을 도메인 상수로 정의 | Repository 구현과 UI 모두 동일 상수 참조 → 슬롯 수 변경 시 단일 수정 지점 |
+| `WidgetModule.kt`, `CrossPagerNavigation.kt`, `AndroidManifest.xml` 무변경 | 인터페이스 바인딩·페이지 슬롯 구조·권한 선언은 그대로 유지되어 변경 범위 최소화 |
+
+---
+
+## [2026-02-21] Step 13 — 시스템 위젯 지원 구현
+
+### 목표
+HorizontalPager 오른쪽 페이지(index 2)의 "Widget Area" 플레이스홀더를 실제 안드로이드 시스템 위젯을 호스팅하는 기능으로 교체한다. `AppWidgetHost`로 위젯을 렌더링하고, DataStore로 위젯 ID를 영속화하여 앱 재시작 후에도 위젯이 유지되도록 한다.
+
+### 변경 사항
+
+| # | 파일 | 변경 내용 |
+|---|------|----------|
+| 1 | `core/domain/.../repository/WidgetRepository.kt` | **신규** — `getWidgetId(): Flow<Int>`, `saveWidgetId(Int)`, `clearWidgetId()` 인터페이스; `INVALID_WIDGET_ID = -1` companion 상수 |
+| 2 | `core/data/.../repository/WidgetRepositoryImpl.kt` | **신규** — `preferencesDataStore(name="widget_prefs")`, `intPreferencesKey("widget_id")` 사용; `@ApplicationContext` Context 주입 |
+| 3 | `core/data/.../di/WidgetModule.kt` | **신규** — `@Binds @Singleton` WidgetRepositoryImpl → WidgetRepository Hilt 모듈 |
+| 4 | `app/.../WidgetViewModel.kt` | **신규** — `@HiltViewModel`; `widgetId: StateFlow<Int>` (WhileSubscribed 5s); `saveWidget(id)`, `clearWidget()` |
+| 5 | `app/.../navigation/WidgetScreen.kt` | **신규** — 빈 상태(`+` 버튼 + "위젯 추가" 텍스트, `glassOnSurface` 색상); 위젯 렌더링(`AndroidView` + `AppWidgetHostView`, `MATCH_PARENT` layoutParams); 길게 눌러 삭제 오버레이(`AnimatedVisibility`, 빨간 Delete 버튼) |
+| 6 | `app/.../navigation/CrossPagerNavigation.kt` | `widgetContent: @Composable () -> Unit = {}` 파라미터 추가; `RightPage`를 `Surface` 플레이스홀더 → `DownPage`와 동일한 2-layer Glass Box 구조(`glassEffect` 배경 + `safeDrawingPadding` 콘텐츠)로 교체; `CenterRow`에 `widgetContent` 전달 |
+| 7 | `app/.../MainActivity.kt` | `widgetViewModel: WidgetViewModel by viewModels()` 추가; `AppWidgetHost(HOST_ID=1)`, `AppWidgetManager` 초기화; `onStart/onStop`에 `startListening/stopListening`; `pickWidgetLauncher`(위젯 선택 → configure 분기); `configureWidgetLauncher`(구성 결과 → save or deleteAppWidgetId); `launchWidgetPicker()`, `deleteCurrentWidget()` 함수; `CrossPagerNavigation`에 `widgetContent` 슬롯 연결 |
+| 8 | `app/src/main/AndroidManifest.xml` | `<uses-permission android:name="android.permission.BIND_APPWIDGET" />` 추가 |
+
+### 위젯 선택 → 구성 → 렌더링 플로우
+
+```
+"+" 탭
+  → allocateAppWidgetId()
+  → ACTION_APPWIDGET_PICK 시스템 다이얼로그
+  → 위젯 선택 결과
+      ├─ configure != null → ACTION_APPWIDGET_CONFIGURE 실행
+      │     ├─ RESULT_OK  → saveWidgetId() → DataStore → StateFlow emit
+      │     └─ 취소/실패  → deleteAppWidgetId() (누수 방지)
+      └─ configure == null → 즉시 saveWidgetId()
+
+WidgetScreen 리컴포지션
+  → widgetId != INVALID → AndroidView(AppWidgetHostView) 렌더링
+  → 길게 누르기 → 삭제 오버레이 AnimatedVisibility 토글
+  → 삭제 탭 → deleteAppWidgetId() + clearWidgetId()
+```
+
+### 검증 결과
+
+```
+./gradlew assembleDebug  →  BUILD SUCCESSFUL in 15s (162 tasks, 32 executed)
+./gradlew test           →  BUILD SUCCESSFUL in 27s (245 tasks, failures=0, 전체 회귀 없음)
+```
+
+### 설계 결정 및 근거
+
+| 결정 | 근거 |
+|------|------|
+| `WidgetRepository`를 `core:domain`에 정의 | 도메인 계층이 Android 프레임워크(`AppWidgetManager`)에 의존하지 않도록 `INVALID_WIDGET_ID = -1`을 도메인 상수로 정의; `AppWidgetManager.INVALID_APPWIDGET_ID`(-1)와 값이 동일하여 런타임 호환 |
+| `ACTION_APPWIDGET_PICK` 방식 채택 | `BIND_APPWIDGET`은 signature-level 권한이지만 시스템이 바인딩을 대신 처리; 기본 런처 등록 시 사용자 승인 하에 정상 동작 |
+| `AppWidgetHost` 생명주기를 `onStart/onStop`에 배치 | `onCreate/onDestroy`보다 가시성 기반 관리가 정확; 백그라운드에서 불필요한 업데이트 수신 방지 |
+| 위젯 ID `allocateAppWidgetId` → 취소 시 `deleteAppWidgetId` | 미사용 ID가 누적되면 AppWidgetManager 리소스 누수 발생. 취소/실패 모든 경우에 반환 처리 |
+| `RightPage`를 `DownPage`와 동일한 2-layer Glass 구조로 통일 | 위젯 배경이 흰 박스가 아닌 글래스모피즘 위에 올라오도록; DownPage와 시각 일관성 확보 |
+| `widgetContent`를 `CrossPagerNavigation` 슬롯으로 분리 | MainActivity가 `AppWidgetHost` 인스턴스를 직접 소유하므로, Composable 내부에서 Activity 참조를 피하고 슬롯 패턴으로 주입 |
+
+---
+
 ## [2026-02-20] Hotfix — LazyColumn 중복 키 크래시 수정
 
 ### 목표
