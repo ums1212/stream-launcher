@@ -1,34 +1,65 @@
 package org.comon.streamlauncher.launcher.ui
 
+import android.content.Intent
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import org.comon.streamlauncher.domain.model.ColorPresets
+import org.comon.streamlauncher.domain.model.GridCell
 import org.comon.streamlauncher.launcher.HomeIntent
 import org.comon.streamlauncher.launcher.HomeState
+import org.comon.streamlauncher.launcher.model.ImageType
 import org.comon.streamlauncher.launcher.model.SettingsTab
 import org.comon.streamlauncher.ui.theme.StreamLauncherTheme
 
@@ -48,8 +79,8 @@ fun SettingsScreen(
     ) {
         when (state.currentSettingsTab) {
             SettingsTab.MAIN -> MainSettingsContent(onIntent = onIntent)
-            SettingsTab.COLOR -> ColorSettingsContent()
-            SettingsTab.IMAGE -> ImageSettingsContent()
+            SettingsTab.COLOR -> ColorSettingsContent(state = state, onIntent = onIntent)
+            SettingsTab.IMAGE -> ImageSettingsContent(state = state, onIntent = onIntent)
         }
     }
 }
@@ -117,41 +148,221 @@ private fun SettingsButton(
 }
 
 @Composable
-private fun ColorSettingsContent() {
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = Modifier.fillMaxSize(),
+private fun ColorSettingsContent(
+    state: HomeState,
+    onIntent: (HomeIntent) -> Unit,
+) {
+    val haptic = LocalHapticFeedback.current
+    val accentPrimary = StreamLauncherTheme.colors.accentPrimary
+    val shape = RoundedCornerShape(12.dp)
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                text = "테마 컬러 설정",
-                style = MaterialTheme.typography.headlineSmall,
-            )
-            Text(
-                text = "준비 중입니다",
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(top = 8.dp),
-            )
+        Text(
+            text = "테마 컬러",
+            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier.padding(bottom = 16.dp),
+        )
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(3),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            items(ColorPresets.defaults) { preset ->
+                val isSelected = state.colorPresetIndex == preset.index
+                val primary = Color(preset.accentPrimaryArgb)
+                val secondary = Color(preset.accentSecondaryArgb)
+
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .aspectRatio(1f)
+                        .clip(shape)
+                        .drawBehind {
+                            // 좌반: primary, 우반: secondary
+                            val half = size.width / 2f
+                            drawRect(color = primary, topLeft = Offset.Zero, size = size.copy(width = half))
+                            drawRect(color = secondary, topLeft = Offset(half, 0f), size = size.copy(width = half))
+                        }
+                        .then(
+                            if (isSelected) {
+                                Modifier.border(width = 3.dp, color = accentPrimary, shape = shape)
+                            } else {
+                                Modifier
+                            }
+                        )
+                        .clickable {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onIntent(HomeIntent.ChangeAccentColor(preset.index))
+                        },
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        if (isSelected) {
+                            Icon(
+                                imageVector = Icons.Filled.Check,
+                                contentDescription = "선택됨",
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
+                        Text(
+                            text = preset.name,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White,
+                        )
+                    }
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun ImageSettingsContent() {
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = Modifier.fillMaxSize(),
+private fun ImageSettingsContent(
+    state: HomeState,
+    onIntent: (HomeIntent) -> Unit,
+) {
+    val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
+    val accentPrimary = StreamLauncherTheme.colors.accentPrimary
+    val cellShape = RoundedCornerShape(8.dp)
+
+    var selectedCell by remember { mutableStateOf(GridCell.TOP_LEFT) }
+
+    // 축소 이미지 선택 런처
+    val idleImageLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+    ) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        context.contentResolver.takePersistableUriPermission(
+            uri,
+            Intent.FLAG_GRANT_READ_URI_PERMISSION,
+        )
+        onIntent(HomeIntent.SetGridImage(selectedCell, ImageType.IDLE, uri.toString()))
+    }
+
+    // 확장 이미지 선택 런처
+    val expandedImageLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+    ) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        context.contentResolver.takePersistableUriPermission(
+            uri,
+            Intent.FLAG_GRANT_READ_URI_PERMISSION,
+        )
+        onIntent(HomeIntent.SetGridImage(selectedCell, ImageType.EXPANDED, uri.toString()))
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                text = "홈 이미지 설정",
-                style = MaterialTheme.typography.headlineSmall,
-            )
-            Text(
-                text = "준비 중입니다",
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(top = 8.dp),
-            )
+        Text(
+            text = "홈 이미지",
+            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier.padding(bottom = 16.dp),
+        )
+
+        // 2×2 미니 그리드 — 셀 선택
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            listOf(
+                GridCell.TOP_LEFT to GridCell.TOP_RIGHT,
+                GridCell.BOTTOM_LEFT to GridCell.BOTTOM_RIGHT,
+            ).forEach { (left, right) ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    listOf(left, right).forEach { cell ->
+                        val isSelected = selectedCell == cell
+                        val cellImage = state.gridCellImages[cell]
+
+                        Surface(
+                            shape = cellShape,
+                            modifier = Modifier
+                                .weight(1f)
+                                .aspectRatio(1f)
+                                .border(
+                                    width = if (isSelected) 2.dp else 1.dp,
+                                    color = if (isSelected) accentPrimary else MaterialTheme.colorScheme.outlineVariant,
+                                    shape = cellShape,
+                                )
+                                .clickable {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    selectedCell = cell
+                                },
+                        ) {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier.fillMaxSize(),
+                            ) {
+                                if (cellImage?.idleImageUri != null) {
+                                    AsyncImage(
+                                        model = ImageRequest.Builder(context)
+                                            .data(cellImage.idleImageUri)
+                                            .crossfade(300)
+                                            .build(),
+                                        contentDescription = null,
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.fillMaxSize(),
+                                    )
+                                    // 텍스트 가독성을 위한 반투명 오버레이
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(Color.Black.copy(alpha = 0.3f)),
+                                    )
+                                }
+                                Text(
+                                    text = cell.name,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color.White,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // 이미지 선택 버튼
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Button(
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    idleImageLauncher.launch(
+                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+                    )
+                },
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.buttonColors(containerColor = accentPrimary),
+            ) {
+                Text(text = "축소 이미지")
+            }
+            Button(
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    expandedImageLauncher.launch(
+                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+                    )
+                },
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.buttonColors(containerColor = StreamLauncherTheme.colors.accentSecondary),
+            ) {
+                Text(text = "확장 이미지")
+            }
         }
     }
 }

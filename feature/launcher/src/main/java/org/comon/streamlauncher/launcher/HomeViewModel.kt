@@ -9,9 +9,14 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
 import org.comon.streamlauncher.domain.model.AppEntity
+import org.comon.streamlauncher.domain.model.GridCellImage
 import org.comon.streamlauncher.domain.usecase.GetInstalledAppsUseCase
+import org.comon.streamlauncher.domain.usecase.GetLauncherSettingsUseCase
+import org.comon.streamlauncher.domain.usecase.SaveColorPresetUseCase
+import org.comon.streamlauncher.domain.usecase.SaveGridCellImageUseCase
 import org.comon.streamlauncher.domain.util.ChosungMatcher
 import org.comon.streamlauncher.domain.model.GridCell
+import org.comon.streamlauncher.launcher.model.ImageType
 import org.comon.streamlauncher.launcher.model.SettingsTab
 import org.comon.streamlauncher.ui.BaseViewModel
 import javax.inject.Inject
@@ -20,12 +25,27 @@ import javax.inject.Inject
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val getInstalledAppsUseCase: GetInstalledAppsUseCase,
+    private val getLauncherSettingsUseCase: GetLauncherSettingsUseCase,
+    private val saveColorPresetUseCase: SaveColorPresetUseCase,
+    private val saveGridCellImageUseCase: SaveGridCellImageUseCase,
 ) : BaseViewModel<HomeState, HomeIntent, HomeSideEffect>(HomeState()) {
 
     private var loadJob: Job? = null
     private val _searchQuery = MutableStateFlow("")
 
     init {
+        // 저장된 설정 복원
+        viewModelScope.launch {
+            getLauncherSettingsUseCase().collect { settings ->
+                updateState {
+                    copy(
+                        colorPresetIndex = settings.colorPresetIndex,
+                        gridCellImages = settings.gridCellImages,
+                    )
+                }
+            }
+        }
+        // 검색어 디바운스
         viewModelScope.launch {
             _searchQuery
                 .debounce(100)
@@ -48,6 +68,8 @@ class HomeViewModel @Inject constructor(
             }
             is HomeIntent.Search -> search(intent.query)
             is HomeIntent.ChangeSettingsTab -> updateState { copy(currentSettingsTab = intent.tab) }
+            is HomeIntent.ChangeAccentColor -> changeAccentColor(intent.presetIndex)
+            is HomeIntent.SetGridImage -> setGridImage(intent.cell, intent.type, intent.uri)
         }
     }
 
@@ -97,6 +119,27 @@ class HomeViewModel @Inject constructor(
                 filteredApps = appsInCells.values.flatten().sortedBy { it.label },
                 currentSettingsTab = SettingsTab.MAIN,
             )
+        }
+    }
+
+    private fun changeAccentColor(presetIndex: Int) {
+        updateState { copy(colorPresetIndex = presetIndex) }
+        viewModelScope.launch {
+            saveColorPresetUseCase(presetIndex)
+        }
+    }
+
+    private fun setGridImage(cell: GridCell, type: ImageType, uri: String) {
+        val currentImages = currentState.gridCellImages.toMutableMap()
+        val existing = currentImages[cell] ?: GridCellImage(cell)
+        val updated = when (type) {
+            ImageType.IDLE -> existing.copy(idleImageUri = uri)
+            ImageType.EXPANDED -> existing.copy(expandedImageUri = uri)
+        }
+        currentImages[cell] = updated
+        updateState { copy(gridCellImages = currentImages) }
+        viewModelScope.launch {
+            saveGridCellImageUseCase(cell, updated.idleImageUri, updated.expandedImageUri)
         }
     }
 

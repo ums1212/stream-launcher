@@ -51,6 +51,7 @@ dependencies {
     implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.coil.compose)
 
     implementation(libs.hilt.android)
     implementation(libs.hilt.navigation.compose)

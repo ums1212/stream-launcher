@@ -19,7 +19,9 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dagger.hilt.android.AndroidEntryPoint
+import androidx.compose.ui.graphics.Color
 import org.comon.streamlauncher.apps_drawer.ui.AppDrawerScreen
+import org.comon.streamlauncher.domain.model.ColorPresets
 import org.comon.streamlauncher.launcher.HomeIntent
 import org.comon.streamlauncher.launcher.HomeSideEffect
 import org.comon.streamlauncher.launcher.HomeViewModel
@@ -105,8 +107,12 @@ class MainActivity : ComponentActivity() {
         appWidgetManager = AppWidgetManager.getInstance(this)
 
         setContent {
-            StreamLauncherTheme {
-                val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+            val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+            val preset = ColorPresets.getByIndex(uiState.colorPresetIndex)
+            StreamLauncherTheme(
+                accentPrimaryOverride = Color(preset.accentPrimaryArgb),
+                accentSecondaryOverride = Color(preset.accentSecondaryArgb),
+            ) {
                 val widgetSlots by widgetViewModel.widgetSlots.collectAsStateWithLifecycle()
 
                 LaunchedEffect(Unit) {

@@ -18,7 +18,8 @@
       "Bash(curl:*)",
       "Bash(xxd:*)",
       "Bash(grep:*)",
-      "Bash(grep e::*)"
+      "Bash(grep e::*)",
+      "Bash(tail:*)"
     ]
   }
 }

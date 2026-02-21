@@ -3,6 +3,7 @@ package org.comon.streamlauncher.launcher.ui
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -23,10 +24,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import org.comon.streamlauncher.domain.model.AppEntity
+import org.comon.streamlauncher.domain.model.GridCellImage
 import org.comon.streamlauncher.launcher.HomeIntent
 import org.comon.streamlauncher.launcher.HomeState
 import org.comon.streamlauncher.domain.model.GridCell
@@ -81,6 +88,7 @@ fun HomeScreen(
                 weight = leftColWeight,
                 isExpanded = expandedCell == GridCell.TOP_LEFT,
                 apps = state.appsInCells[GridCell.TOP_LEFT] ?: emptyList(),
+                gridCellImage = state.gridCellImages[GridCell.TOP_LEFT],
                 onIntent = onIntent,
                 modifier = Modifier.padding(end = 4.dp),
             )
@@ -89,6 +97,7 @@ fun HomeScreen(
                 weight = rightColWeight,
                 isExpanded = expandedCell == GridCell.TOP_RIGHT,
                 apps = state.appsInCells[GridCell.TOP_RIGHT] ?: emptyList(),
+                gridCellImage = state.gridCellImages[GridCell.TOP_RIGHT],
                 onIntent = onIntent,
                 modifier = Modifier.padding(start = 4.dp),
             )
@@ -104,6 +113,7 @@ fun HomeScreen(
                 weight = leftColWeight,
                 isExpanded = expandedCell == GridCell.BOTTOM_LEFT,
                 apps = state.appsInCells[GridCell.BOTTOM_LEFT] ?: emptyList(),
+                gridCellImage = state.gridCellImages[GridCell.BOTTOM_LEFT],
                 onIntent = onIntent,
                 modifier = Modifier.padding(end = 4.dp),
             )
@@ -112,6 +122,7 @@ fun HomeScreen(
                 weight = rightColWeight,
                 isExpanded = expandedCell == GridCell.BOTTOM_RIGHT,
                 apps = state.appsInCells[GridCell.BOTTOM_RIGHT] ?: emptyList(),
+                gridCellImage = state.gridCellImages[GridCell.BOTTOM_RIGHT],
                 onIntent = onIntent,
                 modifier = Modifier.padding(start = 4.dp),
             )
@@ -125,11 +136,13 @@ private fun RowScope.GridCellContent(
     weight: Float,
     isExpanded: Boolean,
     apps: List<AppEntity>,
+    gridCellImage: GridCellImage?,
     onIntent: (HomeIntent) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val contentAlpha = ((weight - 0.6f) / 0.2f).coerceIn(0f, 1f)
     val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
     val shape = RoundedCornerShape(12.dp)
 
     // 확장 상태: accentPrimary 2dp / 축소: gridBorder 1dp
@@ -154,24 +167,45 @@ private fun RowScope.GridCellContent(
             .border(width = borderWidth, color = borderColor, shape = shape),
     ) {
         if (isExpanded) {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .alpha(contentAlpha)
-                    .padding(8.dp),
-            ) {
-                items(apps) { app ->
-                    Text(
-                        text = app.label,
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                onIntent(HomeIntent.ClickApp(app))
-                            }
-                            .padding(vertical = 4.dp),
+            Box(modifier = Modifier.fillMaxSize()) {
+                // 확장 이미지 배경
+                val expandedUri = gridCellImage?.expandedImageUri
+                if (expandedUri != null) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .data(expandedUri)
+                            .crossfade(300)
+                            .build(),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize(),
                     )
+                    // 앱 목록 가독성을 위한 반투명 오버레이
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.6f)),
+                    )
+                }
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .alpha(contentAlpha)
+                        .padding(8.dp),
+                ) {
+                    items(apps) { app ->
+                        Text(
+                            text = app.label,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    onIntent(HomeIntent.ClickApp(app))
+                                }
+                                .padding(vertical = 4.dp),
+                        )
+                    }
                 }
             }
         } else {
@@ -179,9 +213,23 @@ private fun RowScope.GridCellContent(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier.fillMaxSize(),
             ) {
+                // 축소 이미지 배경
+                val idleUri = gridCellImage?.idleImageUri
+                if (idleUri != null) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .data(idleUri)
+                            .crossfade(300)
+                            .build(),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
                 Text(
                     text = cell.name,
                     style = MaterialTheme.typography.labelMedium,
+                    color = if (idleUri != null) Color.White else Color.Unspecified,
                 )
             }
         }

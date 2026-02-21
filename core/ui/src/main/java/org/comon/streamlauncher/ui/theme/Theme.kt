@@ -10,6 +10,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
 private val DarkColorScheme = darkColorScheme(
@@ -28,6 +29,8 @@ private val LightColorScheme = lightColorScheme(
 fun StreamLauncherTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     dynamicColor: Boolean = true,
+    accentPrimaryOverride: Color? = null,
+    accentSecondaryOverride: Color? = null,
     content: @Composable () -> Unit,
 ) {
     val colorScheme = when {
@@ -40,7 +43,7 @@ fun StreamLauncherTheme(
     }
 
     // Dynamic Color(API 31+) 연동: 배경화면 색상을 포인트 컬러에 반영
-    val streamColors: StreamLauncherColors = when {
+    val baseStreamColors: StreamLauncherColors = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> StreamLauncherColors(
             accentPrimary = colorScheme.primary,
             accentSecondary = colorScheme.tertiary,
@@ -52,6 +55,18 @@ fun StreamLauncherTheme(
         )
         darkTheme -> DarkStreamLauncherColors
         else -> LightStreamLauncherColors
+    }
+
+    // 사용자 지정 accent 색상이 있으면 덮어씀
+    val streamColors = if (accentPrimaryOverride != null || accentSecondaryOverride != null) {
+        baseStreamColors.copy(
+            accentPrimary = accentPrimaryOverride ?: baseStreamColors.accentPrimary,
+            accentSecondary = accentSecondaryOverride ?: baseStreamColors.accentSecondary,
+            gridBorderExpanded = accentPrimaryOverride ?: baseStreamColors.gridBorderExpanded,
+            searchBarFocused = accentPrimaryOverride ?: baseStreamColors.searchBarFocused,
+        )
+    } else {
+        baseStreamColors
     }
 
     CompositionLocalProvider(LocalStreamLauncherColors provides streamColors) {

@@ -2,6 +2,93 @@
 
 ---
 
+## [2026-02-21] Step 18 — 컬러 픽커 · 이미지 선택기 · DataStore 영속화
+
+### 목표
+
+설정 페이지의 `SettingsTab.COLOR` / `SettingsTab.IMAGE`가 "준비 중" 스텁 상태였다.
+사용자 지정 테마 컬러(7가지 프리셋)와 그리드 셀 배경 이미지(축소/확장 각각)를 선택·저장·앱 재시작 후 복원하는 전체 흐름을 구현한다.
+
+### 변경 사항
+
+| # | 모듈 | 파일 | 변경 내용 |
+|---|------|------|----------|
+| 1 | 루트 | `gradle/libs.versions.toml` | `coil = "2.6.0"`, `kotlinxSerialization = "1.7.3"` 버전 추가; `coil-compose`, `kotlinx-serialization-json` 라이브러리 항목 추가; `kotlin-serialization` 플러그인 항목 추가 |
+| 2 | `core:data` | `build.gradle.kts` | `kotlin-serialization` 플러그인 + `kotlinx.serialization.json` 의존성 추가 |
+| 3 | `feature:launcher` | `build.gradle.kts` | `coil-compose` 의존성 추가 |
+| 4 | `:app` | `build.gradle.kts` | `coil-compose` 의존성 추가 |
+| 5 | `core:domain` | `domain/model/ColorPreset.kt` | **신규** — `data class ColorPreset(index, name, accentPrimaryArgb: Long, accentSecondaryArgb: Long)` |
+| 6 | `core:domain` | `domain/model/ColorPresets.kt` | **신규** — `object ColorPresets { val defaults(7개), fun getByIndex(index) }` |
+| 7 | `core:domain` | `domain/model/LauncherSettings.kt` | **신규** — `data class LauncherSettings(colorPresetIndex: Int = 0, gridCellImages: Map<GridCell, GridCellImage>)` |
+| 8 | `core:domain` | `domain/repository/SettingsRepository.kt` | **신규** — `interface SettingsRepository { getSettings(), setColorPresetIndex(), setGridCellImage() }` |
+| 9 | `core:domain` | `domain/usecase/GetLauncherSettingsUseCase.kt` | **신규** — `operator fun invoke(): Flow<LauncherSettings>` |
+| 10 | `core:domain` | `domain/usecase/SaveColorPresetUseCase.kt` | **신규** — `suspend operator fun invoke(index: Int)` |
+| 11 | `core:domain` | `domain/usecase/SaveGridCellImageUseCase.kt` | **신규** — `suspend operator fun invoke(cell, idle, expanded)` |
+| 12 | `core:domain` | `test/.../ColorPresetsTest.kt` | **신규** — 7개 테스트 (프리셋 개수, getByIndex 폴백, 고유성) |
+| 13 | `core:data` | `data/repository/SettingsRepositoryImpl.kt` | **신규** — `preferencesDataStore("launcher_settings")`; `GridCellImageDto` JSON 직렬화; `@Singleton @Inject constructor(context)` |
+| 14 | `core:data` | `data/di/SettingsModule.kt` | **신규** — `@Binds SettingsRepositoryImpl → SettingsRepository` |
+| 15 | `core:ui` | `ui/theme/Theme.kt` | `StreamLauncherTheme`에 `accentPrimaryOverride: Color?`, `accentSecondaryOverride: Color?` 파라미터 추가; override 시 `accentPrimary/Secondary/gridBorderExpanded/searchBarFocused` 교체 |
+| 16 | `feature:launcher` | `launcher/model/ImageType.kt` | **신규** — `enum class ImageType { IDLE, EXPANDED }` |
+| 17 | `feature:launcher` | `launcher/HomeContract.kt` | `HomeState`에 `colorPresetIndex: Int = 0` 추가; `HomeIntent`에 `ChangeAccentColor`, `SetGridImage` 추가 |
+| 18 | `feature:launcher` | `launcher/HomeViewModel.kt` | 생성자에 3개 UseCase 추가; `init`에서 settings 수집 → state 복원; `changeAccentColor`, `setGridImage` 핸들러 구현 |
+| 19 | `feature:launcher` | `launcher/ui/SettingsScreen.kt` | `ColorSettingsContent`: 3열 LazyVerticalGrid + 좌우 반색 drawBehind 칩 + 체크마크; `ImageSettingsContent`: 2×2 셀 선택 + PickVisualMedia 런처 2개 + takePersistableUriPermission |
+| 20 | `feature:launcher` | `launcher/ui/HomeScreen.kt` | `GridCellContent`에 `gridCellImage: GridCellImage?` 파라미터 추가; 축소·확장 상태 모두 Coil `AsyncImage(crossfade=300)` 배경 표시 |
+| 21 | `feature:launcher` | `test/.../HomeViewModelTest.kt` | 3개 UseCase mock 추가 (`relaxed=true`); `makeViewModel()` 헬퍼; 6개 신규 테스트 (컬러/이미지 state 변경·저장 검증, 설정 복원) |
+| 22 | `:app` | `MainActivity.kt` | `ColorPresets.getByIndex(uiState.colorPresetIndex)`로 preset 계산; `StreamLauncherTheme`에 `accentPrimaryOverride`, `accentSecondaryOverride` 전달 |
+
+#### 아키텍처 흐름
+
+```
+사용자 클릭 (SettingsScreen)
+  └─► HomeIntent.ChangeAccentColor(index)
+        ├─ HomeViewModel.updateState { copy(colorPresetIndex = index) }   ← 즉시 UI 반영
+        └─ SaveColorPresetUseCase(index)
+              └─ SettingsRepository.setColorPresetIndex(index)
+                    └─ DataStore.edit { prefs[COLOR_KEY] = index }
+
+앱 시작 / init
+  └─► GetLauncherSettingsUseCase().collect { settings ->
+        HomeViewModel.updateState { copy(colorPresetIndex, gridCellImages) }
+      }
+
+MainActivity (StreamLauncherTheme)
+  └─► ColorPresets.getByIndex(uiState.colorPresetIndex)
+        └─► accentPrimaryOverride / accentSecondaryOverride → StreamLauncherColors 오버라이드
+```
+
+#### URI 저장 구조 (GridCellImageDto JSON 배열)
+
+```json
+[
+  { "cell": 0, "idle": "content://media/...", "expanded": null },
+  { "cell": 2, "idle": null, "expanded": "content://media/..." }
+]
+```
+
+### 검증 결과
+
+```
+./gradlew test           →  BUILD SUCCESSFUL in 35s (301 tasks, failures=0)
+./gradlew assembleDebug  →  BUILD SUCCESSFUL in 45s (197 tasks, 93 executed)
+```
+
+- 신규 테스트: `ColorPresetsTest` 7개 + `HomeViewModelTest` 신규 6개 = +13개
+- 기존 회귀 없음 (18개 기존 HomeViewModelTest 모두 통과)
+
+### 설계 결정 및 근거
+
+| 결정 | 근거 |
+|------|------|
+| URI 직렬화를 kotlinx-serialization JSON으로 | URI 내부에 쉼표·파이프 등 특수문자 포함 가능. 단순 구분자 방식은 파싱 오류 위험. JSON 배열로 안전하게 직렬화 |
+| `accentPrimaryOverride`가 Dynamic Color 위에서도 덮어씀 | 사용자가 명시적으로 선택한 테마 컬러가 배경화면 자동 색상보다 우선시되어야 사용자 의도가 보존됨 |
+| `crossfade(300)` 적용 | 이미지 설정·변경 시 갑작스러운 전환 없이 부드러운 페이드. 300ms는 Material 전환 가이드라인(250~350ms) 범위 내 |
+| 이미지 `ContentScale.Crop` + 가독성 오버레이 | 임의 종횡비 이미지도 셀을 채우도록 중앙 크롭. 앱 목록/셀 이름 텍스트 위에 반투명 레이어로 가독성 확보 |
+| `relaxed = true` mock (SaveColorPresetUseCase, SaveGridCellImageUseCase) | `idle: String?`, `expanded: String?` 파라미터가 nullable → MockK `any<String?>()` 타입 바운드 컴파일 오류 발생. relaxed mock은 모든 suspend 호출에 Runs를 자동 설정하여 coEvery 없이도 안전 |
+| `takePersistableUriPermission` | PickVisualMedia로 획득한 content URI는 앱이 재시작되면 접근 권한이 사라짐. Persistable 권한 요청으로 재시작 후에도 Coil이 동일 URI로 이미지 로드 가능 |
+| `makeViewModel()` 헬퍼 | 생성자 파라미터가 4개로 증가 → 각 테스트에서 반복 작성 방지. 기본값으로 공통 mock을 받고 필요한 케이스만 오버라이드 |
+
+---
+
 ## [2026-02-21] Step 17 — 설정 페이지 기초 및 서브 네비게이션 구현
 
 ### 목표

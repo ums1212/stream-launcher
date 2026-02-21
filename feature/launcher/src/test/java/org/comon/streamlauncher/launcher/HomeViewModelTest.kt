@@ -1,8 +1,7 @@
 package org.comon.streamlauncher.launcher
 
 import app.cash.turbine.test
-import io.mockk.every
-import io.mockk.mockk
+import io.mockk.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flow
@@ -12,8 +11,13 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.comon.streamlauncher.domain.model.AppEntity
-import org.comon.streamlauncher.domain.usecase.GetInstalledAppsUseCase
 import org.comon.streamlauncher.domain.model.GridCell
+import org.comon.streamlauncher.domain.model.LauncherSettings
+import org.comon.streamlauncher.domain.usecase.GetInstalledAppsUseCase
+import org.comon.streamlauncher.domain.usecase.GetLauncherSettingsUseCase
+import org.comon.streamlauncher.domain.usecase.SaveColorPresetUseCase
+import org.comon.streamlauncher.domain.usecase.SaveGridCellImageUseCase
+import org.comon.streamlauncher.launcher.model.ImageType
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -37,6 +41,9 @@ class HomeViewModelTest {
     }
 
     private lateinit var useCase: GetInstalledAppsUseCase
+    private lateinit var getLauncherSettingsUseCase: GetLauncherSettingsUseCase
+    private lateinit var saveColorPresetUseCase: SaveColorPresetUseCase
+    private lateinit var saveGridCellImageUseCase: SaveGridCellImageUseCase
     private lateinit var viewModel: HomeViewModel
 
     @Before
@@ -44,7 +51,14 @@ class HomeViewModelTest {
         Dispatchers.setMain(testDispatcher)
         useCase = mockk()
         every { useCase() } returns flowOf(sampleApps)
-        viewModel = HomeViewModel(useCase)
+
+        getLauncherSettingsUseCase = mockk()
+        every { getLauncherSettingsUseCase() } returns flowOf(LauncherSettings())
+
+        saveColorPresetUseCase = mockk(relaxed = true)
+        saveGridCellImageUseCase = mockk(relaxed = true)
+
+        viewModel = makeViewModel()
     }
 
     @After
@@ -52,12 +66,25 @@ class HomeViewModelTest {
         Dispatchers.resetMain()
     }
 
+    /** 테스트용 ViewModel 생성 헬퍼 */
+    private fun makeViewModel(
+        appsUseCase: GetInstalledAppsUseCase = useCase,
+        settingsUseCase: GetLauncherSettingsUseCase = getLauncherSettingsUseCase,
+        colorSaveUseCase: SaveColorPresetUseCase = saveColorPresetUseCase,
+        imageSaveUseCase: SaveGridCellImageUseCase = saveGridCellImageUseCase,
+    ): HomeViewModel = HomeViewModel(
+        appsUseCase,
+        settingsUseCase,
+        colorSaveUseCase,
+        imageSaveUseCase,
+    )
+
     // 1. 초기 상태 확인
     @Test
     fun `초기 상태 - expandedCell null, isLoading false, appsInCells 비어있음`() {
         val freshUseCase: GetInstalledAppsUseCase = mockk()
         every { freshUseCase() } returns flowOf(emptyList())
-        val freshVm = HomeViewModel(freshUseCase)
+        val freshVm = makeViewModel(appsUseCase = freshUseCase)
 
         val initialState = freshVm.uiState.value
         assertNull(initialState.expandedCell)
@@ -166,7 +193,7 @@ class HomeViewModelTest {
         every { freshUseCase() } returns flowOf(sampleApps)
 
         viewModel.uiState.test {
-            val freshVm = HomeViewModel(freshUseCase)
+            val freshVm = makeViewModel(appsUseCase = freshUseCase)
 
             val firstEmission = awaitItem()
             assertFalse(firstEmission.isLoading)
@@ -195,7 +222,7 @@ class HomeViewModelTest {
         val errorUseCase: GetInstalledAppsUseCase = mockk()
         every { errorUseCase() } returns flow { throw RuntimeException(errorMessage) }
 
-        val errorVm = HomeViewModel(errorUseCase)
+        val errorVm = makeViewModel(appsUseCase = errorUseCase)
 
         errorVm.effect.test {
             testDispatcher.scheduler.advanceUntilIdle()
@@ -213,7 +240,7 @@ class HomeViewModelTest {
         val errorUseCase: GetInstalledAppsUseCase = mockk()
         every { errorUseCase() } returns flow { throw RuntimeException("오류") }
 
-        val errorVm = HomeViewModel(errorUseCase)
+        val errorVm = makeViewModel(appsUseCase = errorUseCase)
         testDispatcher.scheduler.advanceUntilIdle()
 
         assertFalse(errorVm.uiState.value.isLoading)
@@ -252,7 +279,7 @@ class HomeViewModelTest {
         )
         val searchUseCase: GetInstalledAppsUseCase = mockk()
         every { searchUseCase() } returns flowOf(searchApps)
-        val searchVm = HomeViewModel(searchUseCase)
+        val searchVm = makeViewModel(appsUseCase = searchUseCase)
         testDispatcher.scheduler.advanceUntilIdle()
 
         searchVm.handleIntent(HomeIntent.Search("ㅋ"))
@@ -272,7 +299,7 @@ class HomeViewModelTest {
         )
         val englishUseCase: GetInstalledAppsUseCase = mockk()
         every { englishUseCase() } returns flowOf(englishApps)
-        val englishVm = HomeViewModel(englishUseCase)
+        val englishVm = makeViewModel(appsUseCase = englishUseCase)
         testDispatcher.scheduler.advanceUntilIdle()
 
         englishVm.handleIntent(HomeIntent.Search("set"))
@@ -317,5 +344,78 @@ class HomeViewModelTest {
             assertEquals(firstFilteredApp.packageName, (effect as HomeSideEffect.NavigateToApp).packageName)
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    // 19. ChangeAccentColor → colorPresetIndex 상태 업데이트
+    @Test
+    fun `ChangeAccentColor 처리 시 colorPresetIndex 상태가 업데이트됨`() = runTest {
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.handleIntent(HomeIntent.ChangeAccentColor(3))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(3, viewModel.uiState.value.colorPresetIndex)
+    }
+
+    // 20. ChangeAccentColor → saveColorPresetUseCase 호출
+    @Test
+    fun `ChangeAccentColor 처리 시 saveColorPresetUseCase가 호출됨`() = runTest {
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.handleIntent(HomeIntent.ChangeAccentColor(5))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        coVerify { saveColorPresetUseCase(5) }
+    }
+
+    // 21. SetGridImage IDLE → gridCellImages 상태 업데이트
+    @Test
+    fun `SetGridImage IDLE 처리 시 해당 셀의 idleImageUri가 업데이트됨`() = runTest {
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val testUri = "content://media/external/images/1"
+        viewModel.handleIntent(HomeIntent.SetGridImage(GridCell.TOP_LEFT, ImageType.IDLE, testUri))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val cellImage = viewModel.uiState.value.gridCellImages[GridCell.TOP_LEFT]
+        assertEquals(testUri, cellImage?.idleImageUri)
+    }
+
+    // 22. SetGridImage EXPANDED → gridCellImages 상태 업데이트
+    @Test
+    fun `SetGridImage EXPANDED 처리 시 해당 셀의 expandedImageUri가 업데이트됨`() = runTest {
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val testUri = "content://media/external/images/2"
+        viewModel.handleIntent(HomeIntent.SetGridImage(GridCell.BOTTOM_RIGHT, ImageType.EXPANDED, testUri))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val cellImage = viewModel.uiState.value.gridCellImages[GridCell.BOTTOM_RIGHT]
+        assertEquals(testUri, cellImage?.expandedImageUri)
+    }
+
+    // 23. SetGridImage → saveGridCellImageUseCase 호출
+    @Test
+    fun `SetGridImage 처리 시 saveGridCellImageUseCase가 호출됨`() = runTest {
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val testUri = "content://media/external/images/3"
+        viewModel.handleIntent(HomeIntent.SetGridImage(GridCell.TOP_RIGHT, ImageType.IDLE, testUri))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        coVerify { saveGridCellImageUseCase(GridCell.TOP_RIGHT, testUri, null) }
+    }
+
+    // 24. 초기 설정 로드 → colorPresetIndex 복원
+    @Test
+    fun `초기 설정 로드 시 colorPresetIndex가 저장된 값으로 복원됨`() = runTest {
+        val savedSettings = LauncherSettings(colorPresetIndex = 4)
+        val settingsUseCase: GetLauncherSettingsUseCase = mockk()
+        every { settingsUseCase() } returns flowOf(savedSettings)
+
+        val restoredVm = makeViewModel(settingsUseCase = settingsUseCase)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(4, restoredVm.uiState.value.colorPresetIndex)
     }
 }
