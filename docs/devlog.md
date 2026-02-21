@@ -2,6 +2,81 @@
 
 ---
 
+## [2026-02-21] Hotfix — 테마 컬러 변경 시 그리드·배경색 미반영 버그 수정
+
+### 목표
+
+Step 18에서 구현한 테마 컬러 프리셋 선택 시, `SettingsScreen` 버튼 색상은 바뀌지만
+홈화면 **그리드 셀 배경**과 **앱 전체 배경색**이 변하지 않는 버그를 수정한다.
+
+### 원인 분석
+
+```
+accentPrimaryOverride
+       │
+       ▼
+  StreamLauncherColors  ← 업데이트됨 (SettingsScreen 버튼 등 일부 요소만)
+
+  MaterialTheme.colorScheme  ← 업데이트 안 됨!
+       │
+       ├─ HomeScreen GridCellContent
+       │    color = MaterialTheme.colorScheme.surfaceVariant   → 그리드 배경 바뀌지 않음
+       │    borderColor = MaterialTheme.colorScheme.primary    → 보더색 바뀌지 않음
+       └─ 앱 전체 background = MaterialTheme.colorScheme.background → 배경 바뀌지 않음
+```
+
+`accentPrimaryOverride`가 `StreamLauncherColors`(커스텀 컬러 시스템)만 갱신하고,
+`MaterialTheme.colorScheme`은 Dynamic Color(배경화면 색상) 그대로 유지되어 발생.
+
+### 변경 사항
+
+| # | 모듈 | 파일 | 변경 내용 |
+|---|------|------|----------|
+| 1 | `core:ui` | `ui/theme/Theme.kt` | `baseColorScheme` → `colorScheme` 변환 단계 추가: accent 오버라이드 시 `MaterialTheme.colorScheme`의 `primary`, `tertiary`, `surface`, `background`, `surfaceVariant`도 함께 갱신 |
+
+#### 수정 로직 (`Theme.kt`)
+
+```kotlin
+val colorScheme = if (accentPrimaryOverride != null || accentSecondaryOverride != null) {
+    val primary = accentPrimaryOverride ?: baseColorScheme.primary
+    val surfaceBase = if (darkTheme) Color(0xFF1C1B1E) else Color(0xFFFFFBFE)
+    baseColorScheme.copy(
+        primary = primary,                 // 버튼·확장 보더 → accent 색상
+        onPrimary = Color.White,
+        tertiary = accentSecondaryOverride ?: baseColorScheme.tertiary,
+        onTertiary = Color.White,
+        background = lerp(surfaceBase, primary, if (darkTheme) 0.06f else 0.03f),  // 배경 미묘하게 tinting
+        surface   = lerp(surfaceBase, primary, if (darkTheme) 0.06f else 0.03f),
+        surfaceVariant = lerp(surfaceBase, primary, if (darkTheme) 0.18f else 0.12f), // 그리드 셀
+    )
+} else { baseColorScheme }
+```
+
+| 필드 | 효과 |
+|------|------|
+| `primary` | 확장 셀 보더, Material3 버튼 컬러 → accent 색으로 변경 |
+| `surfaceVariant` | 그리드 셀 배경 → accent를 12~18% 블렌딩한 색조로 변경 |
+| `surface` / `background` | 앱 전체 배경 → accent를 3~6% 블렌딩해 미묘한 색조 부여 |
+
+### 검증 결과
+
+```
+./gradlew assembleDebug  →  BUILD SUCCESSFUL in 39s
+```
+
+수동 검증: Sunset Orange 선택 → 그리드 셀 배경이 옅은 오렌지 톤, 확장 보더·버튼이 오렌지로 즉시 변경 확인.
+
+### 설계 결정 및 근거
+
+| 결정 | 근거 |
+|------|------|
+| `MaterialTheme.colorScheme`도 함께 오버라이드 | 그리드 배경(`surfaceVariant`), 보더(`primary`), 배경(`surface/background`)이 모두 `MaterialTheme.colorScheme.*`을 직접 참조하므로, 커스텀 컬러 시스템만 변경해서는 반영 불가 |
+| `lerp(surfaceBase, accent, fraction)`으로 tinting | `copy(alpha = ...)` 방식은 투명도를 주어 배경 위에 합성이 필요함. `lerp`는 불투명 최종 색상을 직접 계산해 렌더링 레이어 추가 없이 정확한 색상 보장 |
+| 다크 모드에서 fraction 2배 | 다크 배경은 색상 대비가 낮아 같은 fraction이면 tinting이 덜 드러나므로, 라이트 모드 대비 약 2배 비율 적용 |
+| `onPrimary = Color.White` 고정 | 각 프리셋의 accent primary가 밝은 색상 계열이어도 텍스트/아이콘이 흰색으로 통일되어 가독성 유지 |
+
+---
+
 ## [2026-02-21] Step 18 — 컬러 픽커 · 이미지 선택기 · DataStore 영속화
 
 ### 목표

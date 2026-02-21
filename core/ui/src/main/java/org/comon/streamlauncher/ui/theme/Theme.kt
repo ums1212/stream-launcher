@@ -11,6 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalContext
 
 private val DarkColorScheme = darkColorScheme(
@@ -33,7 +34,8 @@ fun StreamLauncherTheme(
     accentSecondaryOverride: Color? = null,
     content: @Composable () -> Unit,
 ) {
-    val colorScheme = when {
+    // 1단계: 기본 colorScheme 결정 (Dynamic Color 또는 정적 다크/라이트)
+    val baseColorScheme = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             val context = LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
@@ -42,7 +44,29 @@ fun StreamLauncherTheme(
         else -> LightColorScheme
     }
 
-    // Dynamic Color(API 31+) 연동: 배경화면 색상을 포인트 컬러에 반영
+    // 2단계: accent 오버라이드가 있으면 MaterialTheme.colorScheme도 함께 갱신
+    // → 그리드 배경(surfaceVariant), 보더(primary), 앱 배경(surface/background) 모두 반영
+    val colorScheme = if (accentPrimaryOverride != null || accentSecondaryOverride != null) {
+        val primary = accentPrimaryOverride ?: baseColorScheme.primary
+        val tertiary = accentSecondaryOverride ?: baseColorScheme.tertiary
+        // 다크/라이트 기준 베이스 서피스 색상
+        val surfaceBase = if (darkTheme) Color(0xFF1C1B1E) else Color(0xFFFFFBFE)
+        baseColorScheme.copy(
+            primary = primary,
+            onPrimary = Color.White,
+            tertiary = tertiary,
+            onTertiary = Color.White,
+            // 배경: accent 색상을 아주 약하게 혼합 (3~6%)
+            background = lerp(surfaceBase, primary, if (darkTheme) 0.06f else 0.03f),
+            surface = lerp(surfaceBase, primary, if (darkTheme) 0.06f else 0.03f),
+            // 그리드 셀 배경(surfaceVariant): accent 색상을 적당히 혼합 (12~18%)
+            surfaceVariant = lerp(surfaceBase, primary, if (darkTheme) 0.18f else 0.12f),
+        )
+    } else {
+        baseColorScheme
+    }
+
+    // 3단계: StreamLauncherColors 계산 (colorScheme 기반)
     val baseStreamColors: StreamLauncherColors = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> StreamLauncherColors(
             accentPrimary = colorScheme.primary,
@@ -57,7 +81,7 @@ fun StreamLauncherTheme(
         else -> LightStreamLauncherColors
     }
 
-    // 사용자 지정 accent 색상이 있으면 덮어씀
+    // 4단계: accent 오버라이드를 StreamLauncherColors에도 반영
     val streamColors = if (accentPrimaryOverride != null || accentSecondaryOverride != null) {
         baseStreamColors.copy(
             accentPrimary = accentPrimaryOverride ?: baseStreamColors.accentPrimary,
@@ -71,7 +95,7 @@ fun StreamLauncherTheme(
 
     CompositionLocalProvider(LocalStreamLauncherColors provides streamColors) {
         MaterialTheme(
-            colorScheme = colorScheme,
+            colorScheme = colorScheme, // accent override가 반영된 colorScheme 전달
             typography = Typography,
             content = content,
         )
