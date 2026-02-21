@@ -1,4 +1,4 @@
-package org.comon.streamlauncher.navigation
+package org.comon.streamlauncher.apps_drawer.ui
 
 import android.content.pm.PackageManager
 import androidx.compose.foundation.Image

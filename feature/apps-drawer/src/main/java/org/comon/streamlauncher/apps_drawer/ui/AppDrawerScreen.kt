@@ -1,4 +1,4 @@
-package org.comon.streamlauncher.navigation
+package org.comon.streamlauncher.apps_drawer.ui
 
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -35,22 +35,22 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import org.comon.streamlauncher.domain.model.AppEntity
-import org.comon.streamlauncher.launcher.HomeIntent
-import org.comon.streamlauncher.launcher.HomeState
 import org.comon.streamlauncher.ui.theme.StreamLauncherTheme
 
 @Composable
 fun AppDrawerScreen(
-    state: HomeState,
-    onIntent: (HomeIntent) -> Unit,
+    searchQuery: String,
+    filteredApps: List<AppEntity>,
+    onSearch: (String) -> Unit,
+    onAppClick: (AppEntity) -> Unit,
 ) {
     val focusRequester = remember { FocusRequester() }
     val colors = StreamLauncherTheme.colors
 
     Column(modifier = Modifier.fillMaxSize()) {
         OutlinedTextField(
-            value = state.searchQuery,
-            onValueChange = { onIntent(HomeIntent.Search(it)) },
+            value = searchQuery,
+            onValueChange = onSearch,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 12.dp)
@@ -63,8 +63,8 @@ fun AppDrawerScreen(
                 )
             },
             trailingIcon = {
-                if (state.searchQuery.isNotEmpty()) {
-                    IconButton(onClick = { onIntent(HomeIntent.Search("")) }) {
+                if (searchQuery.isNotEmpty()) {
+                    IconButton(onClick = { onSearch("") }) {
                         Icon(
                             imageVector = Icons.Default.Clear,
                             contentDescription = "검색어 지우기",
@@ -85,13 +85,13 @@ fun AppDrawerScreen(
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
         ) {
             items(
-                items = state.filteredApps,
+                items = filteredApps,
                 // packageName은 런처 액티비티 복수 등록 시 중복 가능 → activityName(FQCN)으로 고유 키 보장
                 key = { it.activityName },
             ) { app ->
                 AppDrawerItem(
                     app = app,
-                    onClick = { onIntent(HomeIntent.ClickApp(app)) },
+                    onClick = { onAppClick(app) },
                     modifier = Modifier.animateItem(
                         fadeInSpec = tween(300),
                         placementSpec = spring(

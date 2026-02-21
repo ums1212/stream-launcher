@@ -2,6 +2,52 @@
 
 ---
 
+## [2026-02-21] Step 16 — 클린아키텍처 점검 및 모듈 분리 리팩토링
+
+### 목표
+
+프로젝트 전체의 클린아키텍처 · MVI 패턴 준수 여부를 점검하고, 잘못 배치된 파일들을 올바른 모듈로 이동한다.
+- 테마/modifier가 `:app`에 묶여 있어 다른 feature 모듈에서 접근 불가 → `core:ui`로 이동
+- `WidgetViewModel` · `WidgetScreen`이 `:app`에 혼재 → 신규 `:feature:widget` 모듈로 이동
+- `AppDrawerScreen` · `AppIcon`이 `:app/navigation`에 있고 `:feature:apps-drawer`는 빈 모듈 → 이동 및 구현 채움
+- `AppDrawerScreen`의 `HomeState`/`HomeIntent` 직접 의존 → 순수 도메인 파라미터로 변경해 feature 간 의존 제거
+
+### 변경 사항
+
+| # | 대상 모듈 | 파일 | 변경 내용 |
+|---|----------|------|----------|
+| 1 | `core:ui` | `ui/theme/Color.kt` | **신규** — `StreamLauncherColors`, `DarkStreamLauncherColors`, `LightStreamLauncherColors`, `LocalStreamLauncherColors` (`:app`에서 이동) |
+| 2 | `core:ui` | `ui/theme/Theme.kt` | **신규** — `StreamLauncherTheme`, `StreamLauncherTheme.colors` 접근자 (`:app`에서 이동) |
+| 3 | `core:ui` | `ui/theme/Type.kt` | **신규** — `NotoSansKrFontFamily`, `Typography` (`:app`에서 이동, `R` import → `org.comon.streamlauncher.ui.R`) |
+| 4 | `core:ui` | `ui/modifier/GlassEffect.kt` | **신규** — `glassEffect` Modifier (`:app`에서 이동) |
+| 5 | `core:ui` | `res/font/noto_sans_kr.ttf` | **신규** — 폰트 리소스 (`:app/res/font`에서 이동) |
+| 6 | `feature:widget` | `build.gradle.kts` | Compose / Hilt / KSP / `:core:domain` / `:core:ui` / `activity-compose` 의존성 추가 |
+| 7 | `feature:widget` | `widget/WidgetViewModel.kt` | **신규** — 패키지 `org.comon.streamlauncher.widget` (`:app`에서 이동) |
+| 8 | `feature:widget` | `widget/ui/WidgetScreen.kt` | **신규** — 패키지 `org.comon.streamlauncher.widget.ui` (`:app/navigation`에서 이동) |
+| 9 | `feature:apps-drawer` | `apps_drawer/ui/AppIcon.kt` | **신규** — 패키지 `org.comon.streamlauncher.apps_drawer.ui` (`:app/navigation`에서 이동) |
+| 10 | `feature:apps-drawer` | `apps_drawer/ui/AppDrawerScreen.kt` | **신규** — 파라미터 `HomeState`/`HomeIntent` → `searchQuery: String`, `filteredApps: List<AppEntity>`, `onSearch`, `onAppClick` (feature 간 의존 제거) |
+| 11 | `:app` | `app/build.gradle.kts` | `:feature:widget` 의존성 추가 |
+| 12 | `:app` | `MainActivity.kt` | import 3개 수정 (`widget.*`, `apps_drawer.ui.*`); `AppDrawerScreen` 호출부 파라미터 분해 |
+| 13 | `:app` | 구 파일 8개 삭제 | `WidgetViewModel.kt`, `navigation/WidgetScreen.kt`, `navigation/AppDrawerScreen.kt`, `navigation/AppIcon.kt`, `ui/theme/Color.kt`, `ui/theme/Theme.kt`, `ui/theme/Type.kt`, `ui/modifier/GlassEffect.kt`, `res/font/noto_sans_kr.ttf` |
+
+### 검증 결과
+
+```
+./gradlew assembleDebug  →  BUILD SUCCESSFUL (197 tasks)
+./gradlew test           →  BUILD SUCCESSFUL (301 tasks, 실패 0건)
+```
+
+### 설계 결정 및 근거
+
+| 결정 | 근거 |
+|------|------|
+| 테마/폰트를 `core:ui`로 이동 | feature 모듈에서 `StreamLauncherTheme.colors` 참조 시 `:app` 역의존 → 순환 참조 위험 차단 |
+| `AppDrawerScreen` 파라미터를 도메인 타입으로 교체 | `feature:apps-drawer`가 `feature:launcher`에 의존하면 feature 간 결합 발생 — Contract를 app 계층에서 분해해 주입 |
+| `WidgetViewModel`을 `feature:widget`으로 이동 | `:app`은 진입점(Manifest, DI 루트)만 담당해야 함; 비즈니스 로직·상태를 feature 모듈로 격리해 재사용성 확보 |
+| `AppWidgetHost` 생명주기 관리는 `MainActivity`에 유지 | `AppWidgetHost`는 Activity 생명주기(`onStart`/`onStop`)에 직접 묶여야 하므로 feature 모듈에 내려보내지 않음 |
+
+---
+
 ## [2026-02-21] Step 15 — 위젯 화면 완성 (편집 모드 · 슬롯 고정 · 터치 수정)
 
 ### 목표

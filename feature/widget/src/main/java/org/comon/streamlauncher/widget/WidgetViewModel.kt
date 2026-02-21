@@ -1,4 +1,4 @@
-package org.comon.streamlauncher
+package org.comon.streamlauncher.widget
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope

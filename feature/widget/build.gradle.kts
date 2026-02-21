@@ -1,5 +1,5 @@
 plugins {
-    alias(libs.plugins.android.application)
+    alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.hilt.android)
@@ -7,17 +7,14 @@ plugins {
 }
 
 android {
-    namespace = "org.comon.streamlauncher"
+    namespace = "org.comon.streamlauncher.widget"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "org.comon.streamlauncher"
         minSdk = 28
-        targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        consumerProguardFiles("consumer-rules.pro")
     }
 
     buildTypes {
@@ -43,14 +40,9 @@ android {
 
 dependencies {
     implementation(project(":core:domain"))
-    implementation(project(":core:data"))
     implementation(project(":core:ui"))
-    implementation(project(":feature:launcher"))
-    implementation(project(":feature:apps-drawer"))
-    implementation(project(":feature:widget"))
 
     implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)
@@ -58,18 +50,11 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
     implementation(libs.androidx.compose.foundation)
-    implementation(libs.androidx.navigation.compose)
 
     implementation(libs.hilt.android)
-    implementation(libs.hilt.navigation.compose)
-    implementation(libs.androidx.lifecycle.runtime.compose)
     ksp(libs.hilt.android.compiler)
 
     testImplementation(libs.junit)
-    testImplementation(libs.kotlinx.coroutines.test)
-    testImplementation(libs.turbine)
-    testImplementation(libs.mockk)
-
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))

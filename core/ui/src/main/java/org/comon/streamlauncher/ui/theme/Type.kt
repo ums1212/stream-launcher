@@ -9,7 +9,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
-import org.comon.streamlauncher.R
+import org.comon.streamlauncher.ui.R
 
 val NotoSansKrFontFamily = FontFamily(
     Font(

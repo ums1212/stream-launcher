@@ -18,6 +18,7 @@
             <option value="$PROJECT_DIR$/feature" />
             <option value="$PROJECT_DIR$/feature/apps-drawer" />
             <option value="$PROJECT_DIR$/feature/launcher" />
+            <option value="$PROJECT_DIR$/feature/widget" />
           </set>
         </option>
       </GradleProjectSettings>

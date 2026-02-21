@@ -19,14 +19,15 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dagger.hilt.android.AndroidEntryPoint
+import org.comon.streamlauncher.apps_drawer.ui.AppDrawerScreen
 import org.comon.streamlauncher.launcher.HomeIntent
 import org.comon.streamlauncher.launcher.HomeSideEffect
 import org.comon.streamlauncher.launcher.HomeViewModel
 import org.comon.streamlauncher.launcher.ui.HomeScreen
-import org.comon.streamlauncher.navigation.AppDrawerScreen
 import org.comon.streamlauncher.navigation.CrossPagerNavigation
-import org.comon.streamlauncher.navigation.WidgetScreen
 import org.comon.streamlauncher.ui.theme.StreamLauncherTheme
+import org.comon.streamlauncher.widget.WidgetViewModel
+import org.comon.streamlauncher.widget.ui.WidgetScreen
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -132,8 +133,10 @@ class MainActivity : ComponentActivity() {
                     resetTrigger = resetTrigger,
                     appDrawerContent = {
                         AppDrawerScreen(
-                            state = uiState,
-                            onIntent = viewModel::handleIntent,
+                            searchQuery = uiState.searchQuery,
+                            filteredApps = uiState.filteredApps,
+                            onSearch = { viewModel.handleIntent(HomeIntent.Search(it)) },
+                            onAppClick = { viewModel.handleIntent(HomeIntent.ClickApp(it)) },
                         )
                     },
                     widgetContent = {
