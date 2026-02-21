@@ -13,7 +13,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.comon.streamlauncher.domain.model.AppEntity
 import org.comon.streamlauncher.domain.usecase.GetInstalledAppsUseCase
-import org.comon.streamlauncher.launcher.model.GridCell
+import org.comon.streamlauncher.domain.model.GridCell
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

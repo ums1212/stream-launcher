@@ -24,6 +24,7 @@ import org.comon.streamlauncher.launcher.HomeIntent
 import org.comon.streamlauncher.launcher.HomeSideEffect
 import org.comon.streamlauncher.launcher.HomeViewModel
 import org.comon.streamlauncher.launcher.ui.HomeScreen
+import org.comon.streamlauncher.launcher.ui.SettingsScreen
 import org.comon.streamlauncher.navigation.CrossPagerNavigation
 import org.comon.streamlauncher.ui.theme.StreamLauncherTheme
 import org.comon.streamlauncher.widget.WidgetViewModel
@@ -131,6 +132,12 @@ class MainActivity : ComponentActivity() {
 
                 CrossPagerNavigation(
                     resetTrigger = resetTrigger,
+                    settingsContent = {
+                        SettingsScreen(
+                            state = uiState,
+                            onIntent = viewModel::handleIntent,
+                        )
+                    },
                     appDrawerContent = {
                         AppDrawerScreen(
                             searchQuery = uiState.searchQuery,

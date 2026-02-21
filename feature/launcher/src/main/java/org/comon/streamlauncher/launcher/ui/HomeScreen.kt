@@ -29,7 +29,7 @@ import androidx.compose.ui.unit.dp
 import org.comon.streamlauncher.domain.model.AppEntity
 import org.comon.streamlauncher.launcher.HomeIntent
 import org.comon.streamlauncher.launcher.HomeState
-import org.comon.streamlauncher.launcher.model.GridCell
+import org.comon.streamlauncher.domain.model.GridCell
 
 @Composable
 fun HomeScreen(

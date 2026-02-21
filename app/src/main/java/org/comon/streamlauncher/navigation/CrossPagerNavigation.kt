@@ -50,6 +50,7 @@ fun CrossPagerNavigation(
     resetTrigger: Int = 0,
     appDrawerContent: @Composable () -> Unit,
     widgetContent: @Composable () -> Unit = {},
+    settingsContent: @Composable () -> Unit = {},
     homeContent: @Composable () -> Unit,
 ) {
     val verticalPagerState = rememberPagerState(initialPage = 1, pageCount = { 3 })
@@ -90,7 +91,11 @@ fun CrossPagerNavigation(
         userScrollEnabled = !horizontalPagerState.isScrollInProgress,
     ) { verticalPage ->
         when (verticalPage) {
-            0 -> UpPage(pagerState = verticalPagerState, page = verticalPage)
+            0 -> UpPage(
+                pagerState = verticalPagerState,
+                page = verticalPage,
+                content = settingsContent,
+            )
             1 -> CenterRow(
                 verticalPagerState = verticalPagerState,
                 horizontalPagerState = horizontalPagerState,
@@ -142,20 +147,31 @@ private fun CenterRow(
 }
 
 @Composable
-private fun UpPage(pagerState: PagerState, page: Int) {
-    Surface(
+private fun UpPage(
+    pagerState: PagerState,
+    page: Int,
+    content: @Composable () -> Unit,
+) {
+    val glassSurface = StreamLauncherTheme.colors.glassSurface
+
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .graphicsLayer { alpha = pageAlpha(pagerState, page) },
-        color = MaterialTheme.colorScheme.surfaceVariant,
     ) {
+        // 배경 레이어: 글래스 효과
         Box(
-            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .fillMaxSize()
+                .glassEffect(overlayColor = glassSurface),
+        )
+        // 콘텐츠 레이어
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding(),
         ) {
-            Text("Notifications & Settings", style = MaterialTheme.typography.headlineSmall)
+            content()
         }
     }
 }

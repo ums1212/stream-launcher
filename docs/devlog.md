@@ -2,6 +2,90 @@
 
 ---
 
+## [2026-02-21] Step 17 — 설정 페이지 기초 및 서브 네비게이션 구현
+
+### 목표
+
+`CrossPagerNavigation` 상단 페이지(VerticalPager index 0)의 "Notifications & Settings" 텍스트 플레이스홀더를 실제 설정 화면으로 교체한다. 테마 컬러 / 홈 이미지 설정 서브 탭으로의 네비게이션 기반을 구축하고, 도메인 모델(`GridCellImage`)을 `core:domain`에 순수하게 정의한다.
+
+추가로, 기존에 `feature:launcher` 모듈에 있던 `GridCell` enum이 `core:domain`에 있어야 하는 도메인 개념임을 인지하고 이동한다 (순환 의존성 방지).
+
+### 변경 사항
+
+| # | 모듈 | 파일 | 변경 내용 |
+|---|------|------|----------|
+| 1 | `core:domain` | `domain/model/GridCell.kt` | **신규(이동)** — `feature:launcher`의 `launcher/model/GridCell.kt`를 `core:domain`으로 이동, 패키지 변경 (`launcher.model` → `domain.model`) |
+| 2 | `core:domain` | `domain/model/GridCellImage.kt` | **신규** — 그리드 셀별 이미지 URI 데이터 클래스 (`cell: GridCell`, `idleImageUri`, `expandedImageUri`) |
+| 3 | `feature:launcher` | `launcher/model/GridCell.kt` | **삭제** — `core:domain`으로 이동 |
+| 4 | `feature:launcher` | `launcher/HomeContract.kt` | import 수정 (`launcher.model.GridCell` → `domain.model.GridCell`); `HomeState`에 `currentSettingsTab: SettingsTab`, `gridCellImages: Map<GridCell, GridCellImage>` 추가; `HomeIntent.ChangeSettingsTab(tab: SettingsTab)` 추가 |
+| 5 | `feature:launcher` | `launcher/HomeViewModel.kt` | import 수정 (`domain.model.GridCell`, `launcher.model.SettingsTab`); `ChangeSettingsTab` 핸들러 추가; `resetHome()`에 `currentSettingsTab = SettingsTab.MAIN` 초기화 추가 |
+| 6 | `feature:launcher` | `launcher/ui/HomeScreen.kt` | import 수정 (`domain.model.GridCell`) |
+| 7 | `feature:launcher` | `launcher/model/SettingsTab.kt` | **신규** — `enum class SettingsTab { MAIN, COLOR, IMAGE }` |
+| 8 | `feature:launcher` | `launcher/ui/SettingsScreen.kt` | **신규** — `SettingsScreen` 컴포저블 (탭별 화면 분기, `BackHandler`, spring 애니메이션, 햅틱 피드백) |
+| 9 | `feature:launcher` | `test/.../HomeViewModelTest.kt` | import 수정 (`domain.model.GridCell`) |
+| 10 | `:app` | `navigation/CrossPagerNavigation.kt` | `settingsContent: @Composable () -> Unit = {}` 파라미터 추가; `UpPage`를 `Surface` 플레이스홀더 → GlassEffect 2-layer Box + 콘텐츠 슬롯 구조로 교체 |
+| 11 | `:app` | `MainActivity.kt` | `SettingsScreen` import 추가; `CrossPagerNavigation`에 `settingsContent` 슬롯 연결 |
+
+#### SettingsScreen 구조
+
+```
+SettingsScreen(state: HomeState, onIntent: (HomeIntent) -> Unit)
+├─ BackHandler(enabled = tab != MAIN) → ChangeSettingsTab(MAIN)
+└─ Box(Center)
+   ├─ [MAIN]  MainSettingsContent
+   │   └─ Row
+   │       ├─ SettingsButton("테마 컬러", accentPrimary) → ChangeSettingsTab(COLOR)
+   │       └─ SettingsButton("홈 이미지", accentSecondary) → ChangeSettingsTab(IMAGE)
+   ├─ [COLOR] ColorSettingsContent  (준비 중 placeholder)
+   └─ [IMAGE] ImageSettingsContent  (준비 중 placeholder)
+```
+
+#### UpPage 리팩터링 (CrossPagerNavigation)
+
+```
+[이전] Surface(surfaceVariant) > Box(Center) > Text("Notifications & Settings")
+
+[이후] Box (graphicsLayer alpha)
+       ├─ Box [배경] — glassEffect(overlayColor = glassSurface)
+       └─ Box [콘텐츠] — statusBarsPadding
+           └─ settingsContent()   ← SettingsScreen 슬롯
+```
+
+#### 의존성 이동 근거
+
+```
+[이전] GridCell: feature:launcher/launcher/model/
+       └─ feature:launcher가 core:domain에 의존하므로 역방향 참조 불가
+       → GridCellImage를 core:domain에 놓으려면 GridCell도 core:domain 필요
+
+[이후] GridCell: core:domain/domain/model/
+       GridCellImage: core:domain/domain/model/
+       → core:data에서 향후 DataStore 영속화 시 GridCellImage를 바로 참조 가능
+```
+
+### 검증 결과
+
+```
+./gradlew assembleDebug  →  BUILD SUCCESSFUL in 19s (197 tasks, 51 executed)
+./gradlew test           →  BUILD SUCCESSFUL in 32s (301 tasks, failures=0)
+```
+
+기존 테스트 전체 회귀 없음 (import 경로 변경만, 동작 변경 없음).
+
+### 설계 결정 및 근거
+
+| 결정 | 근거 |
+|------|------|
+| `GridCell`을 `core:domain`으로 이동 | 그리드 셀은 런처 도메인의 핵심 개념. `GridCellImage`가 `GridCell`을 참조하는데, `GridCellImage`를 `core:domain`에 두려면 `GridCell`도 동일 모듈에 있어야 순환 의존성 미발생. `feature:launcher`에서는 `core:domain`을 참조하므로 하위호환 유지 |
+| `GridCellImage`를 `core:domain`에 정의 | 향후 `core:data`에서 `SettingsRepository`로 DataStore에 URI를 영속화할 때 `core:domain` 모델을 그대로 참조 가능. 순수 데이터 클래스로 Android 의존성 없음 |
+| `SettingsTab`을 `feature:launcher`에 배치 | 설정 탭 전환은 런처 UI의 내비게이션 상태이므로 도메인이 아닌 feature 계층에서 관리. `core:domain`에 두면 UI 개념이 도메인에 침투함 |
+| `UpPage`를 GlassEffect 구조로 통일 | `DownPage`(앱 서랍), `RightPage`(위젯) 모두 GlassEffect 배경을 사용. `UpPage`만 불투명 `Surface`를 유지하면 시각 일관성 깨짐 |
+| `settingsContent` 슬롯을 기본값 `{}` 람다로 | `appDrawerContent`, `widgetContent`와 동일 패턴. MainActivity가 콘텐츠를 주입하고 CrossPagerNavigation은 위치·전환만 책임짐 |
+| `SettingsButton`에 `defaultMinSize(minHeight = 48.dp)` | 구글 접근성 가이드라인 권장 최소 터치 영역(48×48dp) 준수 |
+| `BackHandler(enabled = tab != MAIN)` | 서브 탭에서만 활성화해 MAIN에서는 CrossPagerNavigation의 페이지 복귀 BackHandler와 충돌하지 않음 |
+
+---
+
 ## [2026-02-21] Step 16 — 클린아키텍처 점검 및 모듈 분리 리팩토링
 
 ### 목표

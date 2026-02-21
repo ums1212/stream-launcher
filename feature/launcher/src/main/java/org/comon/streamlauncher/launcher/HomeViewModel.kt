@@ -11,7 +11,8 @@ import kotlinx.coroutines.launch
 import org.comon.streamlauncher.domain.model.AppEntity
 import org.comon.streamlauncher.domain.usecase.GetInstalledAppsUseCase
 import org.comon.streamlauncher.domain.util.ChosungMatcher
-import org.comon.streamlauncher.launcher.model.GridCell
+import org.comon.streamlauncher.domain.model.GridCell
+import org.comon.streamlauncher.launcher.model.SettingsTab
 import org.comon.streamlauncher.ui.BaseViewModel
 import javax.inject.Inject
 
@@ -46,6 +47,7 @@ class HomeViewModel @Inject constructor(
                 resetHome()
             }
             is HomeIntent.Search -> search(intent.query)
+            is HomeIntent.ChangeSettingsTab -> updateState { copy(currentSettingsTab = intent.tab) }
         }
     }
 
@@ -93,6 +95,7 @@ class HomeViewModel @Inject constructor(
                 expandedCell = null,
                 searchQuery = "",
                 filteredApps = appsInCells.values.flatten().sortedBy { it.label },
+                currentSettingsTab = SettingsTab.MAIN,
             )
         }
     }
