@@ -2,6 +2,47 @@
 
 ---
 
+## [2026-02-22] Step 22: 피드 설정 화면 구현
+
+### 목표
+
+설정 화면에 "피드 설정" 탭을 추가하여 치지직 채널 ID · YouTube 채널 ID · RSS URL · 피드 배경 이미지를 DataStore에 영속화할 수 있도록 한다. 저장된 값은 피드 화면에 즉시 반영되며, 앱 재시작 후에도 유지된다.
+
+### 변경 사항
+
+| # | 파일 | 작업 |
+|---|------|------|
+| 1 | `domain/model/LauncherSettings.kt` | `feedBackgroundImage: String? = null` 필드 추가 |
+| 2 | `domain/repository/SettingsRepository.kt` | `setChzzkChannelId` / `setYoutubeChannelId` / `setRssUrl` / `setFeedBackgroundImage` 메서드 추가 |
+| 3 | `domain/usecase/SaveFeedSettingsUseCase.kt` | **신규** — 채널 ID 2개 + RSS URL 3개 필드를 repository에 일괄 저장 |
+| 4 | `data/repository/SettingsRepositoryImpl.kt` | DataStore 키 4개(`chzzk_channel_id`, `youtube_channel_id`, `rss_url`, `feed_background_image`) 추가, `getSettings()` 매핑 확장, setter 4개 구현 (`setFeedBackgroundImage` null 시 key 삭제) |
+| 5 | `launcher/model/SettingsTab.kt` | `FEED` 값 추가 |
+| 6 | `launcher/HomeContract.kt` | `HomeState`에 `chzzkChannelId` / `youtubeChannelId` / `rssUrl` / `feedBackgroundImage` 추가; `HomeIntent`에 `SaveFeedSettings` / `SetFeedBackgroundImage` sealed class 추가 |
+| 7 | `launcher/HomeViewModel.kt` | `SaveFeedSettingsUseCase` + `SettingsRepository` 주입; settings collect에 feed 필드 4개 반영; `saveFeedSettings()` / `setFeedBackgroundImage()` 핸들러 추가 |
+| 8 | `launcher/FeedContract.kt` | `FeedState`에 `feedBackgroundImage: String? = null` 추가 |
+| 9 | `launcher/FeedViewModel.kt` | settings collect에 `feedBackgroundImage` 반영 |
+| 10 | `launcher/ui/FeedScreen.kt` | `FeedScreen` → `Box` 래핑; 배경 이미지 레이어 (`AsyncImage`, alpha=0.4f, blur=8.dp, crossfade=300); 기존 콘텐츠를 `FeedContent` 내부 함수로 분리; `LocalContext` 추가 |
+| 11 | `launcher/ui/SettingsScreen.kt` | `MainSettingsContent`에 "피드 설정" 버튼 추가 (Column 레이아웃으로 변경); `FeedSettingsContent` 컴포저블 신규 작성 — 배경 이미지 미리보기·선택·제거, `OutlinedTextField` 3개(실시간 isError 검증), 저장 버튼(검증 실패 시 비활성); `when` 분기에 `SettingsTab.FEED` 추가; `derivedStateOf` 기반 입력 검증 |
+| 12 | `launcher/HomeViewModelTest.kt` | `saveFeedSettingsUseCase` / `settingsRepository` mock 추가; `makeViewModel` 헬퍼 파라미터 2개 추가 |
+
+### 검증 결과
+
+```
+BUILD SUCCESSFUL (assembleDebug)
+전체 테스트 BUILD SUCCESSFUL — 실패 0건
+기존 테스트 회귀 없음
+```
+
+### 설계 결정 및 근거
+
+- **`SettingsRepository` 직접 주입**: `setFeedBackgroundImage`는 단독으로 호출되는 빈도가 높아 별도 UseCase를 만드는 것이 과설계라고 판단, `HomeViewModel`에서 repository를 직접 호출
+- **`derivedStateOf` 실시간 검증**: `OutlinedTextField`의 `isError` + `supportingText`로 저장 전 즉각 피드백 제공; 저장 버튼을 검증 실패 시 `enabled = false`로 처리하여 잘못된 데이터 저장 차단
+- **`setFeedBackgroundImage(null)` 시 key 삭제**: `stringPreferencesKey`는 null을 직접 저장할 수 없어 `prefs.remove(key)` 사용 — 읽을 때 `?: null`로 자연스럽게 복원
+- **배경 이미지 blur + alpha**: `blur(8.dp)` + `alpha = 0.4f` 조합으로 피드 텍스트 가독성 유지하면서 Glassmorphism 분위기 구현
+- **URI 영구 권한 try-catch**: 일부 서드파티 파일 매니저에서 `takePersistableUriPermission` 실패 시 크래시 방지; Toast 안내 후 저장 중단
+
+---
+
 ## [2026-02-22] Step 21: Feed & Notice 데이터 레이어 구현
 
 ### 목표

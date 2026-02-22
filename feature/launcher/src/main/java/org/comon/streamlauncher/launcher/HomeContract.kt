@@ -19,6 +19,10 @@ data class HomeState(
     val gridCellImages: Map<GridCell, GridCellImage> = GridCell.entries.associateWith { GridCellImage(it) },
     val colorPresetIndex: Int = 0,
     val cellAssignments: Map<GridCell, List<String>> = emptyMap(),
+    val chzzkChannelId: String = "",
+    val youtubeChannelId: String = "",
+    val rssUrl: String = "",
+    val feedBackgroundImage: String? = null,
 ) : UiState {
     val pinnedPackages: Set<String> get() = cellAssignments.values.flatten().toSet()
 }
@@ -34,6 +38,12 @@ sealed interface HomeIntent : UiIntent {
     data class SetGridImage(val cell: GridCell, val type: ImageType, val uri: String) : HomeIntent
     data class AssignAppToCell(val app: AppEntity, val cell: GridCell) : HomeIntent
     data class UnassignApp(val app: AppEntity) : HomeIntent
+    data class SaveFeedSettings(
+        val chzzkChannelId: String,
+        val youtubeChannelId: String,
+        val rssUrl: String,
+    ) : HomeIntent
+    data class SetFeedBackgroundImage(val uri: String?) : HomeIntent
 }
 
 sealed interface HomeSideEffect : UiSideEffect {

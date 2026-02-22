@@ -1,6 +1,7 @@
 package org.comon.streamlauncher.launcher.ui
 
 import android.content.Intent
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -27,16 +28,20 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -81,6 +86,7 @@ fun SettingsScreen(
             SettingsTab.MAIN -> MainSettingsContent(onIntent = onIntent)
             SettingsTab.COLOR -> ColorSettingsContent(state = state, onIntent = onIntent)
             SettingsTab.IMAGE -> ImageSettingsContent(state = state, onIntent = onIntent)
+            SettingsTab.FEED -> FeedSettingsContent(state = state, onIntent = onIntent)
         }
     }
 }
@@ -91,27 +97,40 @@ private fun MainSettingsContent(onIntent: (HomeIntent) -> Unit) {
     val accentPrimary = StreamLauncherTheme.colors.accentPrimary
     val accentSecondary = StreamLauncherTheme.colors.accentSecondary
 
-    Row(
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically,
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.padding(horizontal = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        Row(
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            SettingsButton(
+                label = "테마 컬러",
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onIntent(HomeIntent.ChangeSettingsTab(SettingsTab.COLOR))
+                },
+                containerColor = accentPrimary,
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+            SettingsButton(
+                label = "홈 이미지",
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onIntent(HomeIntent.ChangeSettingsTab(SettingsTab.IMAGE))
+                },
+                containerColor = accentSecondary,
+            )
+        }
         SettingsButton(
-            label = "테마 컬러",
+            label = "피드 설정",
             onClick = {
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                onIntent(HomeIntent.ChangeSettingsTab(SettingsTab.COLOR))
+                onIntent(HomeIntent.ChangeSettingsTab(SettingsTab.FEED))
             },
-            containerColor = accentPrimary,
-        )
-        Spacer(modifier = Modifier.width(16.dp))
-        SettingsButton(
-            label = "홈 이미지",
-            onClick = {
-                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                onIntent(HomeIntent.ChangeSettingsTab(SettingsTab.IMAGE))
-            },
-            containerColor = accentSecondary,
+            containerColor = accentPrimary.copy(alpha = 0.7f),
         )
     }
 }
@@ -363,6 +382,185 @@ private fun ImageSettingsContent(
             ) {
                 Text(text = "확장 이미지")
             }
+        }
+    }
+}
+
+@Composable
+private fun FeedSettingsContent(
+    state: HomeState,
+    onIntent: (HomeIntent) -> Unit,
+) {
+    val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
+    val accentPrimary = StreamLauncherTheme.colors.accentPrimary
+
+    var chzzkChannelId by remember(state.chzzkChannelId) { mutableStateOf(state.chzzkChannelId) }
+    var youtubeChannelId by remember(state.youtubeChannelId) { mutableStateOf(state.youtubeChannelId) }
+    var rssUrl by remember(state.rssUrl) { mutableStateOf(state.rssUrl) }
+
+    val rssUrlError by remember {
+        derivedStateOf {
+            rssUrl.isNotBlank() && !rssUrl.trim().startsWith("http")
+        }
+    }
+    val chzzkError by remember {
+        derivedStateOf {
+            chzzkChannelId.any { it.isWhitespace() }
+        }
+    }
+    val youtubeError by remember {
+        derivedStateOf {
+            youtubeChannelId.any { it.isWhitespace() }
+        }
+    }
+    val isSaveEnabled by remember {
+        derivedStateOf { !rssUrlError && !chzzkError && !youtubeError }
+    }
+
+    val feedBgLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+    ) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        try {
+            context.contentResolver.takePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION,
+            )
+        } catch (_: Exception) {
+            Toast.makeText(context, "이미지 권한을 가져올 수 없습니다", Toast.LENGTH_SHORT).show()
+            return@rememberLauncherForActivityResult
+        }
+        onIntent(HomeIntent.SetFeedBackgroundImage(uri.toString()))
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Text(
+            text = "피드 설정",
+            style = MaterialTheme.typography.titleLarge,
+        )
+
+        // 배경 이미지
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                text = "피드 배경 이미지",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (state.feedBackgroundImage != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(100.dp)
+                        .clip(RoundedCornerShape(8.dp)),
+                ) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .data(state.feedBackgroundImage)
+                            .crossfade(300)
+                            .build(),
+                        contentDescription = "피드 배경",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        feedBgLauncher.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+                        )
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = accentPrimary),
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(text = if (state.feedBackgroundImage != null) "이미지 변경" else "이미지 선택")
+                }
+                if (state.feedBackgroundImage != null) {
+                    Button(
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onIntent(HomeIntent.SetFeedBackgroundImage(null))
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer,
+                        ),
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text(
+                            text = "이미지 제거",
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                        )
+                    }
+                }
+            }
+        }
+
+        // 치지직 채널 ID
+        OutlinedTextField(
+            value = chzzkChannelId,
+            onValueChange = { chzzkChannelId = it },
+            label = { Text("치지직 채널 ID") },
+            isError = chzzkError,
+            supportingText = if (chzzkError) {
+                { Text("공백을 포함할 수 없습니다") }
+            } else null,
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+        )
+
+        // YouTube 채널 ID
+        OutlinedTextField(
+            value = youtubeChannelId,
+            onValueChange = { youtubeChannelId = it },
+            label = { Text("YouTube 채널 ID") },
+            placeholder = { Text("@handle 또는 채널 ID") },
+            isError = youtubeError,
+            supportingText = if (youtubeError) {
+                { Text("공백을 포함할 수 없습니다") }
+            } else null,
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+        )
+
+        // RSS URL
+        OutlinedTextField(
+            value = rssUrl,
+            onValueChange = { rssUrl = it },
+            label = { Text("RSS 피드 URL") },
+            isError = rssUrlError,
+            supportingText = if (rssUrlError) {
+                { Text("올바른 URL 형식이 아닙니다") }
+            } else null,
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+        )
+
+        // 저장 버튼
+        Button(
+            onClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                onIntent(
+                    HomeIntent.SaveFeedSettings(
+                        chzzkChannelId = chzzkChannelId.trim(),
+                        youtubeChannelId = youtubeChannelId.trim(),
+                        rssUrl = rssUrl.trim(),
+                    ),
+                )
+            },
+            enabled = isSaveEnabled,
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(containerColor = accentPrimary),
+        ) {
+            Text(text = "저장")
         }
     }
 }

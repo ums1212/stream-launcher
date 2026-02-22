@@ -13,10 +13,12 @@ import kotlinx.coroutines.test.setMain
 import org.comon.streamlauncher.domain.model.AppEntity
 import org.comon.streamlauncher.domain.model.GridCell
 import org.comon.streamlauncher.domain.model.LauncherSettings
+import org.comon.streamlauncher.domain.repository.SettingsRepository
 import org.comon.streamlauncher.domain.usecase.GetInstalledAppsUseCase
 import org.comon.streamlauncher.domain.usecase.GetLauncherSettingsUseCase
 import org.comon.streamlauncher.domain.usecase.SaveCellAssignmentUseCase
 import org.comon.streamlauncher.domain.usecase.SaveColorPresetUseCase
+import org.comon.streamlauncher.domain.usecase.SaveFeedSettingsUseCase
 import org.comon.streamlauncher.domain.usecase.SaveGridCellImageUseCase
 import org.comon.streamlauncher.launcher.model.ImageType
 import org.junit.After
@@ -46,6 +48,8 @@ class HomeViewModelTest {
     private lateinit var saveColorPresetUseCase: SaveColorPresetUseCase
     private lateinit var saveGridCellImageUseCase: SaveGridCellImageUseCase
     private lateinit var saveCellAssignmentUseCase: SaveCellAssignmentUseCase
+    private lateinit var saveFeedSettingsUseCase: SaveFeedSettingsUseCase
+    private lateinit var settingsRepository: SettingsRepository
     private lateinit var viewModel: HomeViewModel
 
     @Before
@@ -60,6 +64,8 @@ class HomeViewModelTest {
         saveColorPresetUseCase = mockk(relaxed = true)
         saveGridCellImageUseCase = mockk(relaxed = true)
         saveCellAssignmentUseCase = mockk(relaxed = true)
+        saveFeedSettingsUseCase = mockk(relaxed = true)
+        settingsRepository = mockk(relaxed = true)
 
         viewModel = makeViewModel()
     }
@@ -76,12 +82,16 @@ class HomeViewModelTest {
         colorSaveUseCase: SaveColorPresetUseCase = saveColorPresetUseCase,
         imageSaveUseCase: SaveGridCellImageUseCase = saveGridCellImageUseCase,
         cellAssignmentUseCase: SaveCellAssignmentUseCase = saveCellAssignmentUseCase,
+        feedSettingsUseCase: SaveFeedSettingsUseCase = saveFeedSettingsUseCase,
+        repository: SettingsRepository = settingsRepository,
     ): HomeViewModel = HomeViewModel(
         appsUseCase,
         settingsUseCase,
         colorSaveUseCase,
         imageSaveUseCase,
         cellAssignmentUseCase,
+        feedSettingsUseCase,
+        repository,
     )
 
     // 1. 초기 상태 확인

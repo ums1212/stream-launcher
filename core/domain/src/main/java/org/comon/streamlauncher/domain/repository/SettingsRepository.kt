@@ -9,4 +9,8 @@ interface SettingsRepository {
     suspend fun setColorPresetIndex(index: Int)
     suspend fun setGridCellImage(cell: GridCell, idle: String?, expanded: String?)
     suspend fun setCellAssignment(cell: GridCell, packageNames: List<String>)
+    suspend fun setChzzkChannelId(id: String)
+    suspend fun setYoutubeChannelId(id: String)
+    suspend fun setRssUrl(url: String)
+    suspend fun setFeedBackgroundImage(uri: String?)
 }

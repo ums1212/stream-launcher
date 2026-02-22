@@ -43,6 +43,10 @@ class SettingsRepositoryImpl @Inject constructor(
     private val colorPresetIndexKey = intPreferencesKey("color_preset_index")
     private val gridCellImagesKey = stringPreferencesKey("grid_cell_images")
     private val cellAssignmentsKey = stringPreferencesKey("cell_assignments")
+    private val chzzkChannelIdKey = stringPreferencesKey("chzzk_channel_id")
+    private val youtubeChannelIdKey = stringPreferencesKey("youtube_channel_id")
+    private val rssUrlKey = stringPreferencesKey("rss_url")
+    private val feedBackgroundImageKey = stringPreferencesKey("feed_background_image")
 
     override fun getSettings(): Flow<LauncherSettings> =
         context.dataStore.data.map { prefs ->
@@ -51,10 +55,18 @@ class SettingsRepositoryImpl @Inject constructor(
             val gridCellImages = parseGridCellImages(imagesJson)
             val assignmentsJson = prefs[cellAssignmentsKey]
             val cellAssignments = parseCellAssignments(assignmentsJson)
+            val chzzkChannelId = prefs[chzzkChannelIdKey] ?: "d2fb83a5db130bf4d273c981b82ca41f"
+            val youtubeChannelId = prefs[youtubeChannelIdKey] ?: ""
+            val rssUrl = prefs[rssUrlKey] ?: ""
+            val feedBackgroundImage = prefs[feedBackgroundImageKey]
             LauncherSettings(
                 colorPresetIndex = colorPresetIndex,
                 gridCellImages = gridCellImages,
                 cellAssignments = cellAssignments,
+                chzzkChannelId = chzzkChannelId,
+                youtubeChannelId = youtubeChannelId,
+                rssUrl = rssUrl,
+                feedBackgroundImage = feedBackgroundImage,
             )
         }
 
@@ -72,6 +84,34 @@ class SettingsRepositoryImpl @Inject constructor(
             current.removeAll { it.cell == cellOrdinal }
             current.add(GridCellImageDto(cell = cellOrdinal, idle = idle, expanded = expanded))
             prefs[gridCellImagesKey] = Json.encodeToString(current)
+        }
+    }
+
+    override suspend fun setChzzkChannelId(id: String) {
+        context.dataStore.edit { prefs ->
+            prefs[chzzkChannelIdKey] = id
+        }
+    }
+
+    override suspend fun setYoutubeChannelId(id: String) {
+        context.dataStore.edit { prefs ->
+            prefs[youtubeChannelIdKey] = id
+        }
+    }
+
+    override suspend fun setRssUrl(url: String) {
+        context.dataStore.edit { prefs ->
+            prefs[rssUrlKey] = url
+        }
+    }
+
+    override suspend fun setFeedBackgroundImage(uri: String?) {
+        context.dataStore.edit { prefs ->
+            if (uri != null) {
+                prefs[feedBackgroundImageKey] = uri
+            } else {
+                prefs.remove(feedBackgroundImageKey)
+            }
         }
     }
 

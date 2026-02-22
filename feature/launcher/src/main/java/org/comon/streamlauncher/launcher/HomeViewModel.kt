@@ -11,10 +11,12 @@ import kotlinx.coroutines.launch
 import org.comon.streamlauncher.domain.model.AppEntity
 import org.comon.streamlauncher.domain.model.GridCell
 import org.comon.streamlauncher.domain.model.GridCellImage
+import org.comon.streamlauncher.domain.repository.SettingsRepository
 import org.comon.streamlauncher.domain.usecase.GetInstalledAppsUseCase
 import org.comon.streamlauncher.domain.usecase.GetLauncherSettingsUseCase
 import org.comon.streamlauncher.domain.usecase.SaveCellAssignmentUseCase
 import org.comon.streamlauncher.domain.usecase.SaveColorPresetUseCase
+import org.comon.streamlauncher.domain.usecase.SaveFeedSettingsUseCase
 import org.comon.streamlauncher.domain.usecase.SaveGridCellImageUseCase
 import org.comon.streamlauncher.domain.util.ChosungMatcher
 import org.comon.streamlauncher.launcher.model.ImageType
@@ -30,6 +32,8 @@ class HomeViewModel @Inject constructor(
     private val saveColorPresetUseCase: SaveColorPresetUseCase,
     private val saveGridCellImageUseCase: SaveGridCellImageUseCase,
     private val saveCellAssignmentUseCase: SaveCellAssignmentUseCase,
+    private val saveFeedSettingsUseCase: SaveFeedSettingsUseCase,
+    private val settingsRepository: SettingsRepository,
 ) : BaseViewModel<HomeState, HomeIntent, HomeSideEffect>(HomeState()) {
 
     private var loadJob: Job? = null
@@ -44,6 +48,10 @@ class HomeViewModel @Inject constructor(
                         colorPresetIndex = settings.colorPresetIndex,
                         gridCellImages = settings.gridCellImages,
                         cellAssignments = settings.cellAssignments,
+                        chzzkChannelId = settings.chzzkChannelId,
+                        youtubeChannelId = settings.youtubeChannelId,
+                        rssUrl = settings.rssUrl,
+                        feedBackgroundImage = settings.feedBackgroundImage,
                     )
                 }
             }
@@ -75,6 +83,8 @@ class HomeViewModel @Inject constructor(
             is HomeIntent.SetGridImage -> setGridImage(intent.cell, intent.type, intent.uri)
             is HomeIntent.AssignAppToCell -> assignAppToCell(intent.app, intent.cell)
             is HomeIntent.UnassignApp -> unassignApp(intent.app)
+            is HomeIntent.SaveFeedSettings -> saveFeedSettings(intent.chzzkChannelId, intent.youtubeChannelId, intent.rssUrl)
+            is HomeIntent.SetFeedBackgroundImage -> setFeedBackgroundImage(intent.uri)
         }
     }
 
@@ -198,6 +208,26 @@ class HomeViewModel @Inject constructor(
             GridCell.entries.forEach { c ->
                 saveCellAssignmentUseCase(c, newAssignments[c] ?: emptyList())
             }
+        }
+    }
+
+    private fun saveFeedSettings(chzzkChannelId: String, youtubeChannelId: String, rssUrl: String) {
+        updateState {
+            copy(
+                chzzkChannelId = chzzkChannelId,
+                youtubeChannelId = youtubeChannelId,
+                rssUrl = rssUrl,
+            )
+        }
+        viewModelScope.launch {
+            saveFeedSettingsUseCase(chzzkChannelId, youtubeChannelId, rssUrl)
+        }
+    }
+
+    private fun setFeedBackgroundImage(uri: String?) {
+        updateState { copy(feedBackgroundImage = uri) }
+        viewModelScope.launch {
+            settingsRepository.setFeedBackgroundImage(uri)
         }
     }
 
