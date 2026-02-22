@@ -8,7 +8,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class ChzzkLiveResponse(
     @SerialName("code") val code: Int = 0,
-    @SerialName("message") val message: String = "",
+    @SerialName("message") val message: String? = null,
     @SerialName("content") val content: ChzzkLiveContent? = null,
 )
 

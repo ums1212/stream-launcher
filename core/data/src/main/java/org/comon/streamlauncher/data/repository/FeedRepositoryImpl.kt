@@ -1,5 +1,6 @@
 package org.comon.streamlauncher.data.repository
 
+import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
@@ -27,6 +28,8 @@ import javax.inject.Inject
 import javax.inject.Named
 import javax.inject.Singleton
 
+private const val TAG = "FeedRepo"
+
 @Serializable
 private data class FeedItemDto(
     val type: String,
@@ -52,10 +55,12 @@ class FeedRepositoryImpl @Inject constructor(
 
     override fun getLiveStatus(channelId: String): Flow<Result<LiveStatus>> = flow {
         if (channelId.isEmpty()) {
+            Log.d(TAG, "getLiveStatus: channelId empty, skip")
             emit(Result.success(LiveStatus(false, "", 0, "", "")))
             return@flow
         }
         val url = "https://api.chzzk.naver.com/service/v3/channels/$channelId/live-detail"
+        Log.d(TAG, "getLiveStatus: calling $url")
         val response = chzzkService.getLiveDetail(url)
         val content = response.content
         val status = LiveStatus(
@@ -65,8 +70,10 @@ class FeedRepositoryImpl @Inject constructor(
             thumbnailUrl = content?.liveImageUrl ?: "",
             channelId = channelId,
         )
+        Log.d(TAG, "getLiveStatus: isLive=${status.isLive} title='${status.title}'")
         emit(Result.success(status))
     }.catch { e ->
+        Log.e(TAG, "getLiveStatus failed", e)
         emit(Result.failure(e))
     }.flowOn(Dispatchers.IO)
 
@@ -74,8 +81,12 @@ class FeedRepositoryImpl @Inject constructor(
         rssUrl: String,
         youtubeChannelId: String,
     ): Flow<Result<List<FeedItem>>> = flow {
+        Log.d(TAG, "getIntegratedFeed() rssUrl='$rssUrl' youtubeChannelId='$youtubeChannelId'")
+        Log.d(TAG, "YOUTUBE_API_KEY length=${NetworkConstants.YOUTUBE_API_KEY.length}")
+
         // 1) 캐시 먼저 emit
         val cachedJson = cacheDataStore.data.first()[feedCacheKey]
+        Log.d(TAG, "cache hit=${!cachedJson.isNullOrEmpty()}")
         if (!cachedJson.isNullOrEmpty()) {
             emit(Result.success(parseFeedItemsJson(cachedJson)))
         }
@@ -83,15 +94,21 @@ class FeedRepositoryImpl @Inject constructor(
         // 2) 병렬 네트워크 호출
         val (rssItems, youtubeItems) = coroutineScope {
             val rssDeferred = async {
-                runCatching { fetchRssItems(rssUrl) }.getOrElse { emptyList() }
+                runCatching { fetchRssItems(rssUrl) }
+                    .onFailure { Log.e(TAG, "fetchRssItems failed", it) }
+                    .getOrElse { emptyList() }
             }
             val ytDeferred = async {
-                runCatching { fetchYoutubeItems(youtubeChannelId) }.getOrElse { emptyList() }
+                runCatching { fetchYoutubeItems(youtubeChannelId) }
+                    .onFailure { Log.e(TAG, "fetchYoutubeItems failed", it) }
+                    .getOrElse { emptyList() }
             }
             rssDeferred.await() to ytDeferred.await()
         }
 
+        Log.d(TAG, "rssItems=${rssItems.size} youtubeItems=${youtubeItems.size}")
         val combined = (rssItems + youtubeItems).sortedByDescending { it.dateMillis }
+        Log.d(TAG, "combined total=${combined.size}")
 
         // 3) 캐시 갱신
         cacheDataStore.edit { prefs ->
@@ -100,12 +117,18 @@ class FeedRepositoryImpl @Inject constructor(
 
         emit(Result.success(combined))
     }.catch { e ->
+        Log.e(TAG, "getIntegratedFeed flow error", e)
         emit(Result.failure(e))
     }.flowOn(Dispatchers.IO)
 
     private suspend fun fetchRssItems(rssUrl: String): List<FeedItem.NoticeItem> {
-        if (rssUrl.isEmpty()) return emptyList()
+        if (rssUrl.isEmpty()) {
+            Log.d(TAG, "fetchRssItems: rssUrl empty, skip")
+            return emptyList()
+        }
+        Log.d(TAG, "fetchRssItems: calling url=$rssUrl")
         val response = rssFeedApi.getRssFeed(rssUrl)
+        Log.d(TAG, "fetchRssItems: got ${response.channel.items.size} items")
         return response.channel.items.map { item ->
             FeedItem.NoticeItem(
                 title = item.title,
@@ -117,9 +140,14 @@ class FeedRepositoryImpl @Inject constructor(
     }
 
     private suspend fun fetchYoutubeItems(youtubeChannelId: String): List<FeedItem.VideoItem> {
-        if (youtubeChannelId.isEmpty()) return emptyList()
+        if (youtubeChannelId.isEmpty()) {
+            Log.d(TAG, "fetchYoutubeItems: channelId empty, skip")
+            return emptyList()
+        }
+        Log.d(TAG, "fetchYoutubeItems: channelId='$youtubeChannelId'")
 
         val resolvedId = if (youtubeChannelId.startsWith("@")) {
+            Log.d(TAG, "fetchYoutubeItems: resolving handle -> channelId")
             handleToChannelIdCache.getOrPut(youtubeChannelId) {
                 val channelResponse = youTubeService.getChannelByHandle(
                     url = "https://www.googleapis.com/youtube/v3/channels",
@@ -127,12 +155,14 @@ class FeedRepositoryImpl @Inject constructor(
                     handle = youtubeChannelId,
                     apiKey = NetworkConstants.YOUTUBE_API_KEY,
                 )
+                Log.d(TAG, "fetchYoutubeItems: handle resolve items=${channelResponse.items.size}")
                 channelResponse.items.firstOrNull()?.id ?: return emptyList()
             }
         } else {
             youtubeChannelId
         }
 
+        Log.d(TAG, "fetchYoutubeItems: resolved channelId='$resolvedId', calling search API")
         val searchResponse = youTubeService.searchVideos(
             url = "https://www.googleapis.com/youtube/v3/search",
             part = "snippet",
@@ -143,6 +173,7 @@ class FeedRepositoryImpl @Inject constructor(
             apiKey = NetworkConstants.YOUTUBE_API_KEY,
         )
 
+        Log.d(TAG, "fetchYoutubeItems: search returned ${searchResponse.items.size} items")
         return searchResponse.items.map { item ->
             FeedItem.VideoItem(
                 title = item.snippet.title,

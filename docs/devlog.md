@@ -2,6 +2,35 @@
 
 ---
 
+## [2026-02-22] bugfix: Chzzk API `message: null` 역직렬화 오류 수정
+
+### 목표
+
+치지직 라이브 상태 조회 시 `{"code":200,"message":null,...}` 응답을 받으면 `JsonDecodingException`이 발생하여 라이브 상태를 가져오지 못하는 버그를 수정한다.
+
+### 변경 사항
+
+| # | 파일 | 작업 |
+|---|------|------|
+| 1 | `core/network/model/ChzzkLiveResponse.kt` | `message: String = ""` → `message: String? = null` (nullable로 정확히 모델링) |
+| 2 | `core/network/di/NetworkModule.kt` | `provideChzzkRetrofit` 내 Json 빌더에 `coerceInputValues = true` 추가 |
+
+### 검증 결과
+
+```
+로그캣 에러 재현:
+  JsonDecodingException: Expected string literal but 'null' literal was found at path: $.message
+  JSON input: {"code":200,"message":null,"content":{...}}
+→ message 필드 nullable 처리 후 정상 역직렬화 확인 (앱 재실행)
+```
+
+### 설계 결정 및 근거
+
+- **모델 nullable 변경 우선**: `coerceInputValues = true`만으로 해결 가능하지만, Chzzk API 스펙상 `message` 자체가 nullable이므로 타입을 `String?`로 정확히 모델링하는 것이 올바른 접근
+- **`coerceInputValues = true` 추가**: `message` 외에 향후 다른 필드에서 같은 상황 발생 시 default 값으로 fallback되도록 방어적으로 추가; 타입 오분류로 인한 동일 오류 재발 방지
+
+---
+
 ## [2026-02-22] Step 22: 피드 설정 화면 구현
 
 ### 목표

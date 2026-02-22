@@ -73,7 +73,52 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideChzzkService(@JsonRetrofit retrofit: Retrofit): ChzzkService {
+    @ChzzkRetrofit
+    fun provideChzzkOkHttpClient(): OkHttpClient {
+        return OkHttpClient.Builder()
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
+            .addInterceptor { chain ->
+                val request = chain.request().newBuilder()
+                    .header(
+                        "User-Agent",
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
+                            "AppleWebKit/537.36 (KHTML, like Gecko) " +
+                            "Chrome/120.0.0.0 Safari/537.36",
+                    )
+                    .header("Referer", "https://chzzk.naver.com/")
+                    .build()
+                chain.proceed(request)
+            }
+            .apply {
+                if (BuildConfig.DEBUG) {
+                    addInterceptor(
+                        HttpLoggingInterceptor().apply {
+                            level = HttpLoggingInterceptor.Level.HEADERS
+                        }
+                    )
+                }
+            }
+            .build()
+    }
+
+    @Provides
+    @Singleton
+    @ChzzkRetrofit
+    fun provideChzzkRetrofit(@ChzzkRetrofit client: OkHttpClient): Retrofit {
+        val json = Json { ignoreUnknownKeys = true; coerceInputValues = true }
+        val contentType = "application/json".toMediaType()
+        return Retrofit.Builder()
+            .baseUrl("https://api.chzzk.naver.com/")
+            .client(client)
+            .addConverterFactory(json.asConverterFactory(contentType))
+            .build()
+    }
+
+    @Provides
+    @Singleton
+    fun provideChzzkService(@ChzzkRetrofit retrofit: Retrofit): ChzzkService {
         return retrofit.create(ChzzkService::class.java)
     }
 

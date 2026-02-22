@@ -9,3 +9,7 @@ annotation class XmlRetrofit
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
 annotation class JsonRetrofit
+
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class ChzzkRetrofit
