@@ -2,6 +2,48 @@
 
 ---
 
+## [2026-02-22] core:network 모듈 구성 — Retrofit2 + OkHttp3 + xmlutil RSS 인프라
+
+### 목표
+
+런처 왼쪽 페이지에 실시간 피드(네이버 카페/라운지 공지사항 RSS)를 연동하기 위한 네트워크 레이어를 구축한다.
+빈 스캐폴드 상태의 `core:network` 모듈에 Retrofit2 + OkHttp3 + kotlinx-serialization(XML) 기반 인프라를 완성하고,
+RSS XML 파싱을 위한 커스텀 Retrofit 컨버터 팩토리까지 구현한다.
+
+### 변경 사항
+
+| # | 파일 | 작업 |
+|---|------|------|
+| 1 | `gradle/libs.versions.toml` | retrofit 2.11.0, okhttp 4.12.0, xmlutil 0.90.3, retrofitKotlinxSerialization 1.0.0 버전 추가; 라이브러리 6종 (`retrofit-core`, `okhttp-core`, `okhttp-logging`, `retrofit-kotlinx-serialization`, `xmlutil-core`, `xmlutil-serialization`) 등록 |
+| 2 | `core/network/build.gradle.kts` | 전체 재작성 — Hilt/KSP/kotlin-serialization 플러그인 추가; 불필요한 appcompat·material·androidTest 의존성 제거; `buildFeatures { buildConfig = true }` 활성화; `testOptions.unitTests.isReturnDefaultValues = true` 추가 |
+| 3 | `core/network/src/main/AndroidManifest.xml` | `INTERNET` 권한 추가 |
+| 4 | `core/network/.../model/RssFeedResponse.kt` | **신규** — `RssFeedResponse` / `RssChannel` / `RssItem` RSS XML 모델 (`@XmlSerialName` 어노테이션으로 XML 구조 매핑) |
+| 5 | `core/network/.../converter/XmlConverterFactory.kt` | **신규** — xmlutil 기반 Retrofit `Converter.Factory`; `serializer(type)` 반사 조회 → `XML.decodeFromString`으로 응답 바디 역직렬화 |
+| 6 | `core/network/.../api/RssFeedApi.kt` | **신규** — `@GET` + `@Url` 동적 URL 패턴으로 임의 RSS 엔드포인트 호출 |
+| 7 | `core/network/.../di/NetworkModule.kt` | **신규** — `OkHttpClient` (30s 타임아웃, DEBUG 빌드 시 `HttpLoggingInterceptor.Level.BODY`), `Retrofit` (XmlConverterFactory), `RssFeedApi` Hilt Singleton 제공 |
+| 8 | `core/network/src/test/.../ExampleUnitTest.kt` | 삭제 (불필요 스캐폴드) |
+| 9 | `core/network/src/androidTest/.../ExampleInstrumentedTest.kt` | 삭제 (불필요 스캐폴드) |
+
+### 검증 결과
+
+```
+./gradlew :core:network:assembleDebug  →  BUILD SUCCESSFUL in 11s (29 tasks)
+./gradlew assembleDebug                →  BUILD SUCCESSFUL in 1m 12s (224 tasks)
+./gradlew test                         →  BUILD SUCCESSFUL in 1m 15s (337 tasks, 실패 0건)
+```
+
+### 설계 결정 및 근거
+
+| 결정 | 근거 |
+|------|------|
+| xmlutil 패키지: `nl.adaptivity.xmlutil.serialization` | Maven group ID(`io.github.pdvrieze.xmlutil`)와 Java 패키지명이 다름. 빌드 실패 후 공식 문서(`pdvrieze.github.io/xmlutil`) 확인으로 올바른 패키지 식별 |
+| `buildFeatures { buildConfig = true }` 명시 | AGP 8.x에서 라이브러리 모듈은 `BuildConfig` 자동 생성이 비활성화됨. `NetworkModule`의 `BuildConfig.DEBUG` 참조를 위해 필수 |
+| `baseUrl("https://placeholder.invalid/")` | RSS 피드는 `@Url`로 전체 URL을 전달하므로 baseUrl은 파싱 검증용 더미값 사용 |
+| XmlConverterFactory 커스텀 구현 | Jakewharton 컨버터는 JSON 전용. RSS XML 응답 처리를 위해 xmlutil을 Retrofit `Converter.Factory`로 래핑 |
+| `serializer(type): KSerializer` + `@OptIn(ExperimentalSerializationApi::class)` | Retrofit이 Java `Type`을 전달하므로 kotlinx.serialization의 `serializer(Type)` 반사 API 사용. 비직렬화 가능 타입은 `null` 반환으로 다음 컨버터로 위임 |
+
+---
+
 ## [2026-02-21] Step 19 — 드래그 앤 드롭 기반 앱 배치 기능
 
 ### 목표
