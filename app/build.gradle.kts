@@ -45,6 +45,7 @@ dependencies {
     implementation(project(":core:domain"))
     implementation(project(":core:data"))
     implementation(project(":core:ui"))
+    implementation(project(":core:network"))
     implementation(project(":feature:launcher"))
     implementation(project(":feature:apps-drawer"))
     implementation(project(":feature:widget"))

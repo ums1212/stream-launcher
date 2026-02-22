@@ -4,6 +4,7 @@ import android.appwidget.AppWidgetHost
 import android.appwidget.AppWidgetManager
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -24,9 +25,12 @@ import dagger.hilt.android.AndroidEntryPoint
 import androidx.compose.ui.graphics.Color
 import org.comon.streamlauncher.apps_drawer.ui.AppDrawerScreen
 import org.comon.streamlauncher.domain.model.ColorPresets
+import org.comon.streamlauncher.launcher.FeedSideEffect
+import org.comon.streamlauncher.launcher.FeedViewModel
 import org.comon.streamlauncher.launcher.HomeIntent
 import org.comon.streamlauncher.launcher.HomeSideEffect
 import org.comon.streamlauncher.launcher.HomeViewModel
+import org.comon.streamlauncher.launcher.ui.FeedScreen
 import org.comon.streamlauncher.launcher.ui.HomeScreen
 import org.comon.streamlauncher.launcher.ui.SettingsScreen
 import org.comon.streamlauncher.navigation.CrossPagerNavigation
@@ -41,6 +45,7 @@ class MainActivity : ComponentActivity() {
 
     private val viewModel: HomeViewModel by viewModels()
     private val widgetViewModel: WidgetViewModel by viewModels()
+    private val feedViewModel: FeedViewModel by viewModels()
     private var resetTrigger by mutableIntStateOf(0)
 
     private lateinit var appWidgetHost: AppWidgetHost
@@ -112,6 +117,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+            val feedState by feedViewModel.uiState.collectAsStateWithLifecycle()
             val preset = ColorPresets.getByIndex(uiState.colorPresetIndex)
             val dragDropState = remember { DragDropState() }
             StreamLauncherTheme(
@@ -142,8 +148,30 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
+                LaunchedEffect(Unit) {
+                    feedViewModel.effect.collect { effect ->
+                        when (effect) {
+                            is FeedSideEffect.OpenUrl -> {
+                                try {
+                                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(effect.url)))
+                                } catch (e: ActivityNotFoundException) {
+                                    Log.w("MainActivity", "URL 열기 실패: ${effect.url}", e)
+                                }
+                            }
+                            is FeedSideEffect.ShowError ->
+                                Log.e("MainActivity", "Feed Error: ${effect.message}")
+                        }
+                    }
+                }
+
                 CrossPagerNavigation(
                     resetTrigger = resetTrigger,
+                    feedContent = {
+                        FeedScreen(
+                            state = feedState,
+                            onIntent = feedViewModel::handleIntent,
+                        )
+                    },
                     settingsContent = {
                         SettingsScreen(
                             state = uiState,

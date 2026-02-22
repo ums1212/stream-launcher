@@ -19,9 +19,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -50,7 +47,7 @@ import kotlin.math.roundToInt
  *   VerticalPager(3페이지, 초기=1)
  *   ├─ [0] UpPage     — Notifications & Settings
  *   ├─ [1] CenterRow  — HorizontalPager(3페이지, 초기=1)
- *   │       ├─ [0] LeftPage  — Feed & Announcements
+ *   │       ├─ [0] LeftPage  — Feed & Announcements (feedContent)
  *   │       ├─ [1] homeContent()
  *   │       └─ [2] RightPage — Widget Area
  *   └─ [2] DownPage   — App Drawer (appDrawerContent()) — 글래스 배경
@@ -68,6 +65,7 @@ fun CrossPagerNavigation(
     appDrawerContent: @Composable () -> Unit,
     widgetContent: @Composable () -> Unit = {},
     settingsContent: @Composable () -> Unit = {},
+    feedContent: @Composable () -> Unit = {},
     homeContent: @Composable () -> Unit,
 ) {
     val verticalPagerState = rememberPagerState(initialPage = 1, pageCount = { 3 })
@@ -130,6 +128,7 @@ fun CrossPagerNavigation(
                     horizontalPagerState = horizontalPagerState,
                     homeContent = homeContent,
                     widgetContent = widgetContent,
+                    feedContent = feedContent,
                     isDragging = dragDropState.isDragging,
                 )
                 2 -> DownPage(
@@ -197,6 +196,7 @@ private fun CenterRow(
     horizontalPagerState: PagerState,
     homeContent: @Composable () -> Unit,
     widgetContent: @Composable () -> Unit,
+    feedContent: @Composable () -> Unit,
     isDragging: Boolean = false,
 ) {
     HorizontalPager(
@@ -208,7 +208,11 @@ private fun CenterRow(
         userScrollEnabled = !verticalPagerState.isScrollInProgress && !isDragging,
     ) { horizontalPage ->
         when (horizontalPage) {
-            0 -> LeftPage(pagerState = horizontalPagerState, page = horizontalPage)
+            0 -> LeftPage(
+                pagerState = horizontalPagerState,
+                page = horizontalPage,
+                content = feedContent,
+            )
             1 -> Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -288,20 +292,31 @@ private fun DownPage(
 }
 
 @Composable
-private fun LeftPage(pagerState: PagerState, page: Int) {
-    Surface(
+private fun LeftPage(
+    pagerState: PagerState,
+    page: Int,
+    content: @Composable () -> Unit,
+) {
+    val glassSurface = StreamLauncherTheme.colors.glassSurface
+
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .graphicsLayer { alpha = pageAlpha(pagerState, page) },
-        color = MaterialTheme.colorScheme.surfaceVariant,
     ) {
+        // 배경 레이어: 글래스 효과
         Box(
-            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .fillMaxSize()
+                .glassEffect(overlayColor = glassSurface),
+        )
+        // 콘텐츠 레이어
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .safeDrawingPadding(),
         ) {
-            Text("Feed & Announcements", style = MaterialTheme.typography.headlineSmall)
+            content()
         }
     }
 }

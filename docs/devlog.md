@@ -2,6 +2,69 @@
 
 ---
 
+## [2026-02-22] Step 21: Feed & Notice 데이터 레이어 구현
+
+### 목표
+
+`core:network` RSS 인프라 위에 치지직 라이브 상태 · 네이버 카페 RSS 공지 · 유튜브 영상 3개 소스를 통합하는 전체 데이터 흐름을 완성한다. MVI 패턴으로 FeedViewModel과 FeedScreen을 구현하고, 왼쪽 스와이프 페이지에 실제 피드 UI를 연결한다.
+
+### 변경 사항
+
+| # | 파일 | 작업 |
+|---|------|------|
+| 1 | `domain/model/LiveStatus.kt` | **신규** — isLive, title, viewerCount, thumbnailUrl, channelId |
+| 2 | `domain/model/FeedItem.kt` | **신규** — sealed interface: NoticeItem(title, dateMillis, link, source) / VideoItem(title, dateMillis, thumbnailUrl, videoLink) |
+| 3 | `domain/repository/FeedRepository.kt` | **신규** — getLiveStatus(channelId) / getIntegratedFeed(rssUrl, youtubeChannelId) |
+| 4 | `domain/usecase/GetLiveStatusUseCase.kt` | **신규** — operator fun invoke |
+| 5 | `domain/usecase/GetIntegratedFeedUseCase.kt` | **신규** — operator fun invoke |
+| 6 | `domain/model/LauncherSettings.kt` | chzzkChannelId / rssUrl / youtubeChannelId 필드 추가 (기본값 포함) |
+| 7 | `network/di/NetworkQualifiers.kt` | **신규** — @XmlRetrofit / @JsonRetrofit qualifier 어노테이션 |
+| 8 | `network/di/NetworkModule.kt` | @XmlRetrofit(기존 Retrofit 리네임) + @JsonRetrofit(JSON) 이중 인스턴스 분리; ChzzkService / YouTubeService 제공 |
+| 9 | `network/build.gradle.kts` | local.properties 에서 youtube.api.key 읽어 BuildConfig.YOUTUBE_API_KEY 노출 |
+| 10 | `network/NetworkConstants.kt` | **신규** — BuildConfig.YOUTUBE_API_KEY 외부 노출 객체 |
+| 11 | `network/api/ChzzkService.kt` | **신규** — @GET + @Url 패턴 (절대 URL 동적 전달) |
+| 12 | `network/api/YouTubeService.kt` | **신규** — searchVideos / getChannelByHandle (forHandle 핸들→채널ID) |
+| 13 | `network/model/ChzzkLiveResponse.kt` | **신규** — ChzzkLiveResponse / ChzzkLiveContent |
+| 14 | `network/model/YouTubeSearchResponse.kt` | **신규** — YouTubeSearchResponse / Item / Snippet / Thumbnails |
+| 15 | `network/model/YouTubeChannelListResponse.kt` | **신규** — 핸들→채널ID 변환 응답 모델 |
+| 16 | `data/build.gradle.kts` | `:core:network` 의존성 추가 |
+| 17 | `data/util/DateParser.kt` | **신규** — parseRfc822 / parseIso8601 (다중 패턴 fallback, 실패 시 0L) |
+| 18 | `data/repository/FeedRepositoryImpl.kt` | **신규** — getLiveStatus: Chzzk API 호출; getIntegratedFeed: coroutineScope async 병렬, 개별 runCatching 부분성공, dateMillis 내림차순, DataStore 오프라인 캐싱 |
+| 19 | `data/di/FeedModule.kt` | **신규** — @Binds FeedRepository + @Provides @Named("feed_cache") DataStore |
+| 20 | `launcher/FeedContract.kt` | **신규** — FeedState / FeedIntent / FeedSideEffect MVI 계약 |
+| 21 | `launcher/FeedViewModel.kt` | **신규** — @HiltViewModel, init settings collect → refresh(), loadJob 중복방지, 60초 쿨다운, ClickFeedItem/ClickLiveStatus OpenUrl 이펙트 |
+| 22 | `launcher/ui/FeedScreen.kt` | **신규** — LiveStatusCard(Breathing 네온글로우), NoticeItemRow, VideoItemRow(Coil AsyncImage), LazyColumn |
+| 23 | `app/navigation/CrossPagerNavigation.kt` | feedContent 파라미터 추가; LeftPage를 glassEffect 배경 + content 슬롯 구조로 개편 |
+| 24 | `app/MainActivity.kt` | FeedViewModel 추가; FeedSideEffect.OpenUrl → Intent(ACTION_VIEW) 처리; CrossPagerNavigation feedContent 연결 |
+| 25 | `app/build.gradle.kts` | `:core:network` 의존성 추가 |
+| 26 | `local.properties` | youtube.api.key 키 추가 (빈값, 실기기 사용 시 입력) |
+
+### 검증 결과
+
+```
+BUILD SUCCESSFUL (assembleDebug)
+전체 테스트 BUILD SUCCESSFUL — 실패 0건
+
+신규 테스트 36개:
+  FeedItemTest              5개
+  GetLiveStatusUseCaseTest  3개
+  GetIntegratedFeedUseCaseTest 3개
+  DateParserTest            7개
+  FeedRepositoryImplTest    8개
+  FeedViewModelTest         10개
+```
+
+### 설계 결정 및 근거
+
+- **@Url 패턴**: Chzzk / YouTube는 베이스 URL이 서로 다르므로 `@GET + @Url` 동적 URL 전달 방식 사용 (기존 RssFeedApi와 동일 패턴)
+- **@XmlRetrofit / @JsonRetrofit 이중 인스턴스**: xmlutil 기반 RSS 파서(XML)와 kotlinx-serialization JSON이 공존해야 하므로 Qualifier로 분리
+- **coroutineScope async 병렬 호출**: RSS와 YouTube 각각 독립적으로 실패할 수 있으므로 runCatching으로 개별 래핑, 한쪽 실패해도 다른 쪽 결과 표시
+- **DataStore 캐싱**: cache-first 전략 — 캐시 emit 후 네트워크 호출; 네트워크 실패 시 캐시 데이터 유지 (빈 화면 방지)
+- **60초 쿨다운**: YouTube Data API 일일 할당량 보호 (FeedViewModel.MIN_REFRESH_INTERVAL_MS)
+- **@Named("feed_cache") DataStore**: SettingsRepositoryImpl의 "launcher_settings"와 분리, 테스트 시 mockk<DataStore> 주입 가능
+
+---
+
 ## [2026-02-22] core:network 모듈 구성 — Retrofit2 + OkHttp3 + xmlutil RSS 인프라
 
 ### 목표

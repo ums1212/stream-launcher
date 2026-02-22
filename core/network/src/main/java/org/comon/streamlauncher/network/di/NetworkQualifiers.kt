@@ -1,0 +1,11 @@
+package org.comon.streamlauncher.network.di
+
+import javax.inject.Qualifier
+
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class XmlRetrofit
+
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class JsonRetrofit
