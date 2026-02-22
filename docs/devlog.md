@@ -2,6 +2,45 @@
 
 ---
 
+## [2026-02-22] feat(feed): YouTube 채널 프로필 카드 추가 (구독자 수 애니메이션 + 7일 캐시)
+
+### 목표
+
+피드 화면에 YouTube 채널 정보(아바타·채널명·구독자 수)를 보여주는 프로필 카드를 라이브 상태 카드 아래, 피드 목록 위에 고정 배치한다. YouTube Data API `channels.list?part=snippet,statistics`를 신규 호출하고, Quota 절약을 위해 DataStore 7일 캐시를 적용한다. 구독자 수는 `AnimatedContent`로 슬라이드 전환 애니메이션을 적용하여 고급스러운 UX를 제공한다.
+
+### 변경 사항
+
+| # | 파일 | 작업 |
+|---|------|------|
+| 1 | `core/network/model/YouTubeChannelListResponse.kt` | `YouTubeChannelItem`에 `snippet: YouTubeChannelSnippet?` · `statistics: YouTubeChannelStatistics?` nullable 필드 추가; `YouTubeChannelSnippet`(title, description, thumbnails) · `YouTubeChannelStatistics`(subscriberCount, videoCount, viewCount — String) 서브 클래스 신규 정의 |
+| 2 | `core/network/api/YouTubeService.kt` | `getChannelInfo(@Url, part, id?, forHandle?, key)` 메서드 추가 — `id`·`forHandle` 모두 nullable (null 파라미터는 Retrofit이 쿼리에서 자동 제외) |
+| 3 | `core/domain/model/ChannelProfile.kt` | **신규** — `channelId`, `name`, `avatarUrl`, `subscriberCount: Long`, `videoCount: Long` |
+| 4 | `core/domain/repository/FeedRepository.kt` | `getChannelProfile(youtubeChannelId: String): Flow<Result<ChannelProfile>>` 추가 |
+| 5 | `core/domain/usecase/GetChannelProfileUseCase.kt` | **신규** — `@Inject constructor(feedRepository)`, `operator fun invoke` 패턴 |
+| 6 | `core/data/repository/FeedRepositoryImpl.kt` | `ChannelProfileDto` (`@Serializable`) 추가; DataStore 키 2개(`channel_profile_json`, `channel_profile_timestamp`) 추가; `PROFILE_CACHE_TTL_MS = 7일` 상수; `getChannelProfile()` 구현 (캐시 유효→즉시 return, 스테일→먼저 emit 후 갱신, handle→channelId 메모리캐시 공유); `parseProfileDto()` 헬퍼 추가 |
+| 7 | `feature/launcher/FeedContract.kt` | `FeedState`에 `channelProfile: ChannelProfile? = null` 추가; `FeedIntent`에 `ClickChannelProfile` sealed object 추가 |
+| 8 | `feature/launcher/FeedViewModel.kt` | `GetChannelProfileUseCase` 주입; `refresh()` 내 세 번째 병렬 `profileJob` 추가 (youtubeChannelId 비면 skip, 실패는 silent); `handleIntent`에 `ClickChannelProfile` → `openChannelPage()` 처리 추가 |
+| 9 | `feature/launcher/ui/FeedScreen.kt` | `AnimatedContent` · `CircleShape` · `CircleCropTransformation` import 추가; `ChannelProfileCard` 컴포저블 신규 — 원형 아바타(48dp, `CircleCropTransformation`), 채널명(`titleSmall Bold`), 구독자 수(`AnimatedContent` + `slideInVertically/slideOutVertically`), 클릭 시 `ClickChannelProfile`; `FeedContent` Column에 LiveStatusCard 다음, Spacer 다음, LazyColumn 위에 조건부 렌더링 (`profile.name.isNotEmpty()` 조건); `formatSubscriberCount(Long): String` 헬퍼 추가 (만/천 단위 한국어) |
+| 10 | `feature/launcher/FeedViewModelTest.kt` | `GetChannelProfileUseCase` mock 추가; `makeViewModel` 파라미터 추가; `채널 프로필 로드 성공` · `ClickChannelProfile OpenUrl 이펙트` 테스트 2개 신규 추가 |
+
+### 검증 결과
+
+```
+./gradlew assembleDebug → BUILD SUCCESSFUL (23s)
+./gradlew test         → BUILD SUCCESSFUL — 실패 0건
+신규 테스트 2개 추가 (FeedViewModelTest), 기존 테스트 회귀 없음
+```
+
+### 설계 결정 및 근거
+
+- **`getChannelInfo` 별도 메서드 추가**: 기존 `getChannelByHandle`은 `part=id`만 요청하는 용도로 유지. `snippet,statistics`를 요청하는 신규 메서드를 분리하여 각 호출 목적을 명확히 하고, `id`·`forHandle` 모두 nullable로 선언해 채널 ID / handle 양방향 지원
+- **7일 캐시**: 채널 메타정보(이름·아바타·구독자 수)는 변경 빈도가 낮으므로 7일 TTL 설정. 캐시 신선도 체크 → 스테일 캐시 먼저 emit(UX: 즉시 화면 표시) → 백그라운드 갱신 후 재emit 패턴으로 체감 응답 속도 향상
+- **`AnimatedContent` 구독자 수 전환**: `slideInVertically { height } togetherWith slideOutVertically { -height }` 조합으로 숫자가 위로 밀려나고 새 값이 아래에서 올라오는 자연스러운 전환 구현
+- **`CircleCropTransformation`**: Coil 2.x `ImageRequest.Builder.transformations()` API 사용 — `clip(CircleShape)` + `CircleCropTransformation` 이중 처리로 아바타 로딩 중·후 모두 원형 유지
+- **프로필 fetch 실패는 silent**: 채널 프로필은 non-critical 정보로, 실패 시 `channelProfile = null` 유지 → UI에서 조건부 렌더링으로 카드 숨김. 에러 토스트 미노출로 UX 방해 방지
+
+---
+
 ## [2026-02-22] bugfix: Chzzk API `message: null` 역직렬화 오류 수정
 
 ### 목표

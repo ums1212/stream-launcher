@@ -25,4 +25,13 @@ interface YouTubeService {
         @Query("forHandle") handle: String,
         @Query("key") apiKey: String,
     ): YouTubeChannelListResponse
+
+    @GET
+    suspend fun getChannelInfo(
+        @Url url: String,
+        @Query("part") part: String,
+        @Query("id") id: String? = null,
+        @Query("forHandle") handle: String? = null,
+        @Query("key") apiKey: String,
+    ): YouTubeChannelListResponse
 }

@@ -1,10 +1,14 @@
 package org.comon.streamlauncher.launcher.ui
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,6 +24,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
@@ -45,6 +50,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import coil.transform.CircleCropTransformation
+import org.comon.streamlauncher.domain.model.ChannelProfile
 import org.comon.streamlauncher.domain.model.FeedItem
 import org.comon.streamlauncher.domain.model.LiveStatus
 import org.comon.streamlauncher.launcher.FeedIntent
@@ -128,6 +135,17 @@ private fun FeedContent(
             }
         }
 
+        // 채널 프로필 카드
+        state.channelProfile?.let { profile ->
+            if (profile.name.isNotEmpty()) {
+                ChannelProfileCard(
+                    profile = profile,
+                    onClick = { onIntent(FeedIntent.ClickChannelProfile) },
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+        }
+
         // 피드 목록
         when {
             state.isLoading && state.feedItems.isEmpty() -> {
@@ -161,6 +179,70 @@ private fun FeedContent(
                             )
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ChannelProfileCard(
+    profile: ChannelProfile,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f),
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            // 원형 아바타
+            AsyncImage(
+                model = ImageRequest.Builder(context)
+                    .data(profile.avatarUrl)
+                    .crossfade(300)
+                    .transformations(CircleCropTransformation())
+                    .build(),
+                contentDescription = profile.name,
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape),
+                contentScale = ContentScale.Crop,
+            )
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = profile.name,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                // 구독자 수 AnimatedContent
+                AnimatedContent(
+                    targetState = profile.subscriberCount,
+                    transitionSpec = {
+                        slideInVertically { height -> height } togetherWith
+                            slideOutVertically { height -> -height }
+                    },
+                    label = "subscriberCount",
+                ) { count ->
+                    Text(
+                        text = "구독자 ${formatSubscriberCount(count)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
         }
@@ -339,5 +421,13 @@ private fun formatDate(millis: Long): String {
         SimpleDateFormat("MM.dd", Locale.KOREAN).format(Date(millis))
     } catch (_: Exception) {
         ""
+    }
+}
+
+private fun formatSubscriberCount(count: Long): String {
+    return when {
+        count >= 10_000 -> "${count / 10_000}만명"
+        count >= 1_000 -> "${count / 1_000}천명"
+        else -> "${count}명"
     }
 }

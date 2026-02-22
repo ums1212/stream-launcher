@@ -17,6 +17,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.comon.streamlauncher.data.util.DateParser
+import org.comon.streamlauncher.domain.model.ChannelProfile
 import org.comon.streamlauncher.domain.model.FeedItem
 import org.comon.streamlauncher.domain.model.LiveStatus
 import org.comon.streamlauncher.domain.repository.FeedRepository
@@ -29,6 +30,16 @@ import javax.inject.Named
 import javax.inject.Singleton
 
 private const val TAG = "FeedRepo"
+private const val PROFILE_CACHE_TTL_MS = 7L * 24 * 60 * 60 * 1000 // 7일
+
+@Serializable
+private data class ChannelProfileDto(
+    val channelId: String = "",
+    val name: String = "",
+    val avatarUrl: String = "",
+    val subscriberCount: Long = 0L,
+    val videoCount: Long = 0L,
+)
 
 @Serializable
 private data class FeedItemDto(
@@ -50,6 +61,8 @@ class FeedRepositoryImpl @Inject constructor(
 ) : FeedRepository {
 
     private val feedCacheKey = stringPreferencesKey("feed_cache_json")
+    private val profileCacheJsonKey = stringPreferencesKey("channel_profile_json")
+    private val profileCacheTimestampKey = stringPreferencesKey("channel_profile_timestamp")
     private val handleToChannelIdCache = HashMap<String, String>()
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -221,5 +234,96 @@ class FeedRepositoryImpl @Inject constructor(
             }
         }
         return json.encodeToString(dtos)
+    }
+
+    override fun getChannelProfile(youtubeChannelId: String): Flow<Result<ChannelProfile>> = flow {
+        if (youtubeChannelId.isEmpty()) {
+            Log.d(TAG, "getChannelProfile: channelId empty, skip")
+            return@flow
+        }
+
+        val prefs = cacheDataStore.data.first()
+        val cachedJson = prefs[profileCacheJsonKey]
+        val cachedTimestamp = prefs[profileCacheTimestampKey]?.toLongOrNull() ?: 0L
+        val now = System.currentTimeMillis()
+        val isValid = !cachedJson.isNullOrEmpty() && (now - cachedTimestamp) < PROFILE_CACHE_TTL_MS
+
+        if (isValid && cachedJson != null) {
+            Log.d(TAG, "getChannelProfile: cache hit (valid)")
+            emit(Result.success(parseProfileDto(cachedJson)))
+            return@flow
+        }
+
+        // 스테일 캐시 있으면 먼저 emit
+        if (!cachedJson.isNullOrEmpty()) {
+            Log.d(TAG, "getChannelProfile: stale cache, emitting before refresh")
+            emit(Result.success(parseProfileDto(cachedJson)))
+        }
+
+        val resolvedId = if (youtubeChannelId.startsWith("@")) {
+            handleToChannelIdCache.getOrPut(youtubeChannelId) {
+                val resp = youTubeService.getChannelByHandle(
+                    url = "https://www.googleapis.com/youtube/v3/channels",
+                    part = "id",
+                    handle = youtubeChannelId,
+                    apiKey = NetworkConstants.YOUTUBE_API_KEY,
+                )
+                resp.items.firstOrNull()?.id ?: return@flow
+            }
+        } else {
+            youtubeChannelId
+        }
+
+        Log.d(TAG, "getChannelProfile: fetching snippet,statistics for id='$resolvedId'")
+        val response = youTubeService.getChannelInfo(
+            url = "https://www.googleapis.com/youtube/v3/channels",
+            part = "snippet,statistics",
+            id = resolvedId,
+            apiKey = NetworkConstants.YOUTUBE_API_KEY,
+        )
+
+        val item = response.items.firstOrNull() ?: return@flow
+        val profile = ChannelProfile(
+            channelId = item.id,
+            name = item.snippet?.title ?: "",
+            avatarUrl = item.snippet?.thumbnails?.high?.url
+                ?: item.snippet?.thumbnails?.default?.url
+                ?: "",
+            subscriberCount = item.statistics?.subscriberCount?.toLongOrNull() ?: 0L,
+            videoCount = item.statistics?.videoCount?.toLongOrNull() ?: 0L,
+        )
+
+        val dto = ChannelProfileDto(
+            channelId = profile.channelId,
+            name = profile.name,
+            avatarUrl = profile.avatarUrl,
+            subscriberCount = profile.subscriberCount,
+            videoCount = profile.videoCount,
+        )
+        cacheDataStore.edit { p ->
+            p[profileCacheJsonKey] = json.encodeToString(dto)
+            p[profileCacheTimestampKey] = now.toString()
+        }
+        handleToChannelIdCache[youtubeChannelId] = profile.channelId
+        Log.d(TAG, "getChannelProfile: success name='${profile.name}' subs=${profile.subscriberCount}")
+        emit(Result.success(profile))
+    }.catch { e ->
+        Log.e(TAG, "getChannelProfile failed", e)
+        emit(Result.failure(e))
+    }.flowOn(Dispatchers.IO)
+
+    private fun parseProfileDto(jsonStr: String): ChannelProfile {
+        return try {
+            val dto: ChannelProfileDto = json.decodeFromString(jsonStr)
+            ChannelProfile(
+                channelId = dto.channelId,
+                name = dto.name,
+                avatarUrl = dto.avatarUrl,
+                subscriberCount = dto.subscriberCount,
+                videoCount = dto.videoCount,
+            )
+        } catch (_: Exception) {
+            ChannelProfile("", "", "", 0L, 0L)
+        }
     }
 }

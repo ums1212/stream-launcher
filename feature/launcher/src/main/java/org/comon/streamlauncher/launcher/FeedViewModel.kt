@@ -6,6 +6,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import org.comon.streamlauncher.domain.model.FeedItem
+import org.comon.streamlauncher.domain.usecase.GetChannelProfileUseCase
 import org.comon.streamlauncher.domain.usecase.GetIntegratedFeedUseCase
 import org.comon.streamlauncher.domain.usecase.GetLauncherSettingsUseCase
 import org.comon.streamlauncher.domain.usecase.GetLiveStatusUseCase
@@ -19,6 +20,7 @@ class FeedViewModel @Inject constructor(
     private val getLauncherSettingsUseCase: GetLauncherSettingsUseCase,
     private val getLiveStatusUseCase: GetLiveStatusUseCase,
     private val getIntegratedFeedUseCase: GetIntegratedFeedUseCase,
+    private val getChannelProfileUseCase: GetChannelProfileUseCase,
 ) : BaseViewModel<FeedState, FeedIntent, FeedSideEffect>(FeedState()) {
 
     private var loadJob: Job? = null
@@ -45,6 +47,7 @@ class FeedViewModel @Inject constructor(
             is FeedIntent.Refresh -> refresh(force = false)
             is FeedIntent.ClickFeedItem -> openFeedItemUrl(intent.item)
             is FeedIntent.ClickLiveStatus -> openLiveStream()
+            is FeedIntent.ClickChannelProfile -> openChannelPage()
         }
     }
 
@@ -94,8 +97,22 @@ class FeedViewModel @Inject constructor(
                 }
             }
 
+            val profileJob = launch {
+                if (youtubeChannelId.isEmpty()) return@launch
+                try {
+                    getChannelProfileUseCase(youtubeChannelId).collect { result ->
+                        result.onSuccess { profile ->
+                            updateState { copy(channelProfile = profile) }
+                        }
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) { /* 프로필 fetch 실패는 silent */ }
+            }
+
             liveJob.join()
             feedJob.join()
+            profileJob.join()
         }
     }
 
@@ -113,6 +130,14 @@ class FeedViewModel @Inject constructor(
         val channelId = currentState.chzzkChannelId
         if (channelId.isNotEmpty()) {
             sendEffect(FeedSideEffect.OpenUrl("https://chzzk.naver.com/live/$channelId"))
+        }
+    }
+
+    private fun openChannelPage() {
+        val channelId = currentState.channelProfile?.channelId
+            ?: currentState.youtubeChannelId
+        if (channelId.isNotEmpty()) {
+            sendEffect(FeedSideEffect.OpenUrl("https://www.youtube.com/channel/$channelId"))
         }
     }
 }

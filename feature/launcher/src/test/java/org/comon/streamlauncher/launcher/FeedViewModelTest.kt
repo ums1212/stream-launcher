@@ -10,9 +10,11 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import org.comon.streamlauncher.domain.model.ChannelProfile
 import org.comon.streamlauncher.domain.model.FeedItem
 import org.comon.streamlauncher.domain.model.LauncherSettings
 import org.comon.streamlauncher.domain.model.LiveStatus
+import org.comon.streamlauncher.domain.usecase.GetChannelProfileUseCase
 import org.comon.streamlauncher.domain.usecase.GetIntegratedFeedUseCase
 import org.comon.streamlauncher.domain.usecase.GetLauncherSettingsUseCase
 import org.comon.streamlauncher.domain.usecase.GetLiveStatusUseCase
@@ -33,6 +35,7 @@ class FeedViewModelTest {
     private lateinit var getLauncherSettingsUseCase: GetLauncherSettingsUseCase
     private lateinit var getLiveStatusUseCase: GetLiveStatusUseCase
     private lateinit var getIntegratedFeedUseCase: GetIntegratedFeedUseCase
+    private lateinit var getChannelProfileUseCase: GetChannelProfileUseCase
     private lateinit var viewModel: FeedViewModel
 
     private val defaultSettings = LauncherSettings(
@@ -60,10 +63,14 @@ class FeedViewModelTest {
         getLauncherSettingsUseCase = mockk()
         getLiveStatusUseCase = mockk()
         getIntegratedFeedUseCase = mockk()
+        getChannelProfileUseCase = mockk(relaxed = true)
 
         every { getLauncherSettingsUseCase() } returns flowOf(defaultSettings)
         every { getLiveStatusUseCase(any()) } returns flowOf(Result.success(sampleLiveStatus))
         every { getIntegratedFeedUseCase(any(), any()) } returns flowOf(Result.success(sampleFeedItems))
+        every { getChannelProfileUseCase(any()) } returns flowOf(
+            Result.success(ChannelProfile("UCtest", "Test Channel", "", 10000L, 100L))
+        )
     }
 
     @After
@@ -75,6 +82,7 @@ class FeedViewModelTest {
         getLauncherSettingsUseCase,
         getLiveStatusUseCase,
         getIntegratedFeedUseCase,
+        getChannelProfileUseCase,
     )
 
     @Test
@@ -201,5 +209,30 @@ class FeedViewModelTest {
         // advanceUntilIdle 전 로딩 상태 확인은 타이밍 이슈가 있으므로 완료 후 false 확인
         advanceUntilIdle()
         assertFalse(viewModel.uiState.value.isLoading)
+    }
+
+    @Test
+    fun `init - 채널 프로필 로드 성공`() = runTest {
+        viewModel = makeViewModel()
+        advanceUntilIdle()
+
+        assertNotNull(viewModel.uiState.value.channelProfile)
+        assertEquals("Test Channel", viewModel.uiState.value.channelProfile!!.name)
+        assertEquals(10000L, viewModel.uiState.value.channelProfile!!.subscriberCount)
+    }
+
+    @Test
+    fun `ClickChannelProfile - YouTube 채널 URL로 OpenUrl 이펙트 발행`() = runTest {
+        viewModel = makeViewModel()
+        advanceUntilIdle()
+
+        viewModel.effect.test {
+            viewModel.handleIntent(FeedIntent.ClickChannelProfile)
+            advanceUntilIdle()
+            val effect = awaitItem()
+            assertTrue(effect is FeedSideEffect.OpenUrl)
+            assertTrue((effect as FeedSideEffect.OpenUrl).url.contains("youtube.com/channel/"))
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 }

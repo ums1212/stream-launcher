@@ -1,5 +1,6 @@
 package org.comon.streamlauncher.launcher
 
+import org.comon.streamlauncher.domain.model.ChannelProfile
 import org.comon.streamlauncher.domain.model.FeedItem
 import org.comon.streamlauncher.domain.model.LiveStatus
 import org.comon.streamlauncher.ui.UiIntent
@@ -15,12 +16,14 @@ data class FeedState(
     val rssUrl: String = "",
     val youtubeChannelId: String = "",
     val feedBackgroundImage: String? = null,
+    val channelProfile: ChannelProfile? = null,
 ) : UiState
 
 sealed interface FeedIntent : UiIntent {
     data object Refresh : FeedIntent
     data class ClickFeedItem(val item: FeedItem) : FeedIntent
     data object ClickLiveStatus : FeedIntent
+    data object ClickChannelProfile : FeedIntent
 }
 
 sealed interface FeedSideEffect : UiSideEffect {
