@@ -34,7 +34,6 @@ class FeedViewModel @Inject constructor(
                         chzzkChannelId = settings.chzzkChannelId,
                         rssUrl = settings.rssUrl,
                         youtubeChannelId = settings.youtubeChannelId,
-                        feedBackgroundImage = settings.feedBackgroundImage,
                     )
                 }
                 refresh(force = lastRefreshMillis == 0L)

@@ -7,5 +7,5 @@ data class LauncherSettings(
     val chzzkChannelId: String = "d2fb83a5db130bf4d273c981b82ca41f",
     val rssUrl: String = "",
     val youtubeChannelId: String = "",
-    val feedBackgroundImage: String? = null,
+    val wallpaperImage: String? = null,
 )

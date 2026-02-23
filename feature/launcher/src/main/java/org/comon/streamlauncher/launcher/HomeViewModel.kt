@@ -51,7 +51,7 @@ class HomeViewModel @Inject constructor(
                         chzzkChannelId = settings.chzzkChannelId,
                         youtubeChannelId = settings.youtubeChannelId,
                         rssUrl = settings.rssUrl,
-                        feedBackgroundImage = settings.feedBackgroundImage,
+                        wallpaperImage = settings.wallpaperImage,
                     )
                 }
             }
@@ -84,7 +84,7 @@ class HomeViewModel @Inject constructor(
             is HomeIntent.AssignAppToCell -> assignAppToCell(intent.app, intent.cell)
             is HomeIntent.UnassignApp -> unassignApp(intent.app)
             is HomeIntent.SaveFeedSettings -> saveFeedSettings(intent.chzzkChannelId, intent.youtubeChannelId, intent.rssUrl)
-            is HomeIntent.SetFeedBackgroundImage -> setFeedBackgroundImage(intent.uri)
+            is HomeIntent.SetWallpaperImage -> setWallpaperImage(intent.uri)
         }
     }
 
@@ -224,10 +224,10 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun setFeedBackgroundImage(uri: String?) {
-        updateState { copy(feedBackgroundImage = uri) }
+    private fun setWallpaperImage(uri: String?) {
+        updateState { copy(wallpaperImage = uri) }
         viewModelScope.launch {
-            settingsRepository.setFeedBackgroundImage(uri)
+            settingsRepository.setWallpaperImage(uri)
         }
     }
 

@@ -87,6 +87,7 @@ fun SettingsScreen(
             SettingsTab.COLOR -> ColorSettingsContent(state = state, onIntent = onIntent)
             SettingsTab.IMAGE -> ImageSettingsContent(state = state, onIntent = onIntent)
             SettingsTab.FEED -> FeedSettingsContent(state = state, onIntent = onIntent)
+            SettingsTab.WALLPAPER -> WallpaperSettingsContent(state = state, onIntent = onIntent)
         }
     }
 }
@@ -124,14 +125,28 @@ private fun MainSettingsContent(onIntent: (HomeIntent) -> Unit) {
                 containerColor = accentSecondary,
             )
         }
-        SettingsButton(
-            label = "피드 설정",
-            onClick = {
-                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                onIntent(HomeIntent.ChangeSettingsTab(SettingsTab.FEED))
-            },
-            containerColor = accentPrimary.copy(alpha = 0.7f),
-        )
+        Row(
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            SettingsButton(
+                label = "피드 설정",
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onIntent(HomeIntent.ChangeSettingsTab(SettingsTab.FEED))
+                },
+                containerColor = accentPrimary.copy(alpha = 0.7f),
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+            SettingsButton(
+                label = "배경화면",
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onIntent(HomeIntent.ChangeSettingsTab(SettingsTab.WALLPAPER))
+                },
+                containerColor = accentSecondary.copy(alpha = 0.7f),
+            )
+        }
     }
 }
 
@@ -392,7 +407,6 @@ private fun FeedSettingsContent(
     onIntent: (HomeIntent) -> Unit,
 ) {
     val haptic = LocalHapticFeedback.current
-    val context = LocalContext.current
     val accentPrimary = StreamLauncherTheme.colors.accentPrimary
 
     var chzzkChannelId by remember(state.chzzkChannelId) { mutableStateOf(state.chzzkChannelId) }
@@ -418,22 +432,6 @@ private fun FeedSettingsContent(
         derivedStateOf { !rssUrlError && !chzzkError && !youtubeError }
     }
 
-    val feedBgLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickVisualMedia(),
-    ) { uri ->
-        uri ?: return@rememberLauncherForActivityResult
-        try {
-            context.contentResolver.takePersistableUriPermission(
-                uri,
-                Intent.FLAG_GRANT_READ_URI_PERMISSION,
-            )
-        } catch (_: Exception) {
-            Toast.makeText(context, "이미지 권한을 가져올 수 없습니다", Toast.LENGTH_SHORT).show()
-            return@rememberLauncherForActivityResult
-        }
-        onIntent(HomeIntent.SetFeedBackgroundImage(uri.toString()))
-    }
-
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -445,64 +443,6 @@ private fun FeedSettingsContent(
             text = "피드 설정",
             style = MaterialTheme.typography.titleLarge,
         )
-
-        // 배경 이미지
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(
-                text = "피드 배경 이미지",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            if (state.feedBackgroundImage != null) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(100.dp)
-                        .clip(RoundedCornerShape(8.dp)),
-                ) {
-                    AsyncImage(
-                        model = ImageRequest.Builder(context)
-                            .data(state.feedBackgroundImage)
-                            .crossfade(300)
-                            .build(),
-                        contentDescription = "피드 배경",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(
-                    onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        feedBgLauncher.launch(
-                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
-                        )
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = accentPrimary),
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Text(text = if (state.feedBackgroundImage != null) "이미지 변경" else "이미지 선택")
-                }
-                if (state.feedBackgroundImage != null) {
-                    Button(
-                        onClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onIntent(HomeIntent.SetFeedBackgroundImage(null))
-                        },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.errorContainer,
-                        ),
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        Text(
-                            text = "이미지 제거",
-                            color = MaterialTheme.colorScheme.onErrorContainer,
-                        )
-                    }
-                }
-            }
-        }
 
         // 치지직 채널 ID
         OutlinedTextField(
@@ -562,5 +502,101 @@ private fun FeedSettingsContent(
         ) {
             Text(text = "저장")
         }
+    }
+}
+
+@Composable
+private fun WallpaperSettingsContent(
+    state: HomeState,
+    onIntent: (HomeIntent) -> Unit,
+) {
+    val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
+    val accentPrimary = StreamLauncherTheme.colors.accentPrimary
+
+    val wallpaperLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+    ) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        try {
+            context.contentResolver.takePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION,
+            )
+        } catch (_: Exception) {
+            Toast.makeText(context, "이미지 권한을 가져올 수 없습니다", Toast.LENGTH_SHORT).show()
+            return@rememberLauncherForActivityResult
+        }
+        onIntent(HomeIntent.SetWallpaperImage(uri.toString()))
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Text(
+            text = "배경화면",
+            style = MaterialTheme.typography.titleLarge,
+        )
+
+        if (state.wallpaperImage != null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(3f / 1f)
+                    .clip(RoundedCornerShape(8.dp)),
+            ) {
+                AsyncImage(
+                    model = ImageRequest.Builder(context)
+                        .data(state.wallpaperImage)
+                        .crossfade(300)
+                        .build(),
+                    contentDescription = "배경화면 미리보기",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+        }
+
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    wallpaperLauncher.launch(
+                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+                    )
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = accentPrimary),
+                modifier = Modifier.weight(1f),
+            ) {
+                Text(text = if (state.wallpaperImage != null) "이미지 변경" else "이미지 선택")
+            }
+            if (state.wallpaperImage != null) {
+                Button(
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onIntent(HomeIntent.SetWallpaperImage(null))
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                    ),
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(
+                        text = "이미지 제거",
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                    )
+                }
+            }
+        }
+
+        Text(
+            text = "배경화면은 3개의 화면(피드, 홈, 위젯)에 걸쳐 표시됩니다.\n스크롤 시 배경이 함께 움직입니다.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }

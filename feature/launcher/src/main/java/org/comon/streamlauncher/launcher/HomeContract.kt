@@ -22,7 +22,7 @@ data class HomeState(
     val chzzkChannelId: String = "",
     val youtubeChannelId: String = "",
     val rssUrl: String = "",
-    val feedBackgroundImage: String? = null,
+    val wallpaperImage: String? = null,
 ) : UiState {
     val pinnedPackages: Set<String> get() = cellAssignments.values.flatten().toSet()
 }
@@ -43,7 +43,7 @@ sealed interface HomeIntent : UiIntent {
         val youtubeChannelId: String,
         val rssUrl: String,
     ) : HomeIntent
-    data class SetFeedBackgroundImage(val uri: String?) : HomeIntent
+    data class SetWallpaperImage(val uri: String?) : HomeIntent
 }
 
 sealed interface HomeSideEffect : UiSideEffect {

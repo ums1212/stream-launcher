@@ -12,5 +12,5 @@ interface SettingsRepository {
     suspend fun setChzzkChannelId(id: String)
     suspend fun setYoutubeChannelId(id: String)
     suspend fun setRssUrl(url: String)
-    suspend fun setFeedBackgroundImage(uri: String?)
+    suspend fun setWallpaperImage(uri: String?)
 }

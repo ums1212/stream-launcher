@@ -2,6 +2,63 @@
 
 ---
 
+## [2026-02-23] feat(wallpaper): HorizontalPager 패럴랙스 배경화면
+
+### 목표
+
+Android 런처 앱처럼 하나의 배경화면을 지정하고, Feed·Home·Widget 3개 화면을 스크롤할 때 같은 배경화면을 공유하면서 스크롤 방향으로 배경이 함께 움직이는 패럴랙스 효과를 구현한다. 기존 피드 전용 `feedBackgroundImage`를 공유 `wallpaperImage`로 전환하고, 설정 화면에 별도 배경화면 탭을 추가한다.
+
+### 구조
+
+```
+HorizontalPager (3 pages)
+├─ [0] LeftPage (Feed)
+│   └─ WallpaperLayer(pageIndex=0) → glass effect → feedContent
+├─ [1] Home
+│   └─ WallpaperLayer(pageIndex=1) → homeContent
+└─ [2] RightPage (Widget)
+    └─ WallpaperLayer(pageIndex=2) → glass effect → widgetContent
+
+WallpaperLayer:
+  AsyncImage(wallpaper, requiredWidth = screenWidth * 3, ContentScale.Crop)
+  translationX = (1 - pageIndex) * screenWidthPx
+```
+
+- 각 페이지 내부에 동일한 wallpaper 이미지를 3배 너비로 배치
+- `pageIndex`에 따라 `translationX`로 해당 페이지에 맞는 1/3 영역을 표시
+- 부모 Box의 `clipToBounds()`로 페이지 영역만 잘라냄
+- 스크롤 시 페이지가 이동하면서 인접 wallpaper가 연속 이어짐
+
+### 변경 사항
+
+| # | 파일 | 작업 |
+|---|------|------|
+| 1 | `core/domain/.../LauncherSettings.kt` | `feedBackgroundImage` → `wallpaperImage` 리네이밍 |
+| 2 | `core/domain/.../SettingsRepository.kt` | `setFeedBackgroundImage()` → `setWallpaperImage()` |
+| 3 | `core/data/.../SettingsRepositoryImpl.kt` | 메서드명 변경, DataStore key를 `"launcher_background_image"`로 변경 |
+| 4 | `feature/launcher/.../HomeContract.kt` | `HomeState.feedBackgroundImage` → `wallpaperImage`, `HomeIntent.SetFeedBackgroundImage` → `SetWallpaperImage` |
+| 5 | `feature/launcher/.../HomeViewModel.kt` | 리네이밍 반영 (`setWallpaperImage`, `settingsRepository.setWallpaperImage`) |
+| 6 | `feature/launcher/.../FeedContract.kt` | `FeedState.feedBackgroundImage` 필드 제거 |
+| 7 | `feature/launcher/.../FeedViewModel.kt` | settings 수집에서 `feedBackgroundImage` 제거 |
+| 8 | `feature/launcher/.../FeedScreen.kt` | 개별 배경 이미지 레이어(AsyncImage + blur) 제거 |
+| 9 | `feature/launcher/.../model/SettingsTab.kt` | `WALLPAPER` enum 항목 추가 |
+| 10 | `feature/launcher/.../ui/SettingsScreen.kt` | `FeedSettingsContent`에서 배경 이미지 UI 전체 제거; `MainSettingsContent`에 "배경화면" 버튼 추가 → `SettingsTab.WALLPAPER`; `WallpaperSettingsContent` 신규 작성 (3:1 프리뷰, 이미지 선택/변경/제거, 안내 텍스트) |
+| 11 | `app/.../CrossPagerNavigation.kt` | `wallpaperImage` 파라미터 추가; `WallpaperLayer` composable 신규 — `requiredWidth(screenWidthDp * 3)` + `translationX = (1 - pageIndex) * screenWidthPx`; `LeftPage`/`RightPage`에 wallpaper 전달; CenterRow를 페이지 내부 wallpaper 방식으로 전환; LeftPage/RightPage glass alpha 0.55로 조정 |
+| 12 | `app/.../MainActivity.kt` | `wallpaperImage = uiState.wallpaperImage` 전달 |
+
+### 설계 결정 및 근거
+
+| 결정 | 근거 |
+|------|------|
+| Pager 뒤가 아닌 각 페이지 내부에 wallpaper 렌더링 | HorizontalPager가 내부적으로 독립된 렌더 레이어를 생성하여 Pager 뒤의 wallpaper가 페이지를 통과하지 못함 |
+| `requiredWidth()` + `translationX` 보정 `(1 - pageIndex)` | `requiredWidth()`는 부모 제약 초과 시 자동 센터링(offset = -screenWidth)하므로, +screenWidth 보정이 필요 |
+| `ContentScale.Crop` + 3배 너비 컨테이너 | 어떤 비율의 이미지든 가운데 기준 crop으로 3개 화면을 덮는 비율 자동 적용 |
+| LeftPage/RightPage glass alpha 0.55 | 배경화면이 글래스 효과 뒤로 적절히 비치도록 기존 0.85에서 하향 |
+| HomeScreen Surface alpha 0.65 | 그리드 셀 뒤로 배경화면이 은은하게 투과 |
+| `feedBackgroundImage` → `wallpaperImage` 전면 리네이밍 | 3개 화면 공유 배경이므로 feed 전용 네이밍 부적합 |
+
+---
+
 ## [2026-02-23] feat(feed): LiveStatusCard 오프라인 상태 UI + 플랫폼 아이콘 추가
 
 ### 목표

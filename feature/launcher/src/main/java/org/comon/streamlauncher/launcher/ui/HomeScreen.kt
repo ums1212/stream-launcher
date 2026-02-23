@@ -205,7 +205,7 @@ private fun RowScope.GridCellContent(
             onIntent(HomeIntent.ClickGrid(cell))
         },
         shape = shape,
-        color = MaterialTheme.colorScheme.surfaceVariant,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
         modifier = modifier
             .weight(weight)
             .fillMaxSize()

@@ -46,7 +46,7 @@ class SettingsRepositoryImpl @Inject constructor(
     private val chzzkChannelIdKey = stringPreferencesKey("chzzk_channel_id")
     private val youtubeChannelIdKey = stringPreferencesKey("youtube_channel_id")
     private val rssUrlKey = stringPreferencesKey("rss_url")
-    private val feedBackgroundImageKey = stringPreferencesKey("feed_background_image")
+    private val wallpaperImageKey = stringPreferencesKey("launcher_background_image")
 
     override fun getSettings(): Flow<LauncherSettings> =
         context.dataStore.data.map { prefs ->
@@ -58,7 +58,7 @@ class SettingsRepositoryImpl @Inject constructor(
             val chzzkChannelId = prefs[chzzkChannelIdKey] ?: "d2fb83a5db130bf4d273c981b82ca41f"
             val youtubeChannelId = prefs[youtubeChannelIdKey] ?: ""
             val rssUrl = prefs[rssUrlKey] ?: ""
-            val feedBackgroundImage = prefs[feedBackgroundImageKey]
+            val wallpaperImage = prefs[wallpaperImageKey]
             LauncherSettings(
                 colorPresetIndex = colorPresetIndex,
                 gridCellImages = gridCellImages,
@@ -66,7 +66,7 @@ class SettingsRepositoryImpl @Inject constructor(
                 chzzkChannelId = chzzkChannelId,
                 youtubeChannelId = youtubeChannelId,
                 rssUrl = rssUrl,
-                feedBackgroundImage = feedBackgroundImage,
+                wallpaperImage = wallpaperImage,
             )
         }
 
@@ -105,12 +105,12 @@ class SettingsRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun setFeedBackgroundImage(uri: String?) {
+    override suspend fun setWallpaperImage(uri: String?) {
         context.dataStore.edit { prefs ->
             if (uri != null) {
-                prefs[feedBackgroundImageKey] = uri
+                prefs[wallpaperImageKey] = uri
             } else {
-                prefs.remove(feedBackgroundImageKey)
+                prefs.remove(wallpaperImageKey)
             }
         }
     }

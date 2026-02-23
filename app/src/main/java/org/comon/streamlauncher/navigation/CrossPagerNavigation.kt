@@ -5,9 +5,11 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -25,13 +27,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.lerp
+import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
 import org.comon.streamlauncher.apps_drawer.ui.AppIcon
 import org.comon.streamlauncher.ui.dragdrop.LocalDragDropState
@@ -62,6 +68,7 @@ import kotlin.math.roundToInt
 fun CrossPagerNavigation(
     modifier: Modifier = Modifier,
     resetTrigger: Int = 0,
+    wallpaperImage: String? = null,
     appDrawerContent: @Composable () -> Unit,
     widgetContent: @Composable () -> Unit = {},
     settingsContent: @Composable () -> Unit = {},
@@ -115,7 +122,9 @@ fun CrossPagerNavigation(
             state = verticalPagerState,
             modifier = Modifier.fillMaxSize(),
             beyondViewportPageCount = 1,
-            userScrollEnabled = !horizontalPagerState.isScrollInProgress && !dragDropState.isDragging,
+            userScrollEnabled = !horizontalPagerState.isScrollInProgress
+                && !dragDropState.isDragging
+                && horizontalPagerState.currentPage != 0,
         ) { verticalPage ->
             when (verticalPage) {
                 0 -> UpPage(
@@ -126,6 +135,7 @@ fun CrossPagerNavigation(
                 1 -> CenterRow(
                     verticalPagerState = verticalPagerState,
                     horizontalPagerState = horizontalPagerState,
+                    wallpaperImage = wallpaperImage,
                     homeContent = homeContent,
                     widgetContent = widgetContent,
                     feedContent = feedContent,
@@ -194,6 +204,7 @@ fun CrossPagerNavigation(
 private fun CenterRow(
     verticalPagerState: PagerState,
     horizontalPagerState: PagerState,
+    wallpaperImage: String? = null,
     homeContent: @Composable () -> Unit,
     widgetContent: @Composable () -> Unit,
     feedContent: @Composable () -> Unit,
@@ -211,13 +222,17 @@ private fun CenterRow(
             0 -> LeftPage(
                 pagerState = horizontalPagerState,
                 page = horizontalPage,
+                wallpaperImage = wallpaperImage,
+                pageIndex = 0,
                 content = feedContent,
             )
             1 -> Box(
                 modifier = Modifier
                     .fillMaxSize()
+                    .clipToBounds()
                     .graphicsLayer { alpha = pageAlpha(horizontalPagerState, 1) },
             ) {
+                WallpaperLayer(wallpaperImage = wallpaperImage, pageIndex = 1)
                 Box(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
                     homeContent()
                 }
@@ -225,6 +240,8 @@ private fun CenterRow(
             2 -> RightPage(
                 pagerState = horizontalPagerState,
                 page = horizontalPage,
+                wallpaperImage = wallpaperImage,
+                pageIndex = 2,
                 content = widgetContent,
             )
         }
@@ -292,25 +309,47 @@ private fun DownPage(
 }
 
 @Composable
+private fun WallpaperLayer(
+    wallpaperImage: String?,
+    pageIndex: Int,
+) {
+    if (wallpaperImage == null) return
+    val screenWidthDp = LocalConfiguration.current.screenWidthDp.dp
+    val screenWidthPx = with(LocalDensity.current) { screenWidthDp.toPx() }
+
+    AsyncImage(
+        model = wallpaperImage,
+        contentDescription = null,
+        contentScale = ContentScale.Crop,
+        modifier = Modifier
+            .fillMaxHeight()
+            .requiredWidth(screenWidthDp * 3)
+            .graphicsLayer { translationX = (1 - pageIndex) * screenWidthPx },
+    )
+}
+
+@Composable
 private fun LeftPage(
     pagerState: PagerState,
     page: Int,
+    wallpaperImage: String? = null,
+    pageIndex: Int = 0,
     content: @Composable () -> Unit,
 ) {
-    val glassSurface = StreamLauncherTheme.colors.glassSurface
+    val glassSurface = StreamLauncherTheme.colors.glassSurface.copy(alpha = 0.55f)
 
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .clipToBounds()
             .graphicsLayer { alpha = pageAlpha(pagerState, page) },
     ) {
-        // 배경 레이어: 글래스 효과
+        WallpaperLayer(wallpaperImage = wallpaperImage, pageIndex = pageIndex)
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .glassEffect(overlayColor = glassSurface),
         )
-        // 콘텐츠 레이어
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -325,22 +364,24 @@ private fun LeftPage(
 private fun RightPage(
     pagerState: PagerState,
     page: Int,
+    wallpaperImage: String? = null,
+    pageIndex: Int = 2,
     content: @Composable () -> Unit,
 ) {
-    val glassSurface = StreamLauncherTheme.colors.glassSurface
+    val glassSurface = StreamLauncherTheme.colors.glassSurface.copy(alpha = 0.55f)
 
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .clipToBounds()
             .graphicsLayer { alpha = pageAlpha(pagerState, page) },
     ) {
-        // 배경 레이어: 글래스 효과
+        WallpaperLayer(wallpaperImage = wallpaperImage, pageIndex = pageIndex)
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .glassEffect(overlayColor = glassSurface),
         )
-        // 콘텐츠 레이어
         Box(
             modifier = Modifier
                 .fillMaxSize()

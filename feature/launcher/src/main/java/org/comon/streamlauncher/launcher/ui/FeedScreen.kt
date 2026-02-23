@@ -39,7 +39,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.layout.ContentScale
@@ -70,26 +69,7 @@ fun FeedScreen(
     onIntent: (FeedIntent) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val context = LocalContext.current
-
     Box(modifier = modifier.fillMaxSize()) {
-        // 배경 이미지 레이어
-        if (state.feedBackgroundImage != null) {
-            AsyncImage(
-                model = ImageRequest.Builder(context)
-                    .data(state.feedBackgroundImage)
-                    .crossfade(300)
-                    .build(),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                alpha = 0.4f,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .blur(8.dp),
-            )
-        }
-
-        // 피드 콘텐츠
         FeedContent(state = state, onIntent = onIntent)
     }
 }

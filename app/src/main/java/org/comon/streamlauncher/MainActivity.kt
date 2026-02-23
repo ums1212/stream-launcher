@@ -166,6 +166,7 @@ class MainActivity : ComponentActivity() {
 
                 CrossPagerNavigation(
                     resetTrigger = resetTrigger,
+                    wallpaperImage = uiState.wallpaperImage,
                     feedContent = {
                         FeedScreen(
                             state = feedState,
