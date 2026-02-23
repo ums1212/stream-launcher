@@ -47,6 +47,7 @@ class FeedViewModel @Inject constructor(
             is FeedIntent.Refresh -> refresh(force = false)
             is FeedIntent.ClickFeedItem -> openFeedItemUrl(intent.item)
             is FeedIntent.ClickLiveStatus -> openLiveStream()
+            is FeedIntent.ClickOfflineStatus -> openChzzkChannelPage()
             is FeedIntent.ClickChannelProfile -> openChannelPage()
         }
     }
@@ -130,6 +131,13 @@ class FeedViewModel @Inject constructor(
         val channelId = currentState.chzzkChannelId
         if (channelId.isNotEmpty()) {
             sendEffect(FeedSideEffect.OpenUrl("https://chzzk.naver.com/live/$channelId"))
+        }
+    }
+
+    private fun openChzzkChannelPage() {
+        val channelId = currentState.chzzkChannelId
+        if (channelId.isNotEmpty()) {
+            sendEffect(FeedSideEffect.OpenUrl("https://chzzk.naver.com/$channelId"))
         }
     }
 

@@ -23,6 +23,7 @@ sealed interface FeedIntent : UiIntent {
     data object Refresh : FeedIntent
     data class ClickFeedItem(val item: FeedItem) : FeedIntent
     data object ClickLiveStatus : FeedIntent
+    data object ClickOfflineStatus : FeedIntent
     data object ClickChannelProfile : FeedIntent
 }
 

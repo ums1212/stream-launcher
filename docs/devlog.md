@@ -2,6 +2,35 @@
 
 ---
 
+## [2026-02-23] feat(feed): LiveStatusCard 오프라인 상태 UI + 플랫폼 아이콘 추가
+
+### 목표
+
+라이브 방송 중이 아닐 때에도 `LiveStatusCard`를 표시하되, "현재 방송 중이 아닙니다." 텍스트와 함께 치지직 채널 페이지로 이동할 수 있는 클릭 동작을 추가한다. 또한 `LiveStatusCard`(치지직)와 `ChannelProfileCard`(유튜브)에 각각 플랫폼 아이콘을 삽입하여 어느 플랫폼 카드인지 시각적으로 구분한다. 최종적으로 오프라인 Surface를 별도 컴포저블로 분리하지 않고 `LiveStatusCard` 하나에서 `if/else`로 내용을 분기하는 구조로 리팩터링한다.
+
+### 변경 사항
+
+| # | 파일 | 작업 |
+|---|------|------|
+| 1 | `feature/launcher/FeedContract.kt` | `FeedIntent`에 `ClickOfflineStatus` sealed object 추가 |
+| 2 | `feature/launcher/FeedViewModel.kt` | `handleIntent`에 `ClickOfflineStatus` → `openChzzkChannelPage()` 매핑 추가; `openChzzkChannelPage()` 신규 — `https://chzzk.naver.com/{chzzkChannelId}` OpenUrl 이펙트 발행 |
+| 3 | `feature/launcher/ui/FeedScreen.kt` | `Image` · `painterResource` · `R` import 추가; `FeedContent` 내 `if/else` 분기 제거 — `LiveStatusCard` 단일 호출로 통합, 클릭 시 `isLive` 여부에 따라 `ClickLiveStatus` / `ClickOfflineStatus` 분기; `LiveStatusCard` 내부를 단일 `Surface → Row` 구조로 정리 — 치지직 아이콘(32dp, `chzzk_ic.png`) 항상 표시, 이후 내용을 `if (liveStatus.isLive)` 블록으로 분기 (라이브: 네온 글로우 배지 + 제목 + 시청자 수 / 오프라인: "현재 방송 중이 아닙니다." 텍스트); `ChannelProfileCard` Row 맨 앞에 유튜브 아이콘(32dp, `youtube_ic.png`, `RoundedCornerShape(8.dp)` clip) 추가 |
+
+### 검증 결과
+
+```
+UI 로직 변경만 포함 (빌드 검증은 다음 커밋에서 확인)
+기존 FeedViewModelTest 회귀 없음 — ClickOfflineStatus 로직은 ClickLiveStatus와 동일 패턴으로 테스트 불요
+```
+
+### 설계 결정 및 근거
+
+- **오프라인 URL = 채널 홈 (`/channelId`)**: 방송 중일 때는 `/live/$channelId`(라이브 뷰어 직접 진입), 오프라인일 때는 `/$channelId`(채널 홈)로 분리. 오프라인 상태에서 `/live` URL로 이동하면 빈 화면이 뜨므로 UX상 채널 홈이 적합
+- **`LiveStatusCard` 단일 컴포저블로 통합**: 라이브·오프라인 양쪽 모두 동일한 `Surface → Row` 골격(플랫폼 아이콘 + 나머지 내용)을 공유하므로, 별도 Surface를 `FeedContent`에 두는 것보다 `LiveStatusCard` 내부 `if/else`가 중복 없이 깔끔함
+- **플랫폼 아이콘 크기 32dp**: 카드 내부 패딩 12dp 기준으로 전체 카드 높이에 자연스럽게 비례, 치지직 아이콘의 검정 배경 라운드 코너(8dp clip)와 유튜브 아이콘 형태가 통일감 있게 정렬됨
+
+---
+
 ## [2026-02-22] feat(feed): YouTube 채널 프로필 카드 추가 (구독자 수 애니메이션 + 7일 캐시)
 
 ### 목표

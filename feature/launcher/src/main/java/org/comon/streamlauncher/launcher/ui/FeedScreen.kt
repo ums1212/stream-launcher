@@ -57,6 +57,9 @@ import org.comon.streamlauncher.domain.model.LiveStatus
 import org.comon.streamlauncher.launcher.FeedIntent
 import org.comon.streamlauncher.launcher.FeedState
 import org.comon.streamlauncher.ui.theme.StreamLauncherTheme
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
+import org.comon.streamlauncher.launcher.R
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -126,13 +129,14 @@ private fun FeedContent(
 
         // 라이브 상태 카드
         state.liveStatus?.let { liveStatus ->
-            if (liveStatus.isLive) {
-                LiveStatusCard(
-                    liveStatus = liveStatus,
-                    onClick = { onIntent(FeedIntent.ClickLiveStatus) },
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-            }
+            LiveStatusCard(
+                liveStatus = liveStatus,
+                onClick = {
+                    if (liveStatus.isLive) onIntent(FeedIntent.ClickLiveStatus)
+                    else onIntent(FeedIntent.ClickOfflineStatus)
+                },
+            )
+            Spacer(modifier = Modifier.height(12.dp))
         }
 
         // 채널 프로필 카드
@@ -203,6 +207,18 @@ private fun ChannelProfileCard(
             modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            // 유튜브 플랫폼 아이콘
+            Image(
+                painter = painterResource(id = R.drawable.youtube_ic),
+                contentDescription = "YouTube",
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(RoundedCornerShape(8.dp)),
+                contentScale = ContentScale.Fit,
+            )
+
+            Spacer(modifier = Modifier.width(8.dp))
+
             // 원형 아바타
             AsyncImage(
                 model = ImageRequest.Builder(context)
@@ -278,57 +294,77 @@ private fun LiveStatusCard(
             modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // LIVE 배지 (Breathing 네온 글로우)
-            Box(
+            // 치지직 플랫폼 아이콘
+            Image(
+                painter = painterResource(id = R.drawable.chzzk_ic),
+                contentDescription = "치지직",
                 modifier = Modifier
-                    .drawBehind {
-                        drawCircle(
-                            color = accentPrimary.copy(alpha = 0.15f * breathAlpha),
-                            radius = size.minDimension * 0.9f,
-                        )
-                        drawCircle(
-                            color = accentPrimary.copy(alpha = 0.30f * breathAlpha),
-                            radius = size.minDimension * 0.65f,
-                        )
-                        drawCircle(
-                            color = accentPrimary.copy(alpha = 0.80f * breathAlpha),
-                            radius = size.minDimension * 0.42f,
-                        )
-                    }
-                    .padding(8.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = Icons.Default.PlayArrow,
-                    contentDescription = "라이브",
-                    tint = accentPrimary,
-                    modifier = Modifier.size(20.dp),
-                )
-            }
+                    .size(32.dp)
+                    .clip(RoundedCornerShape(8.dp)),
+                contentScale = ContentScale.Fit,
+            )
 
             Spacer(modifier = Modifier.width(8.dp))
 
-            Column(modifier = Modifier.weight(1f)) {
+            if (liveStatus.isLive) {
+                // LIVE 배지 (Breathing 네온 글로우)
+                Box(
+                    modifier = Modifier
+                        .drawBehind {
+                            drawCircle(
+                                color = accentPrimary.copy(alpha = 0.15f * breathAlpha),
+                                radius = size.minDimension * 0.9f,
+                            )
+                            drawCircle(
+                                color = accentPrimary.copy(alpha = 0.30f * breathAlpha),
+                                radius = size.minDimension * 0.65f,
+                            )
+                            drawCircle(
+                                color = accentPrimary.copy(alpha = 0.80f * breathAlpha),
+                                radius = size.minDimension * 0.42f,
+                            )
+                        }
+                        .padding(8.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.PlayArrow,
+                        contentDescription = "라이브",
+                        tint = accentPrimary,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "LIVE",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = accentPrimary,
+                    )
+                    Text(
+                        text = liveStatus.title.ifEmpty { "방송 중" },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+
                 Text(
-                    text = "LIVE",
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = accentPrimary,
+                    text = "${liveStatus.viewerCount}명",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            } else {
                 Text(
-                    text = liveStatus.title.ifEmpty { "방송 중" },
+                    text = "현재 방송 중이 아닙니다.",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-
-            Text(
-                text = "${liveStatus.viewerCount}명",
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
     }
 }
