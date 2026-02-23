@@ -252,16 +252,6 @@ private fun LiveStatusCard(
     modifier: Modifier = Modifier,
 ) {
     val accentPrimary = StreamLauncherTheme.colors.accentPrimary
-    val infiniteTransition = rememberInfiniteTransition(label = "liveBreathing")
-    val breathAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.4f,
-        targetValue = 1.0f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1200),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "breathAlpha",
-    )
 
     Surface(
         modifier = modifier
@@ -287,6 +277,16 @@ private fun LiveStatusCard(
             Spacer(modifier = Modifier.width(8.dp))
 
             if (liveStatus.isLive) {
+                val infiniteTransition = rememberInfiniteTransition(label = "liveBreathing")
+                val breathAlpha by infiniteTransition.animateFloat(
+                    initialValue = 0.4f,
+                    targetValue = 1.0f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(durationMillis = 1200),
+                        repeatMode = RepeatMode.Reverse,
+                    ),
+                    label = "breathAlpha",
+                )
                 // LIVE 배지 (Breathing 네온 글로우)
                 Box(
                     modifier = Modifier

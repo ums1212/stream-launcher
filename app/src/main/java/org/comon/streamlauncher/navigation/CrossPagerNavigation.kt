@@ -121,7 +121,7 @@ fun CrossPagerNavigation(
         VerticalPager(
             state = verticalPagerState,
             modifier = Modifier.fillMaxSize(),
-            beyondViewportPageCount = 1,
+            beyondViewportPageCount = 0,
             userScrollEnabled = !horizontalPagerState.isScrollInProgress
                 && !dragDropState.isDragging
                 && horizontalPagerState.currentPage != 0,
@@ -210,40 +210,41 @@ private fun CenterRow(
     feedContent: @Composable () -> Unit,
     isDragging: Boolean = false,
 ) {
-    HorizontalPager(
-        state = horizontalPagerState,
+    Box(
         modifier = Modifier
             .fillMaxSize()
+            .clipToBounds()
             .graphicsLayer { alpha = pageAlpha(verticalPagerState, 1) },
-        beyondViewportPageCount = 1,
-        userScrollEnabled = !verticalPagerState.isScrollInProgress && !isDragging,
-    ) { horizontalPage ->
-        when (horizontalPage) {
-            0 -> LeftPage(
-                pagerState = horizontalPagerState,
-                page = horizontalPage,
-                wallpaperImage = wallpaperImage,
-                pageIndex = 0,
-                content = feedContent,
-            )
-            1 -> Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clipToBounds()
-                    .graphicsLayer { alpha = pageAlpha(horizontalPagerState, 1) },
-            ) {
-                WallpaperLayer(wallpaperImage = wallpaperImage, pageIndex = 1)
-                Box(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
-                    homeContent()
+    ) {
+        WallpaperLayer(wallpaperImage = wallpaperImage, pagerState = horizontalPagerState)
+
+        HorizontalPager(
+            state = horizontalPagerState,
+            modifier = Modifier.fillMaxSize(),
+            beyondViewportPageCount = 0,
+            userScrollEnabled = !verticalPagerState.isScrollInProgress && !isDragging,
+        ) { horizontalPage ->
+            when (horizontalPage) {
+                0 -> LeftPage(
+                    pagerState = horizontalPagerState,
+                    page = horizontalPage,
+                    content = feedContent,
+                )
+                1 -> Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer { alpha = pageAlpha(horizontalPagerState, 1) },
+                ) {
+                    Box(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
+                        homeContent()
+                    }
                 }
+                2 -> RightPage(
+                    pagerState = horizontalPagerState,
+                    page = horizontalPage,
+                    content = widgetContent,
+                )
             }
-            2 -> RightPage(
-                pagerState = horizontalPagerState,
-                page = horizontalPage,
-                wallpaperImage = wallpaperImage,
-                pageIndex = 2,
-                content = widgetContent,
-            )
         }
     }
 }
@@ -311,7 +312,7 @@ private fun DownPage(
 @Composable
 private fun WallpaperLayer(
     wallpaperImage: String?,
-    pageIndex: Int,
+    pagerState: PagerState,
 ) {
     if (wallpaperImage == null) return
     val screenWidthDp = LocalConfiguration.current.screenWidthDp.dp
@@ -324,7 +325,9 @@ private fun WallpaperLayer(
         modifier = Modifier
             .fillMaxHeight()
             .requiredWidth(screenWidthDp * 3)
-            .graphicsLayer { translationX = (1 - pageIndex) * screenWidthPx },
+            .graphicsLayer {
+                translationX = (1 - pagerState.currentPage - pagerState.currentPageOffsetFraction) * screenWidthPx
+            },
     )
 }
 
@@ -332,8 +335,6 @@ private fun WallpaperLayer(
 private fun LeftPage(
     pagerState: PagerState,
     page: Int,
-    wallpaperImage: String? = null,
-    pageIndex: Int = 0,
     content: @Composable () -> Unit,
 ) {
     val glassSurface = StreamLauncherTheme.colors.glassSurface.copy(alpha = 0.55f)
@@ -341,10 +342,8 @@ private fun LeftPage(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .clipToBounds()
             .graphicsLayer { alpha = pageAlpha(pagerState, page) },
     ) {
-        WallpaperLayer(wallpaperImage = wallpaperImage, pageIndex = pageIndex)
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -364,8 +363,6 @@ private fun LeftPage(
 private fun RightPage(
     pagerState: PagerState,
     page: Int,
-    wallpaperImage: String? = null,
-    pageIndex: Int = 2,
     content: @Composable () -> Unit,
 ) {
     val glassSurface = StreamLauncherTheme.colors.glassSurface.copy(alpha = 0.55f)
@@ -373,10 +370,8 @@ private fun RightPage(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .clipToBounds()
             .graphicsLayer { alpha = pageAlpha(pagerState, page) },
     ) {
-        WallpaperLayer(wallpaperImage = wallpaperImage, pageIndex = pageIndex)
         Box(
             modifier = Modifier
                 .fillMaxSize()
