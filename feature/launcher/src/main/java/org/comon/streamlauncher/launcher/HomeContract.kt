@@ -11,6 +11,7 @@ import org.comon.streamlauncher.ui.UiState
 
 data class HomeState(
     val expandedCell: GridCell? = null,
+    val allApps: List<AppEntity> = emptyList(),
     val appsInCells: Map<GridCell, List<AppEntity>> = emptyMap(),
     val isLoading: Boolean = false,
     val searchQuery: String = "",

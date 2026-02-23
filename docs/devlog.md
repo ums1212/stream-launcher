@@ -2,6 +2,61 @@
 
 ---
 
+## [2026-02-23] feat(home): 홈 그리드 아이콘 레이아웃 + 수동 앱 배치
+
+### 목표
+
+홈 화면 4개 그리드 영역을 클릭(확장)했을 때 기존 `LazyColumn` 텍스트 리스트 대신 **2열×3행 앱 아이콘 그리드**를 표시한다. 각 셀에는 최대 6개의 앱을 배치할 수 있으며, 앱은 사용자가 앱 드로어에서 직접 드래그 앤 드롭으로 배치한다. 기존의 설치 앱 자동 4등분 배분 로직을 제거하여, 초기 상태에서 셀이 비어 있도록 변경한다.
+
+### 구조
+
+```
+GridCellContent (확장 시)
+├─ 배경 이미지 (AsyncImage, 있을 경우)
+├─ 반투명 오버레이
+└─ 2×3 Grid (Column > Row)
+    ├─ Row: [AppItem 1] [AppItem 2]
+    ├─ Row: [AppItem 3] [AppItem 4]
+    └─ Row: [AppItem 5] [AppItem 6]
+
+GridAppItem:
+  Column(horizontalAlignment = Center)
+  ├─ AppIcon (weight=1, aspectRatio=1)
+  └─ Text (labelSmall, maxLines=1, ellipsis)
+```
+
+- 배치 순서: 행 우선 (왼→오른, 위→아래) — `index = row * 2 + col`
+- 아이콘 사이 패딩: 5dp
+- 아이콘 크기: `weight(1f)` + `aspectRatio(1f)`로 그리드에 딱 맞게 자동 조정
+- 클릭: 앱 실행, 롱클릭: 핀 해제 (기존 동작 유지)
+
+### 변경 사항
+
+| # | 파일 | 작업 |
+|---|------|------|
+| 1 | `core/ui/.../component/AppIcon.kt` | **신규** — `feature/apps-drawer`에서 `core:ui`로 이동. 패키지 `org.comon.streamlauncher.ui.component`. 양쪽 feature 모듈에서 공유 가능 |
+| 2 | `core/ui/build.gradle.kts` | `compose.foundation` 의존성 추가 (`Image` composable용) |
+| 3 | `feature/apps-drawer/.../ui/AppIcon.kt` | **삭제** — `core:ui`로 이동됨 |
+| 4 | `feature/apps-drawer/.../ui/AppDrawerScreen.kt` | `AppIcon` import 경로를 `ui.component.AppIcon`으로 변경 |
+| 5 | `app/.../CrossPagerNavigation.kt` | `AppIcon` import 경로를 `ui.component.AppIcon`으로 변경 |
+| 6 | `feature/launcher/.../HomeContract.kt` | `HomeState`에 `allApps: List<AppEntity>` 필드 추가 — 설치된 전체 앱 목록을 셀 배치와 분리 보관 |
+| 7 | `feature/launcher/.../HomeViewModel.kt` | `distributeApps()`: 미할당 앱 4등분 자동 배분 로직 완전 제거, `cellAssignments` 기반 핀 고정 앱만 배치; `loadApps()`: `allApps`에 전체 앱 저장; `resetHome()`·검색 디바운스·`assignAppToCell()`·`unassignApp()`: `allApps` 기반으로 전환; `assignAppToCell()`에 `MAX_APPS_PER_CELL = 6` 제한 추가; `companion object`에 상수 정의 |
+| 8 | `feature/launcher/.../ui/HomeScreen.kt` | `LazyColumn` + `Text` 제거 → 2열×3행 `Column > Row` 아이콘 그리드로 교체; `GridAppItem` private composable 추가 (아이콘 + 앱이름); `MAX_APPS_PER_CELL`, `GRID_COLUMNS`, `GRID_ROWS` 파일 상수 정의; 미사용 import 정리 (`LazyColumn`, `items`, `Icons.Star`, `Icon`, `Spacer`, `size`, `width`); 신규 import 추가 (`aspectRatio`, `fillMaxHeight`, `TextOverflow`, `AppIcon`) |
+| 9 | `feature/launcher/.../HomeViewModelTest.kt` | 테스트 #2: 자동 배분 → `allApps` 저장 + 셀 비어있음 검증으로 변경; 테스트 #8: 균등 배분 → 초기 셀 비어있음 + 할당 후 표시 검증으로 변경; 테스트 #29: 자동 배분 포함 → 할당 앱만 셀에 존재 검증으로 변경; 테스트 #31 신규: 7번째 앱 할당 시 `MAX_APPS_PER_CELL` 제한으로 무시되는지 검증 |
+
+### 설계 결정 및 근거
+
+| 결정 | 근거 |
+|------|------|
+| `LazyColumn` → 고정 `Column > Row` 그리드 | 최대 6개 고정 아이템이므로 스크롤 불필요. 고정 레이아웃이 크기 계산에 유리 |
+| `weight(1f)` + `aspectRatio(1f)` 아이콘 크기 | 그리드 셀 크기에 자동 맞춤, 기기 해상도 독립적 |
+| `AppIcon`을 `core:ui`로 이동 | `feature:launcher`와 `feature:apps-drawer` 양쪽에서 사용. 모듈 간 교차 의존 방지 |
+| `allApps` 필드 분리 | 자동 배분 제거 후 `appsInCells`에 전체 앱이 없으므로, 앱 드로어 검색·필터링을 위한 별도 전체 목록 필요 |
+| 자동 배분 제거 | 6칸 그리드에 수십 개 앱을 자동 배치하면 의미 없는 앱이 표시됨. 사용자가 원하는 앱만 직접 배치하는 것이 런처 UX에 적합 |
+| `MAX_APPS_PER_CELL = 6` 제한 | 2×3 그리드에 맞는 물리적 한계. ViewModel에서 할당 시점에 체크하여 초과 방지 |
+
+---
+
 ## [2026-02-23] feat(wallpaper): HorizontalPager 패럴랙스 배경화면
 
 ### 목표

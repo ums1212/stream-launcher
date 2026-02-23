@@ -61,7 +61,6 @@ class HomeViewModel @Inject constructor(
             _searchQuery
                 .debounce(100)
                 .collect { query ->
-                    val allApps = currentState.appsInCells.values.flatten().sortedBy { it.label }
                     updateState { copy(filteredApps = filterApps(allApps, query)) }
                 }
         }
@@ -94,12 +93,12 @@ class HomeViewModel @Inject constructor(
             updateState { copy(isLoading = true) }
             try {
                 getInstalledAppsUseCase().collect { apps ->
-                    // 런처 액티비티 복수 등록 앱(Google Search 등) 중복 제거 — packageName 기준 첫 번째 항목 유지
                     val unique = apps.distinctBy { it.packageName }
                     val allSorted = unique.sortedBy { it.label }
                     updateState {
                         copy(
-                            appsInCells = distributeApps(unique, cellAssignments),
+                            allApps = allSorted,
+                            appsInCells = distributeApps(allSorted, cellAssignments),
                             filteredApps = filterApps(allSorted, searchQuery),
                             isLoading = false,
                         )
@@ -131,7 +130,7 @@ class HomeViewModel @Inject constructor(
             copy(
                 expandedCell = null,
                 searchQuery = "",
-                filteredApps = appsInCells.values.flatten().sortedBy { it.label },
+                filteredApps = allApps,
                 currentSettingsTab = SettingsTab.MAIN,
             )
         }
@@ -168,12 +167,12 @@ class HomeViewModel @Inject constructor(
             newAssignments[c] = current
         }
         val targetList = newAssignments[cell]?.toMutableList() ?: mutableListOf()
+        if (targetList.size >= MAX_APPS_PER_CELL) return
         if (!targetList.contains(pkg)) {
             targetList.add(pkg)
         }
         newAssignments[cell] = targetList
 
-        val allApps = currentState.appsInCells.values.flatten().distinctBy { it.packageName }
         updateState {
             copy(
                 cellAssignments = newAssignments,
@@ -197,7 +196,6 @@ class HomeViewModel @Inject constructor(
             newAssignments[c] = current
         }
 
-        val allApps = currentState.appsInCells.values.flatten().distinctBy { it.packageName }
         updateState {
             copy(
                 cellAssignments = newAssignments,
@@ -237,33 +235,22 @@ class HomeViewModel @Inject constructor(
     }
 
     /**
-     * 앱 배분 로직:
-     * 1. 핀 고정 앱 우선 배치 (각 셀에 지정된 packageName 순서대로, 알파벳순 정렬)
-     * 2. 미할당 앱만 기존 알파벳 4등분 로직 적용
-     * 3. 각 셀 = [핀 고정 앱 알파벳순] + [자동 배분 앱 알파벳순]
+     * 사용자가 직접 배치(핀 고정)한 앱만 각 셀에 배치.
+     * 자동 배분 없이 cellAssignments 기반으로만 구성.
      */
     internal fun distributeApps(
         apps: List<AppEntity>,
         cellAssignments: Map<GridCell, List<String>> = emptyMap(),
     ): Map<GridCell, List<AppEntity>> {
-        val assignedPackages = cellAssignments.values.flatten().toSet()
-        val unassigned = apps.filter { it.packageName !in assignedPackages }.sortedBy { it.label }
-
-        // 미할당 앱 4등분
-        val chunkSize = (unassigned.size + 3) / 4
-        val autoChunks = if (chunkSize == 0) {
-            List(4) { emptyList<AppEntity>() }
-        } else {
-            val chunked = unassigned.chunked(chunkSize)
-            chunked + List(maxOf(0, 4 - chunked.size)) { emptyList() }
-        }
-
-        return GridCell.entries.zip(autoChunks).associate { (cell, autoApps) ->
+        return GridCell.entries.associateWith { cell ->
             val pinnedPackageNames = cellAssignments[cell] ?: emptyList()
-            val pinnedApps = pinnedPackageNames
+            pinnedPackageNames
                 .mapNotNull { pkg -> apps.find { it.packageName == pkg } }
                 .sortedBy { it.label }
-            cell to (pinnedApps + autoApps)
         }
+    }
+
+    companion object {
+        const val MAX_APPS_PER_CELL = 6
     }
 }

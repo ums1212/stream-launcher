@@ -39,7 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.lerp
 import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
-import org.comon.streamlauncher.apps_drawer.ui.AppIcon
+import org.comon.streamlauncher.ui.component.AppIcon
 import org.comon.streamlauncher.ui.dragdrop.LocalDragDropState
 import org.comon.streamlauncher.ui.modifier.glassEffect
 import org.comon.streamlauncher.ui.theme.StreamLauncherTheme

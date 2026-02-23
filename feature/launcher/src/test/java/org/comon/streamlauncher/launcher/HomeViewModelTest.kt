@@ -107,16 +107,17 @@ class HomeViewModelTest {
         assertTrue(initialState.appsInCells is Map<*, *>)
     }
 
-    // 2. LoadApps → 상태 업데이트 (isLoading 전환, appsInCells 반영)
+    // 2. LoadApps → allApps 저장, appsInCells 비어있음
     @Test
-    fun `LoadApps 처리 후 appsInCells에 앱이 배분됨`() = runTest {
+    fun `LoadApps 처리 후 allApps에 전체 앱이 저장되고 appsInCells는 비어있음`() = runTest {
         testDispatcher.scheduler.advanceUntilIdle()
 
         val state = viewModel.uiState.value
         assertFalse(state.isLoading)
+        assertEquals(sampleApps.size, state.allApps.size)
         assertEquals(GridCell.entries.size, state.appsInCells.size)
-        val totalApps = state.appsInCells.values.sumOf { it.size }
-        assertEquals(sampleApps.size, totalApps)
+        val totalCellApps = state.appsInCells.values.sumOf { it.size }
+        assertEquals(0, totalCellApps)
     }
 
     // 3. 그리드 클릭 시 확장
@@ -185,20 +186,23 @@ class HomeViewModelTest {
         }
     }
 
-    // 8. 앱 목록이 각 그리드에 올바르게 배분됨 (가나다순 정렬 후 4등분)
+    // 8. 초기 상태에서 셀은 비어있고, 앱 할당 시에만 셀에 표시됨
     @Test
-    fun `8개 앱이 4개 GridCell에 2개씩 균등 배분됨`() = runTest {
+    fun `초기 상태에서 4개 셀이 모두 비어있고 앱 할당 후에만 표시됨`() = runTest {
         testDispatcher.scheduler.advanceUntilIdle()
 
         val appsInCells = viewModel.uiState.value.appsInCells
         assertEquals(4, appsInCells.size)
-        assertTrue(appsInCells.containsKey(GridCell.TOP_LEFT))
-        assertTrue(appsInCells.containsKey(GridCell.TOP_RIGHT))
-        assertTrue(appsInCells.containsKey(GridCell.BOTTOM_LEFT))
-        assertTrue(appsInCells.containsKey(GridCell.BOTTOM_RIGHT))
         appsInCells.values.forEach { cellApps ->
-            assertEquals(2, cellApps.size)
+            assertEquals(0, cellApps.size)
         }
+
+        viewModel.handleIntent(HomeIntent.AssignAppToCell(sampleApps[0], GridCell.TOP_LEFT))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val updated = viewModel.uiState.value.appsInCells
+        assertEquals(1, updated[GridCell.TOP_LEFT]?.size)
+        assertEquals(0, updated[GridCell.TOP_RIGHT]?.size)
     }
 
     // 9. Flow 상태 관찰 (Turbine emission 시퀀스)
@@ -495,9 +499,9 @@ class HomeViewModelTest {
         assertFalse(viewModel.uiState.value.pinnedPackages.contains(targetApp.packageName))
     }
 
-    // 29. distributeApps — 할당된 앱이 해당 셀의 앞에 배치됨
+    // 29. distributeApps — 할당된 앱만 셀에 배치, 미할당 앱은 제외
     @Test
-    fun `distributeApps - 할당된 앱이 핀 고정 셀의 앱 목록 앞에 배치됨`() {
+    fun `distributeApps - 할당된 앱만 해당 셀에 배치되고 미할당 앱은 어떤 셀에도 없음`() {
         val apps = (1..4).map { i ->
             AppEntity("pkg$i", "앱$i", "pkg$i.Main")
         }
@@ -506,8 +510,10 @@ class HomeViewModelTest {
 
         val result = vm.distributeApps(apps, assignments)
 
-        // TOP_LEFT의 첫 번째 앱은 pkg3이어야 함 (핀 고정)
+        assertEquals(1, result[GridCell.TOP_LEFT]?.size)
         assertTrue(result[GridCell.TOP_LEFT]?.firstOrNull()?.packageName == "pkg3")
+        val totalAppsInCells = result.values.sumOf { it.size }
+        assertEquals(1, totalAppsInCells)
     }
 
     // 30. AssignAppToCell → saveCellAssignmentUseCase 호출됨
@@ -520,5 +526,35 @@ class HomeViewModelTest {
         testDispatcher.scheduler.advanceUntilIdle()
 
         coVerify { saveCellAssignmentUseCase(GridCell.TOP_LEFT, any()) }
+    }
+
+    // 31. AssignAppToCell → 셀당 최대 6개 제한
+    @Test
+    fun `AssignAppToCell 처리 시 셀에 이미 6개 앱이 있으면 7번째 앱이 추가되지 않음`() = runTest {
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val manyApps = (1..8).map { i ->
+            AppEntity("com.test.app$i", "테스트앱$i", "com.test.app$i.Main")
+        }
+        val manyAppsUseCase: GetInstalledAppsUseCase = mockk()
+        every { manyAppsUseCase() } returns flowOf(manyApps)
+        val vm = makeViewModel(appsUseCase = manyAppsUseCase)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        for (i in 0 until HomeViewModel.MAX_APPS_PER_CELL) {
+            vm.handleIntent(HomeIntent.AssignAppToCell(manyApps[i], GridCell.TOP_LEFT))
+            testDispatcher.scheduler.advanceUntilIdle()
+        }
+
+        val assignmentsBefore = vm.uiState.value.cellAssignments[GridCell.TOP_LEFT]
+        assertEquals(HomeViewModel.MAX_APPS_PER_CELL, assignmentsBefore?.size)
+
+        val overflowApp = manyApps[HomeViewModel.MAX_APPS_PER_CELL]
+        vm.handleIntent(HomeIntent.AssignAppToCell(overflowApp, GridCell.TOP_LEFT))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val assignmentsAfter = vm.uiState.value.cellAssignments[GridCell.TOP_LEFT]
+        assertEquals(HomeViewModel.MAX_APPS_PER_CELL, assignmentsAfter?.size)
+        assertFalse(assignmentsAfter?.contains(overflowApp.packageName) == true)
     }
 }

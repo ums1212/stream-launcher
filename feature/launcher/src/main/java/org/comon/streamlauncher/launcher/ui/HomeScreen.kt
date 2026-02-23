@@ -12,18 +12,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -44,6 +38,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
@@ -52,7 +47,12 @@ import org.comon.streamlauncher.domain.model.GridCell
 import org.comon.streamlauncher.domain.model.GridCellImage
 import org.comon.streamlauncher.launcher.HomeIntent
 import org.comon.streamlauncher.launcher.HomeState
+import org.comon.streamlauncher.ui.component.AppIcon
 import org.comon.streamlauncher.ui.dragdrop.LocalDragDropState
+
+private const val MAX_APPS_PER_CELL = 6
+private const val GRID_COLUMNS = 2
+private const val GRID_ROWS = 3
 
 @Composable
 fun HomeScreen(
@@ -150,7 +150,6 @@ fun HomeScreen(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun RowScope.GridCellContent(
     cell: GridCell,
@@ -267,45 +266,38 @@ private fun RowScope.GridCellContent(
                             .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.6f)),
                     )
                 }
-                LazyColumn(
+                val displayApps = apps.take(MAX_APPS_PER_CELL)
+                Column(
                     modifier = Modifier
                         .fillMaxSize()
                         .alpha(contentAlpha)
-                        .padding(8.dp),
+                        .padding(5.dp),
                 ) {
-                    items(apps) { app ->
-                        val isPinned = app.packageName in pinnedPackages
+                    for (row in 0 until GRID_ROWS) {
                         Row(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .combinedClickable(
-                                    onClick = {
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        onIntent(HomeIntent.ClickApp(app))
-                                    },
-                                    onLongClick = if (isPinned) {
-                                        {
-                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                            onIntent(HomeIntent.UnassignApp(app))
-                                        }
-                                    } else null,
-                                )
-                                .padding(vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
+                                .weight(1f)
+                                .fillMaxWidth(),
                         ) {
-                            if (isPinned) {
-                                Icon(
-                                    imageVector = Icons.Default.Star,
-                                    contentDescription = "고정됨",
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(12.dp),
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
+                            for (col in 0 until GRID_COLUMNS) {
+                                val index = row * GRID_COLUMNS + col
+                                val app = displayApps.getOrNull(index)
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxHeight()
+                                        .padding(5.dp),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    if (app != null) {
+                                        GridAppItem(
+                                            app = app,
+                                            isPinned = app.packageName in pinnedPackages,
+                                            onIntent = onIntent,
+                                        )
+                                    }
+                                }
                             }
-                            Text(
-                                text = app.label,
-                                style = MaterialTheme.typography.bodyMedium,
-                            )
                         }
                     }
                 }
@@ -330,5 +322,45 @@ private fun RowScope.GridCellContent(
                 }
             }
         }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun GridAppItem(
+    app: AppEntity,
+    isPinned: Boolean,
+    onIntent: (HomeIntent) -> Unit,
+) {
+    val haptic = LocalHapticFeedback.current
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .fillMaxSize()
+            .combinedClickable(
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onIntent(HomeIntent.ClickApp(app))
+                },
+                onLongClick = if (isPinned) {
+                    {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onIntent(HomeIntent.UnassignApp(app))
+                    }
+                } else null,
+            ),
+    ) {
+        AppIcon(
+            packageName = app.packageName,
+            modifier = Modifier
+                .weight(1f)
+                .aspectRatio(1f),
+        )
+        Text(
+            text = app.label,
+            style = MaterialTheme.typography.labelSmall,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
