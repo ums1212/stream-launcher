@@ -63,6 +63,7 @@ class FeedRepositoryImpl @Inject constructor(
     private val feedCacheKey = stringPreferencesKey("feed_cache_json")
     private val profileCacheJsonKey = stringPreferencesKey("channel_profile_json")
     private val profileCacheTimestampKey = stringPreferencesKey("channel_profile_timestamp")
+    private val profileCacheChannelIdKey = stringPreferencesKey("channel_profile_cached_id")
     private val handleToChannelIdCache = HashMap<String, String>()
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -245,8 +246,12 @@ class FeedRepositoryImpl @Inject constructor(
         val prefs = cacheDataStore.data.first()
         val cachedJson = prefs[profileCacheJsonKey]
         val cachedTimestamp = prefs[profileCacheTimestampKey]?.toLongOrNull() ?: 0L
+        val cachedChannelId = prefs[profileCacheChannelIdKey] ?: ""
         val now = System.currentTimeMillis()
-        val isValid = !cachedJson.isNullOrEmpty() && (now - cachedTimestamp) < PROFILE_CACHE_TTL_MS
+        val isSameChannel = cachedChannelId == youtubeChannelId
+        val isValid = isSameChannel &&
+            !cachedJson.isNullOrEmpty() &&
+            (now - cachedTimestamp) < PROFILE_CACHE_TTL_MS
 
         if (isValid && cachedJson != null) {
             Log.d(TAG, "getChannelProfile: cache hit (valid)")
@@ -254,8 +259,7 @@ class FeedRepositoryImpl @Inject constructor(
             return@flow
         }
 
-        // 스테일 캐시 있으면 먼저 emit
-        if (!cachedJson.isNullOrEmpty()) {
+        if (isSameChannel && !cachedJson.isNullOrEmpty()) {
             Log.d(TAG, "getChannelProfile: stale cache, emitting before refresh")
             emit(Result.success(parseProfileDto(cachedJson)))
         }
@@ -303,6 +307,7 @@ class FeedRepositoryImpl @Inject constructor(
         cacheDataStore.edit { p ->
             p[profileCacheJsonKey] = json.encodeToString(dto)
             p[profileCacheTimestampKey] = now.toString()
+            p[profileCacheChannelIdKey] = youtubeChannelId
         }
         handleToChannelIdCache[youtubeChannelId] = profile.channelId
         Log.d(TAG, "getChannelProfile: success name='${profile.name}' subs=${profile.subscriberCount}")
