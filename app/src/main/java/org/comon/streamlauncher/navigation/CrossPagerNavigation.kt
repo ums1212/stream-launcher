@@ -31,8 +31,8 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -315,8 +315,10 @@ private fun WallpaperLayer(
     pagerState: PagerState,
 ) {
     if (wallpaperImage == null) return
-    val screenWidthDp = LocalConfiguration.current.screenWidthDp.dp
-    val screenWidthPx = with(LocalDensity.current) { screenWidthDp.toPx() }
+    val containerSize = LocalWindowInfo.current.containerSize
+    val density = LocalDensity.current
+    val screenWidthPx = containerSize.width.toFloat()
+    val screenWidthDp = with(density) { screenWidthPx.toDp() }
 
     AsyncImage(
         model = wallpaperImage,

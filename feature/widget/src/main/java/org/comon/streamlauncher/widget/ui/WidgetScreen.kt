@@ -118,40 +118,70 @@ fun WidgetScreen(
             }
         }
 
-        // 위젯 그리드
-        Column(modifier = Modifier.weight(1f).padding(8.dp)) {
-            for (row in 0 until 3) {
-                Row(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth(),
-                ) {
-                    for (col in 0 until 2) {
-                        val index = row * 2 + col
-                        val widgetId = widgetSlots[index]
-                        if (widgetId != null) {
-                            key(widgetId) {
-                                WidgetCell(
-                                    widgetId = widgetId,
-                                    appWidgetHost = appWidgetHost,
+        val allEmpty = widgetSlots.all { it == null }
+
+        if (allEmpty && !isEditMode) {
+            // 위젯이 하나도 없을 때 안내 메시지
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .pointerInput(Unit) {
+                        detectTapGestures(onLongPress = { isEditMode = true })
+                    },
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = null,
+                        tint = onSurface.copy(alpha = 0.38f),
+                        modifier = Modifier.size(48.dp),
+                    )
+                    Text(
+                        text = "화면을 길게 눌러 위젯을 추가하세요",
+                        color = onSurface.copy(alpha = 0.6f),
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(top = 12.dp),
+                    )
+                }
+            }
+        } else {
+            // 위젯 그리드
+            Column(modifier = Modifier.weight(1f).padding(8.dp)) {
+                for (row in 0 until 3) {
+                    Row(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth(),
+                    ) {
+                        for (col in 0 until 2) {
+                            val index = row * 2 + col
+                            val widgetId = widgetSlots[index]
+                            if (widgetId != null) {
+                                key(widgetId) {
+                                    WidgetCell(
+                                        widgetId = widgetId,
+                                        appWidgetHost = appWidgetHost,
+                                        isEditMode = isEditMode,
+                                        onEnterEditMode = { isEditMode = true },
+                                        onDeleteClick = { onDeleteWidgetClick(index) },
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .fillMaxHeight(),
+                                    )
+                                }
+                            } else {
+                                EmptyCell(
                                     isEditMode = isEditMode,
+                                    onAddClick = { onAddWidgetClick(index) },
                                     onEnterEditMode = { isEditMode = true },
-                                    onDeleteClick = { onDeleteWidgetClick(index) },
+                                    tintColor = onSurface,
                                     modifier = Modifier
                                         .weight(1f)
                                         .fillMaxHeight(),
                                 )
                             }
-                        } else {
-                            EmptyCell(
-                                isEditMode = isEditMode,
-                                onAddClick = { onAddWidgetClick(index) },
-                                onEnterEditMode = { isEditMode = true },
-                                tintColor = onSurface,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .fillMaxHeight(),
-                            )
                         }
                     }
                 }
