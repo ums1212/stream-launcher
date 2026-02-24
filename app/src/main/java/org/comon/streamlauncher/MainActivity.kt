@@ -5,6 +5,7 @@ import android.appwidget.AppWidgetManager
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.res.Configuration
+import android.provider.Settings
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
@@ -15,6 +16,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import org.comon.streamlauncher.domain.repository.SettingsRepository
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -23,8 +25,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 import androidx.compose.ui.graphics.Color
+import kotlinx.coroutines.launch
 import org.comon.streamlauncher.apps_drawer.ui.AppDrawerScreen
 import org.comon.streamlauncher.domain.model.ColorPresets
 import org.comon.streamlauncher.launcher.FeedSideEffect
@@ -44,6 +49,9 @@ import org.comon.streamlauncher.widget.ui.WidgetScreen
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    @Inject
+    lateinit var settingsRepository: SettingsRepository
 
     private val viewModel: HomeViewModel by viewModels()
     private val widgetViewModel: WidgetViewModel by viewModels()
@@ -126,6 +134,22 @@ class MainActivity : ComponentActivity() {
 
         appWidgetHost = AppWidgetHost(this, HOST_ID)
         appWidgetManager = AppWidgetManager.getInstance(this)
+
+        lifecycleScope.launch {
+            if (!settingsRepository.hasShownHomeSettingsOnFirstLaunch()) {
+                try {
+                    val intent = Intent(Settings.ACTION_HOME_SETTINGS)
+                    if (intent.resolveActivity(packageManager) != null) {
+                        startActivity(intent)
+                    } else {
+                        startActivity(Intent(Settings.ACTION_SETTINGS))
+                    }
+                } catch (_: ActivityNotFoundException) {
+                    startActivity(Intent(Settings.ACTION_SETTINGS))
+                }
+                settingsRepository.setHasShownHomeSettingsOnFirstLaunch()
+            }
+        }
 
         setContent {
             val uiState by viewModel.uiState.collectAsStateWithLifecycle()

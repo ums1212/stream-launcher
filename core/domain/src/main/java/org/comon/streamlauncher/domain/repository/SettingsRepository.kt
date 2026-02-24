@@ -6,6 +6,8 @@ import org.comon.streamlauncher.domain.model.LauncherSettings
 
 interface SettingsRepository {
     fun getSettings(): Flow<LauncherSettings>
+    suspend fun hasShownHomeSettingsOnFirstLaunch(): Boolean
+    suspend fun setHasShownHomeSettingsOnFirstLaunch()
     suspend fun setColorPresetIndex(index: Int)
     suspend fun setGridCellImage(cell: GridCell, idle: String?, expanded: String?)
     suspend fun setCellAssignment(cell: GridCell, packageNames: List<String>)

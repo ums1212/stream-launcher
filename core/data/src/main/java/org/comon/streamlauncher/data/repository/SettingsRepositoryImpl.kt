@@ -4,11 +4,13 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
@@ -40,6 +42,7 @@ class SettingsRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
 ) : SettingsRepository {
 
+    private val hasShownHomeSettingsOnFirstLaunchKey = booleanPreferencesKey("has_shown_home_settings_on_first_launch")
     private val colorPresetIndexKey = intPreferencesKey("color_preset_index")
     private val gridCellImagesKey = stringPreferencesKey("grid_cell_images")
     private val cellAssignmentsKey = stringPreferencesKey("cell_assignments")
@@ -69,6 +72,15 @@ class SettingsRepositoryImpl @Inject constructor(
                 wallpaperImage = wallpaperImage,
             )
         }
+
+    override suspend fun hasShownHomeSettingsOnFirstLaunch(): Boolean =
+        context.dataStore.data.first()[hasShownHomeSettingsOnFirstLaunchKey] ?: false
+
+    override suspend fun setHasShownHomeSettingsOnFirstLaunch() {
+        context.dataStore.edit { prefs ->
+            prefs[hasShownHomeSettingsOnFirstLaunchKey] = true
+        }
+    }
 
     override suspend fun setColorPresetIndex(index: Int) {
         context.dataStore.edit { prefs ->
