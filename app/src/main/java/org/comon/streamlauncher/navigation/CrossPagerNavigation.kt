@@ -84,8 +84,6 @@ fun CrossPagerNavigation(
     val keyboardController = LocalSoftwareKeyboardController.current
     val dragDropState = LocalDragDropState.current
 
-    val isAtCenter = verticalPagerState.currentPage == 1 && horizontalPagerState.currentPage == 1
-
     // 드래그 시작 시 홈 화면으로 스크롤 콜백 등록
     LaunchedEffect(Unit) {
         dragDropState.onScrollToHome = {
@@ -110,13 +108,14 @@ fun CrossPagerNavigation(
         }
     }
 
-    BackHandler(enabled = !isAtCenter) {
+    BackHandler(enabled = true) {
         scope.launch {
             if (verticalPagerState.currentPage != 1) {
                 verticalPagerState.animateScrollToPage(1)
-            } else {
+            } else if (horizontalPagerState.currentPage != 1) {
                 horizontalPagerState.animateScrollToPage(1)
             }
+            // 중앙(홈)일 때는 아무것도 하지 않고 뒤로 가기 이벤트를 소비함
         }
     }
 
