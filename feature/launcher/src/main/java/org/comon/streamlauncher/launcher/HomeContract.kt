@@ -31,6 +31,7 @@ data class HomeState(
 sealed interface HomeIntent : UiIntent {
     data object LoadApps : HomeIntent
     data object ResetHome : HomeIntent
+    data object CheckFirstLaunch : HomeIntent
     data class ClickGrid(val cell: GridCell) : HomeIntent
     data class ClickApp(val app: AppEntity) : HomeIntent
     data class Search(val query: String) : HomeIntent
@@ -50,4 +51,5 @@ sealed interface HomeIntent : UiIntent {
 sealed interface HomeSideEffect : UiSideEffect {
     data class NavigateToApp(val packageName: String) : HomeSideEffect
     data class ShowError(val message: String) : HomeSideEffect
+    data object NavigateToHomeSettings : HomeSideEffect
 }

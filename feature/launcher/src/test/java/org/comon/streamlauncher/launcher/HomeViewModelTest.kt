@@ -13,13 +13,15 @@ import kotlinx.coroutines.test.setMain
 import org.comon.streamlauncher.domain.model.AppEntity
 import org.comon.streamlauncher.domain.model.GridCell
 import org.comon.streamlauncher.domain.model.LauncherSettings
-import org.comon.streamlauncher.domain.repository.SettingsRepository
 import org.comon.streamlauncher.domain.usecase.GetInstalledAppsUseCase
 import org.comon.streamlauncher.domain.usecase.GetLauncherSettingsUseCase
 import org.comon.streamlauncher.domain.usecase.SaveCellAssignmentUseCase
 import org.comon.streamlauncher.domain.usecase.SaveColorPresetUseCase
 import org.comon.streamlauncher.domain.usecase.SaveFeedSettingsUseCase
 import org.comon.streamlauncher.domain.usecase.SaveGridCellImageUseCase
+import org.comon.streamlauncher.domain.usecase.CheckFirstLaunchUseCase
+import org.comon.streamlauncher.domain.usecase.SetFirstLaunchUseCase
+import org.comon.streamlauncher.domain.usecase.SaveWallpaperImageUseCase
 import org.comon.streamlauncher.launcher.model.ImageType
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -49,7 +51,9 @@ class HomeViewModelTest {
     private lateinit var saveGridCellImageUseCase: SaveGridCellImageUseCase
     private lateinit var saveCellAssignmentUseCase: SaveCellAssignmentUseCase
     private lateinit var saveFeedSettingsUseCase: SaveFeedSettingsUseCase
-    private lateinit var settingsRepository: SettingsRepository
+    private lateinit var checkFirstLaunchUseCase: CheckFirstLaunchUseCase
+    private lateinit var setFirstLaunchUseCase: SetFirstLaunchUseCase
+    private lateinit var saveWallpaperImageUseCase: SaveWallpaperImageUseCase
     private lateinit var viewModel: HomeViewModel
 
     @Before
@@ -65,7 +69,9 @@ class HomeViewModelTest {
         saveGridCellImageUseCase = mockk(relaxed = true)
         saveCellAssignmentUseCase = mockk(relaxed = true)
         saveFeedSettingsUseCase = mockk(relaxed = true)
-        settingsRepository = mockk(relaxed = true)
+        checkFirstLaunchUseCase = mockk(relaxed = true)
+        setFirstLaunchUseCase = mockk(relaxed = true)
+        saveWallpaperImageUseCase = mockk(relaxed = true)
 
         viewModel = makeViewModel()
     }
@@ -83,7 +89,9 @@ class HomeViewModelTest {
         imageSaveUseCase: SaveGridCellImageUseCase = saveGridCellImageUseCase,
         cellAssignmentUseCase: SaveCellAssignmentUseCase = saveCellAssignmentUseCase,
         feedSettingsUseCase: SaveFeedSettingsUseCase = saveFeedSettingsUseCase,
-        repository: SettingsRepository = settingsRepository,
+        checkFirstLaunch: CheckFirstLaunchUseCase = checkFirstLaunchUseCase,
+        setFirstLaunch: SetFirstLaunchUseCase = setFirstLaunchUseCase,
+        saveWallpaper: SaveWallpaperImageUseCase = saveWallpaperImageUseCase,
     ): HomeViewModel = HomeViewModel(
         appsUseCase,
         settingsUseCase,
@@ -91,7 +99,9 @@ class HomeViewModelTest {
         imageSaveUseCase,
         cellAssignmentUseCase,
         feedSettingsUseCase,
-        repository,
+        checkFirstLaunch,
+        setFirstLaunch,
+        saveWallpaper,
     )
 
     // 1. 초기 상태 확인

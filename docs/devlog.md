@@ -2,6 +2,34 @@
 
 ---
 
+## [2026-02-24] refactor(launcher): 홈 초기 진입 클린 아키텍처 및 MVI 패턴 리팩터링
+
+### 목표
+
+초기 앱 실행 시 기본 홈 앱 설정 화면으로 유도하는 로직(commit `53fd7a379cb2cb3fe0059e25453774ffe5559114`)이 `MainActivity`에 직접 비즈니스 로직으로 구현되어 있던 문제를 클린 아키텍처와 MVI 패턴에 맞게 리팩터링한다.
+
+### 변경 사항
+
+| # | 파일 | 작업 |
+|---|------|------|
+| 1 | `core/domain/usecase/CheckFirstLaunchUseCase.kt` | **신규** — 첫 실행 여부 확인 로직 캡슐화 |
+| 2 | `core/domain/usecase/SetFirstLaunchUseCase.kt` | **신규** — 첫 실행 상태 저장 로직 캡슐화 |
+| 3 | `core/domain/usecase/SaveWallpaperImageUseCase.kt` | **신규** — 바탕화면 이미지 저장 로직 캡슐화 |
+| 4 | `feature/launcher/.../HomeContract.kt` | `HomeIntent.CheckFirstLaunch`, `HomeSideEffect.NavigateToHomeSettings` 추가 |
+| 5 | `feature/launcher/.../HomeViewModel.kt` | `SettingsRepository` 직접 의존성 제거, UseCase 주입 및 `handleIntent(HomeIntent.CheckFirstLaunch)` 구현 |
+| 6 | `feature/launcher/.../HomeViewModelTest.kt` | `SettingsRepository` 모킹 파트와 주입부를 UseCase로 변경하여 테스트 코드 갱신 |
+| 7 | `app/.../MainActivity.kt` | `onCreate` 부에서 비즈니스 로직 제거, `viewModel.handleIntent(HomeIntent.CheckFirstLaunch)` 호출 및 `LaunchedEffect` 내 `HomeSideEffect.NavigateToHomeSettings` 처리 추가 |
+
+### 설계 결정 및 근거
+
+| 결정 | 근거 |
+|------|------|
+| 비즈니스 로직을 `MainActivity`에서 `HomeViewModel`과 `UseCase`로 분리 | 안드로이드 핵심 컴포넌트인 Activity는 UI 렌더링과 사용자 인터랙션 처리, OS와의 통신(Intent 등) 책임만 가져야 한다. |
+| `SettingsRepository` 직접 의존 제거 | UI 계층인 ViewModel이 데이터/도메인 계층 Repository를 직접 참조하는 대신 UseCase를 통해 간접 접근하도록 강제하여 클린 아키텍처 원칙 준수 |
+| `HomeSideEffect`를 통한 내비게이션 | MVI 패턴을 준수하여 ViewModel이 상태(State)와 부수 효과(SideEffect)로만 UI에 이벤트를 전달하도록 구성 |
+
+---
+
 ## [2026-02-24] Step 22: 기본 런처 등록 및 시스템 최적화
 
 ### 목표

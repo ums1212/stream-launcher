@@ -11,13 +11,15 @@ import kotlinx.coroutines.launch
 import org.comon.streamlauncher.domain.model.AppEntity
 import org.comon.streamlauncher.domain.model.GridCell
 import org.comon.streamlauncher.domain.model.GridCellImage
-import org.comon.streamlauncher.domain.repository.SettingsRepository
 import org.comon.streamlauncher.domain.usecase.GetInstalledAppsUseCase
 import org.comon.streamlauncher.domain.usecase.GetLauncherSettingsUseCase
 import org.comon.streamlauncher.domain.usecase.SaveCellAssignmentUseCase
 import org.comon.streamlauncher.domain.usecase.SaveColorPresetUseCase
 import org.comon.streamlauncher.domain.usecase.SaveFeedSettingsUseCase
 import org.comon.streamlauncher.domain.usecase.SaveGridCellImageUseCase
+import org.comon.streamlauncher.domain.usecase.CheckFirstLaunchUseCase
+import org.comon.streamlauncher.domain.usecase.SetFirstLaunchUseCase
+import org.comon.streamlauncher.domain.usecase.SaveWallpaperImageUseCase
 import org.comon.streamlauncher.domain.util.ChosungMatcher
 import org.comon.streamlauncher.launcher.model.ImageType
 import org.comon.streamlauncher.launcher.model.SettingsTab
@@ -33,7 +35,9 @@ class HomeViewModel @Inject constructor(
     private val saveGridCellImageUseCase: SaveGridCellImageUseCase,
     private val saveCellAssignmentUseCase: SaveCellAssignmentUseCase,
     private val saveFeedSettingsUseCase: SaveFeedSettingsUseCase,
-    private val settingsRepository: SettingsRepository,
+    private val checkFirstLaunchUseCase: CheckFirstLaunchUseCase,
+    private val setFirstLaunchUseCase: SetFirstLaunchUseCase,
+    private val saveWallpaperImageUseCase: SaveWallpaperImageUseCase,
 ) : BaseViewModel<HomeState, HomeIntent, HomeSideEffect>(HomeState()) {
 
     private var loadJob: Job? = null
@@ -71,6 +75,7 @@ class HomeViewModel @Inject constructor(
         when (intent) {
             is HomeIntent.LoadApps -> loadApps()
             is HomeIntent.ResetHome -> resetHome()
+            is HomeIntent.CheckFirstLaunch -> checkFirstLaunch()
             is HomeIntent.ClickGrid -> toggleCell(intent.cell)
             is HomeIntent.ClickApp -> {
                 sendEffect(HomeSideEffect.NavigateToApp(intent.app.packageName))
@@ -84,6 +89,15 @@ class HomeViewModel @Inject constructor(
             is HomeIntent.UnassignApp -> unassignApp(intent.app)
             is HomeIntent.SaveFeedSettings -> saveFeedSettings(intent.chzzkChannelId, intent.youtubeChannelId, intent.rssUrl)
             is HomeIntent.SetWallpaperImage -> setWallpaperImage(intent.uri)
+        }
+    }
+
+    private fun checkFirstLaunch() {
+        viewModelScope.launch {
+            if (checkFirstLaunchUseCase()) {
+                sendEffect(HomeSideEffect.NavigateToHomeSettings)
+                setFirstLaunchUseCase()
+            }
         }
     }
 
@@ -225,7 +239,7 @@ class HomeViewModel @Inject constructor(
     private fun setWallpaperImage(uri: String?) {
         updateState { copy(wallpaperImage = uri) }
         viewModelScope.launch {
-            settingsRepository.setWallpaperImage(uri)
+            saveWallpaperImageUseCase(uri)
         }
     }
 
