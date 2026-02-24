@@ -2,6 +2,36 @@
 
 ---
 
+## [2026-02-24] bugfix(navigation): 설정화면 스와이프 시 앱 드로어로 강제 스크롤(Jump) 현상 수정
+
+### 발생한 버그
+
+앱의 설정 화면(Page 0)에서 화면을 아래로 살짝 드래그(위로 스와이프)할 경우, 홈 화면(Page 1)을 건너뛰고 앱 드로어 화면(Page 2)으로 강제로 빠르게 스크롤되며 넘어가는 버그가 발생했다. 특히 처음 앱을 실행한 직후에 이 현상이 100% 재현되었다.
+
+### 원인 분석
+
+십자형 내비게이션(`CrossPagerNavigation`)은 Jetpack Compose Foundation의 `VerticalPager`를 기반으로 작동한다. Pager는 스크롤 애니메이션의 부드러움을 위해 현재 화면에 완전히 나타나지 않더라도 **인접한 페이지를 미리 렌더링(Pre-compose)**하는 특징이 있다.
+
+앱 드로어 화면(`AppDrawerScreen`) 내부에는 화면 진입 시 사용자 편의를 위해 검색창에 자동으로 포커스를 주고 키보드를 띄우는 코드가 존재했다:
+```kotlin
+LaunchedEffect(Unit) {
+    focusRequester.requestFocus()
+}
+```
+
+설정 화면(Page 0)에서 홈 화면(Page 1) 방향으로 스와이프를 시작하는 순간, `VerticalPager`는 스크롤 준비를 위해 앱 드로어(Page 2)를 미리 렌더링하기 시작한다. 이때 화면 상에는 앱 드로어가 전혀 보이지 않지만, 내부적으로 로딩되면서 위 `LaunchedEffect` 블록이 실행되어 버린다.
+갑작스럽게 스크린 밖의 입력창이 포커스를 요청하게 되면서, 안드로이드/Compose 포커스 시스템은 **"현재 포커스된 입력창을 사용자에게 보여주어야 한다"**고 판단하여 즉시 앱 드로어(Page 2) 위치로 화면 전체를 강제 스크롤(Jump)시켜버리는 것이 근본 원인이었다.
+
+### 해결 방법
+
+앱 드로어 진입 시 검색창에 자동 포커스를 주는 기능 자체를 완전히 제거하여, 의도치 않은 포커스 요청으로 인한 스크롤 간섭을 방지했다.
+
+| # | 파일 | 작업 |
+|---|------|------|
+| 1 | `feature/apps-drawer/.../ui/AppDrawerScreen.kt` | `FocusRequester` 인스턴스 변수 및 입력창(`OutlinedTextField`)의 `.focusRequester(focusRequester)` 모디파이어 선언부 삭제 |
+| 2 | `feature/apps-drawer/.../ui/AppDrawerScreen.kt` | 컴포저블 렌더링 직후 무조건 실행되던 `LaunchedEffect` 내 `focusRequester.requestFocus()` 호출부 완전 삭제 |
+
+---
 ## [2026-02-24] refactor(launcher): 홈 초기 진입 클린 아키텍처 및 MVI 패턴 리팩터링
 
 ### 목표

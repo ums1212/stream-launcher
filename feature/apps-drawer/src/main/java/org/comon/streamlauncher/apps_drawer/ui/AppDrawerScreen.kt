@@ -26,7 +26,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -38,8 +37,6 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import org.comon.streamlauncher.domain.model.AppEntity
@@ -56,7 +53,6 @@ fun AppDrawerScreen(
     onAppClick: (AppEntity) -> Unit,
     onAppAssigned: (AppEntity, GridCell) -> Unit = { _, _ -> },
 ) {
-    val focusRequester = remember { FocusRequester() }
     val colors = StreamLauncherTheme.colors
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -65,8 +61,7 @@ fun AppDrawerScreen(
             onValueChange = onSearch,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp)
-                .focusRequester(focusRequester),
+                .padding(horizontal = 16.dp, vertical = 12.dp),
             placeholder = { Text("앱 검색") },
             leadingIcon = {
                 Icon(
@@ -116,10 +111,6 @@ fun AppDrawerScreen(
                 )
             }
         }
-    }
-
-    LaunchedEffect(Unit) {
-        focusRequester.requestFocus()
     }
 }
 
