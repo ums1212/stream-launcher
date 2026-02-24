@@ -6,7 +6,6 @@ import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.res.Configuration
 import android.provider.Settings
-import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -229,6 +228,7 @@ class MainActivity : ComponentActivity() {
                             onEditModeChange = { widgetViewModel.setEditMode(it) }
                         )
                     },
+                    isHomeEditMode = uiState.editingCell != null,
                 ) {
                     HomeScreen(state = uiState, onIntent = viewModel::handleIntent)
                 }

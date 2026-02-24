@@ -1,5 +1,6 @@
 package org.comon.streamlauncher.launcher.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -8,6 +9,9 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,21 +21,32 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -40,8 +55,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import kotlinx.coroutines.delay
 import org.comon.streamlauncher.domain.model.AppEntity
 import org.comon.streamlauncher.domain.model.GridCell
 import org.comon.streamlauncher.domain.model.GridCellImage
@@ -61,6 +78,11 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
 ) {
     val expandedCell = state.expandedCell
+    val editingCell = state.editingCell
+
+    BackHandler(enabled = editingCell != null) {
+        onIntent(HomeIntent.SetEditingCell(null))
+    }
 
     val topRowTargetWeight = when (expandedCell) {
         GridCell.TOP_LEFT, GridCell.TOP_RIGHT -> 0.8f
@@ -106,6 +128,7 @@ fun HomeScreen(
                 apps = state.appsInCells[GridCell.TOP_LEFT] ?: emptyList(),
                 gridCellImage = state.gridCellImages[GridCell.TOP_LEFT],
                 pinnedPackages = state.pinnedPackages,
+                editingCell = editingCell,
                 onIntent = onIntent,
                 modifier = Modifier.padding(end = 4.dp),
             )
@@ -116,6 +139,7 @@ fun HomeScreen(
                 apps = state.appsInCells[GridCell.TOP_RIGHT] ?: emptyList(),
                 gridCellImage = state.gridCellImages[GridCell.TOP_RIGHT],
                 pinnedPackages = state.pinnedPackages,
+                editingCell = editingCell,
                 onIntent = onIntent,
                 modifier = Modifier.padding(start = 4.dp),
             )
@@ -133,6 +157,7 @@ fun HomeScreen(
                 apps = state.appsInCells[GridCell.BOTTOM_LEFT] ?: emptyList(),
                 gridCellImage = state.gridCellImages[GridCell.BOTTOM_LEFT],
                 pinnedPackages = state.pinnedPackages,
+                editingCell = editingCell,
                 onIntent = onIntent,
                 modifier = Modifier.padding(end = 4.dp),
             )
@@ -143,6 +168,7 @@ fun HomeScreen(
                 apps = state.appsInCells[GridCell.BOTTOM_RIGHT] ?: emptyList(),
                 gridCellImage = state.gridCellImages[GridCell.BOTTOM_RIGHT],
                 pinnedPackages = state.pinnedPackages,
+                editingCell = editingCell,
                 onIntent = onIntent,
                 modifier = Modifier.padding(start = 4.dp),
             )
@@ -158,6 +184,7 @@ private fun RowScope.GridCellContent(
     apps: List<AppEntity>,
     gridCellImage: GridCellImage?,
     pinnedPackages: Set<String>,
+    editingCell: GridCell?,
     onIntent: (HomeIntent) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -198,8 +225,12 @@ private fun RowScope.GridCellContent(
 
     Surface(
         onClick = {
-            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-            onIntent(HomeIntent.ClickGrid(cell))
+            if (editingCell != null) {
+                onIntent(HomeIntent.SetEditingCell(null))
+            } else {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                onIntent(HomeIntent.ClickGrid(cell))
+            }
         },
         shape = shape,
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
@@ -282,17 +313,25 @@ private fun RowScope.GridCellContent(
                             for (col in 0 until GRID_COLUMNS) {
                                 val index = row * GRID_COLUMNS + col
                                 val app = displayApps.getOrNull(index)
+                                
+                                // 드래그 앤 드롭 로컬 상태
+                                val isDragged = dragDropState.draggedApp == app && dragDropState.isDragging
+                                val alphaVal = if (isDragged) 0.5f else 1f
+
                                 Box(
                                     modifier = Modifier
                                         .weight(1f)
                                         .fillMaxHeight()
-                                        .padding(5.dp),
+                                        .padding(5.dp)
+                                        .alpha(alphaVal),
                                     contentAlignment = Alignment.Center,
                                 ) {
                                     if (app != null) {
                                         GridAppItem(
                                             app = app,
+                                            cell = cell,
                                             isPinned = app.packageName in pinnedPackages,
+                                            isEditing = editingCell == cell,
                                             onIntent = onIntent,
                                         )
                                     }
@@ -329,38 +368,118 @@ private fun RowScope.GridCellContent(
 @Composable
 private fun GridAppItem(
     app: AppEntity,
+    cell: GridCell,
     isPinned: Boolean,
+    isEditing: Boolean,
     onIntent: (HomeIntent) -> Unit,
 ) {
     val haptic = LocalHapticFeedback.current
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
-            .fillMaxSize()
-            .combinedClickable(
-                onClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onIntent(HomeIntent.ClickApp(app))
-                },
-                onLongClick = if (isPinned) {
-                    {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        onIntent(HomeIntent.UnassignApp(app))
-                    }
-                } else null,
-            ),
+    val dragDropState = LocalDragDropState.current
+    
+    // 흔들림 애니메이션 효과 (편집 모드 시)
+    var isWiggling by remember { mutableStateOf(false)}
+    val rotation by animateFloatAsState(
+        targetValue = if (isWiggling) 2f else if (isEditing) -2f else 0f,
+        animationSpec = if (isEditing) tween(100) else spring(),
+        label = "wiggle"
+    )
+
+    LaunchedEffect(isEditing) {
+        if (isEditing) {
+            while (true) {
+                isWiggling = true
+                delay(100)
+                isWiggling = false
+                delay(100)
+            }
+        } else {
+            isWiggling = false
+        }
+    }
+
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
     ) {
-        AppIcon(
-            packageName = app.packageName,
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
-                .weight(1f)
-                .aspectRatio(1f),
-        )
-        Text(
-            text = app.label,
-            style = MaterialTheme.typography.labelSmall,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
+                .fillMaxSize()
+                .graphicsLayer {
+                    rotationZ = rotation
+                }
+                .combinedClickable(
+                    onClick = {
+                        if (isEditing) return@combinedClickable
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onIntent(HomeIntent.ClickApp(app))
+                    },
+                    onLongClick = {
+                        if (isPinned && dragDropState.draggedApp == null) {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            if (!isEditing) {
+                                onIntent(HomeIntent.SetEditingCell(cell))
+                            }
+                        } else null
+                    },
+                )
+                .draggable(
+                    state = rememberDraggableState { delta ->
+                        // 간단한 드래그 구현 (수평/수직 제스처 등 고도화 필요하지만 예시로)
+                        // DragDropState를 엮을 수도 있음
+                    },
+                    orientation = Orientation.Vertical,
+                    onDragStarted = {
+                        if (isEditing) {
+                            dragDropState.startDrag(app, Offset.Zero)
+                        }
+                    },
+                    onDragStopped = {
+                        if (isEditing && dragDropState.isDragging) {
+                            dragDropState.endDrag()
+                        }
+                    }
+                ),
+        ) {
+            AppIcon(
+                packageName = app.packageName,
+                modifier = Modifier
+                    .weight(1f)
+                    .aspectRatio(1f),
+            )
+            Text(
+                text = app.label,
+                style = MaterialTheme.typography.labelSmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+
+        if (isEditing) {
+            IconButton(
+                onClick = { onIntent(HomeIntent.UnassignApp(app)) },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(2.dp)
+                    .size(24.dp)
+                    .background(
+                        MaterialTheme.colorScheme.errorContainer,
+                        CircleShape
+                    )
+                    .border(
+                        1.dp,
+                        MaterialTheme.colorScheme.onErrorContainer,
+                        CircleShape
+                    )
+                    .zIndex(2f)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Remove App",
+                    tint = MaterialTheme.colorScheme.onErrorContainer,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        }
     }
 }

@@ -2,6 +2,28 @@
 
 ---
 
+## [2026-02-24] feat(home): 홈 화면 그리드 편집 모드 (앱 삭제, 순서 변경 준비, 페이저 스크롤 잠금)
+
+### 목표
+
+홈 화면 그리드 셀 내에서 아이콘을 길게 누르면 편집 모드에 진입하도록 구현한다. 편집 모드에서는 흔들림 애니메이션 효과가 나타나며, X 버튼을 눌러 선택한 앱을 셀에서 삭제할 수 있다. 또한, 향후 드래그 앤 드롭을 통한 앱 순서 변경을 위해 코어 로직과 UI 기반을 다듬고, 편집 중 의도치 않은 화면 스와이프를 방지하기 위해 네비게이션 `userScrollEnabled`를 차단한다.
+
+### 변경 사항
+
+| # | 모듈 | 파일 | 작업 |
+|---|------|------|------|
+| 1 | `feature/launcher` | `HomeContract.kt` | `HomeState`에 `editingCell: GridCell?` 파라미터 추가; `HomeIntent`에 `SetEditingCell` 및 `MoveAppInCell` 등 편집 관련 인텐트 추가 |
+| 2 | `feature/launcher` | `HomeViewModel.kt` | `distributeApps`에서 알파벳 자동 정렬 로직 해제하여 앱 순서 보존 활성화; `SetEditingCell`, `MoveAppInCell` 처리 핸들러 추가 |
+| 3 | `feature/launcher` | `ui/HomeScreen.kt` | `BackHandler`를 사용해 뒤로가기 시 편집 모드 종료; `GridAppItem`을 롱클릭 시 편집 모드 진입(`SetEditingCell`); 편집 상태 시 `animateFloatAsState`를 이용해 화면 흔들림(Wiggle) 효과 구현; X 버튼 영역 구현 (`IconButton(Close)`); 앱 내 드래그 앤 드롭 준비를 위한 `draggable` 추가 |
+| 4 | `app` | `navigation/CrossPagerNavigation.kt` | `CrossPagerNavigation` 쪽에 `isHomeEditMode: Boolean` 인자 추가; 편집 중일 때 좌우 `HorizontalPager` 및 상하 `VerticalPager` 스와이프 차단 |
+| 5 | `app` | `MainActivity.kt` | `HomeScreen`의 `editingCell != null` 여부에 따라 `CrossPagerNavigation`에 `isHomeEditMode` 전달 |
+
+### 설계 결정 및 근거
+
+- **페이저 스크롤 차단 (userScrollEnabled 차단):** 홈 화면과 그리드 인터페이스 특성상 아이콘 롱클릭 및 드래그 동작이 스와이프 제스처와 충돌할 가능성이 매우 높으므로, 아이콘이 흔들리고 X 버튼이 나온 편집 모드 상태에서는 아예 주변 Feed/App Drawer로의 스크롤을 무효화하여 안전한 편집 경험을 보장함.
+- **편집 모드(`Wiggle` 애니메이션):** iOS 방식의 흔들리는 애니메이션을 적용하여 사용자가 시각적으로 즉시 현재 편집 중 상태임을 알 수 있도록 직관적 UX 부여.
+- **뒤로가기와 외부 영역 터치:** 편집 중에 시스템 '뒤로가기' 버튼을 누르거나 셀 바깥 빈 공간을 터치하면 편집 모드가 자연스럽게 종료되도록 예외 처리 구현.
+
 ## [2026-02-24] bugfix(navigation): 앱 드로어에서 드래그 앤 드롭 취소 및 앱 사라짐 현상 수정
 
 ### 발생한 버그

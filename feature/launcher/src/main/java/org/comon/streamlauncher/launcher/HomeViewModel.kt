@@ -85,6 +85,8 @@ class HomeViewModel @Inject constructor(
             is HomeIntent.AssignAppToCell -> assignAppToCell(intent.app, intent.cell)
             is HomeIntent.UnassignApp -> unassignApp(intent.app)
             is HomeIntent.SaveFeedSettings -> saveFeedSettings(intent.chzzkChannelId, intent.youtubeChannelId, intent.rssUrl)
+            is HomeIntent.SetEditingCell -> updateState { copy(editingCell = intent.cell) }
+            is HomeIntent.MoveAppInCell -> moveAppInCell(intent.cell, intent.fromIndex, intent.toIndex)
         }
     }
 
@@ -139,6 +141,7 @@ class HomeViewModel @Inject constructor(
         updateState {
             copy(
                 expandedCell = null,
+                editingCell = null,
                 searchQuery = "",
                 filteredApps = allApps,
                 currentSettingsTab = SettingsTab.MAIN,
@@ -232,6 +235,27 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    private fun moveAppInCell(cell: GridCell, fromIndex: Int, toIndex: Int) {
+        val newAssignments = currentState.cellAssignments.toMutableMap()
+        val currentList = newAssignments[cell]?.toMutableList() ?: return
+        
+        if (fromIndex in currentList.indices && toIndex in currentList.indices) {
+            val item = currentList.removeAt(fromIndex)
+            currentList.add(toIndex, item)
+            newAssignments[cell] = currentList
+            
+            updateState {
+                copy(
+                    cellAssignments = newAssignments,
+                    appsInCells = distributeApps(allApps, newAssignments),
+                )
+            }
+            viewModelScope.launch {
+                saveCellAssignmentUseCase(cell, currentList)
+            }
+        }
+    }
+
 
     private fun filterApps(apps: List<AppEntity>, query: String): List<AppEntity> {
         if (query.isEmpty()) return apps
@@ -250,7 +274,6 @@ class HomeViewModel @Inject constructor(
             val pinnedPackageNames = cellAssignments[cell] ?: emptyList()
             pinnedPackageNames
                 .mapNotNull { pkg -> apps.find { it.packageName == pkg } }
-                .sortedBy { it.label }
         }
     }
 

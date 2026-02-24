@@ -68,6 +68,7 @@ fun CrossPagerNavigation(
     isWidgetEditMode: Boolean = false,
     settingsContent: @Composable () -> Unit = {},
     feedContent: @Composable () -> Unit = {},
+    isHomeEditMode: Boolean = false,
     homeContent: @Composable () -> Unit,
 ) {
     val verticalPagerState = rememberPagerState(initialPage = 1, pageCount = { 3 })
@@ -118,6 +119,7 @@ fun CrossPagerNavigation(
             beyondViewportPageCount = 1,
             userScrollEnabled = !horizontalPagerState.isScrollInProgress
                 && !dragDropState.isDragging
+                && !isHomeEditMode
                 && horizontalPagerState.currentPage != 0,
         ) { verticalPage ->
             when (verticalPage) {
@@ -134,6 +136,7 @@ fun CrossPagerNavigation(
                     isWidgetEditMode = isWidgetEditMode,
                     feedContent = feedContent,
                     isDragging = dragDropState.isDragging,
+                    isHomeEditMode = isHomeEditMode,
                 )
                 2 -> DownPage(
                     pagerState = verticalPagerState,
@@ -203,6 +206,7 @@ private fun CenterRow(
     isWidgetEditMode: Boolean,
     feedContent: @Composable () -> Unit,
     isDragging: Boolean = false,
+    isHomeEditMode: Boolean = false,
 ) {
     Box(
         modifier = Modifier
@@ -215,7 +219,7 @@ private fun CenterRow(
             state = horizontalPagerState,
             modifier = Modifier.fillMaxSize(),
             beyondViewportPageCount = 1,
-            userScrollEnabled = !verticalPagerState.isScrollInProgress && !isDragging,
+            userScrollEnabled = !verticalPagerState.isScrollInProgress && !isDragging && !isHomeEditMode,
         ) { horizontalPage ->
             when (horizontalPage) {
                 0 -> LeftPage(

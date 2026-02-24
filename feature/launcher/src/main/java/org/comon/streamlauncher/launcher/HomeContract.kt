@@ -11,6 +11,7 @@ import org.comon.streamlauncher.ui.UiState
 
 data class HomeState(
     val expandedCell: GridCell? = null,
+    val editingCell: GridCell? = null,
     val allApps: List<AppEntity> = emptyList(),
     val appsInCells: Map<GridCell, List<AppEntity>> = emptyMap(),
     val isLoading: Boolean = false,
@@ -44,6 +45,8 @@ sealed interface HomeIntent : UiIntent {
         val youtubeChannelId: String,
         val rssUrl: String,
     ) : HomeIntent
+    data class SetEditingCell(val cell: GridCell?) : HomeIntent
+    data class MoveAppInCell(val cell: GridCell, val fromIndex: Int, val toIndex: Int) : HomeIntent
 }
 
 sealed interface HomeSideEffect : UiSideEffect {
