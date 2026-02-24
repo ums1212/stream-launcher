@@ -42,6 +42,7 @@ import org.comon.streamlauncher.ui.dragdrop.LocalDragDropState
 import org.comon.streamlauncher.ui.theme.StreamLauncherTheme
 import org.comon.streamlauncher.widget.WidgetViewModel
 import org.comon.streamlauncher.widget.ui.WidgetScreen
+import androidx.core.net.toUri
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -181,7 +182,7 @@ class MainActivity : ComponentActivity() {
                         when (effect) {
                             is FeedSideEffect.OpenUrl -> {
                                 try {
-                                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(effect.url)))
+                                    startActivity(Intent(Intent.ACTION_VIEW, effect.url.toUri()))
                                 } catch (e: ActivityNotFoundException) {
                                     Log.w("MainActivity", "URL 열기 실패: ${effect.url}", e)
                                 }

@@ -115,7 +115,7 @@ fun CrossPagerNavigation(
         VerticalPager(
             state = verticalPagerState,
             modifier = Modifier.fillMaxSize(),
-            beyondViewportPageCount = 0,
+            beyondViewportPageCount = 1,
             userScrollEnabled = !horizontalPagerState.isScrollInProgress
                 && !dragDropState.isDragging
                 && horizontalPagerState.currentPage != 0,
@@ -214,7 +214,7 @@ private fun CenterRow(
         HorizontalPager(
             state = horizontalPagerState,
             modifier = Modifier.fillMaxSize(),
-            beyondViewportPageCount = 0,
+            beyondViewportPageCount = 1,
             userScrollEnabled = !verticalPagerState.isScrollInProgress && !isDragging,
         ) { horizontalPage ->
             when (horizontalPage) {
