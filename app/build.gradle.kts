@@ -68,6 +68,9 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.compose)
     ksp(libs.hilt.android.compiler)
 
+    implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.hilt.work)
+
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.turbine)
@@ -79,4 +82,5 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
+    debugImplementation(libs.leakcanary.android)
 }

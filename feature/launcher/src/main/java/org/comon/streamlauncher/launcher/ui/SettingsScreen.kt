@@ -1,6 +1,8 @@
 package org.comon.streamlauncher.launcher.ui
 
+import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -95,6 +97,7 @@ fun SettingsScreen(
 @Composable
 private fun MainSettingsContent(onIntent: (HomeIntent) -> Unit) {
     val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
     val accentPrimary = StreamLauncherTheme.colors.accentPrimary
     val accentSecondary = StreamLauncherTheme.colors.accentSecondary
 
@@ -147,6 +150,23 @@ private fun MainSettingsContent(onIntent: (HomeIntent) -> Unit) {
                 containerColor = accentSecondary.copy(alpha = 0.7f),
             )
         }
+        SettingsButton(
+            label = "기본 홈 앱",
+            onClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                try {
+                    val homeIntent = Intent(Settings.ACTION_HOME_SETTINGS)
+                    if (homeIntent.resolveActivity(context.packageManager) != null) {
+                        context.startActivity(homeIntent)
+                    } else {
+                        context.startActivity(Intent(Settings.ACTION_SETTINGS))
+                    }
+                } catch (_: ActivityNotFoundException) {
+                    context.startActivity(Intent(Settings.ACTION_SETTINGS))
+                }
+            },
+            containerColor = MaterialTheme.colorScheme.outline,
+        )
     }
 }
 

@@ -2,6 +2,41 @@
 
 ---
 
+## [2026-02-24] Step 22: 기본 런처 등록 및 시스템 최적화
+
+### 목표
+
+기본 홈 앱(Launcher)으로서의 완성도를 높이기 위해 시스템 설정 연결, Edge-to-Edge 투명화, 하단 그라데이션 스크림, Coil 메모리 캐시 제한, WorkManager 피드 갱신, LeakCanary 통합을 구현한다.
+
+### 변경 사항
+
+| # | 파일 | 작업 |
+|---|------|------|
+| 1 | `feature/launcher/.../SettingsScreen.kt` | "기본 홈 앱" 버튼 추가 — `Settings.ACTION_HOME_SETTINGS` 호출, API 28 대응(`resolveActivity()` 체크 + `ActivityNotFoundException` try-catch), fallback `ACTION_SETTINGS` |
+| 2 | `app/src/main/res/values/themes.xml` | 시스템 바 투명 + `windowLightStatusBar/NavigationBar=true` (라이트: 어두운 아이콘) |
+| 3 | `app/src/main/res/values-night/themes.xml` | **신규** — 다크 모드 테마, `windowLightStatusBar/NavigationBar=false` (밝은 아이콘) |
+| 4 | `app/.../MainActivity.kt` | `enableEdgeToEdge()` → `SystemBarStyle.auto(transparent, transparent)` + `detectDarkMode` 람다로 Light/Dark 아이콘 자동 전환 |
+| 5 | `app/.../navigation/CrossPagerNavigation.kt` | 홈 페이지(page 1) 하단 48dp 그라데이션 스크림 추가 — `Brush.verticalGradient(Transparent → Black 15% alpha)` |
+| 6 | `app/.../StreamLauncherApplication.kt` | `ImageLoaderFactory` 구현 (메모리 15%, 디스크 50MB, crossfade); `Configuration.Provider` + `HiltWorkerFactory` 주입; `scheduleFeedSync()` — OneTimeWorkRequest(최초 1회) + PeriodicWorkRequest(6시간 주기) |
+| 7 | `app/src/main/AndroidManifest.xml` | WorkManager 기본 초기화 비활성화 provider 추가 (`tools:node="remove"`) |
+| 8 | `gradle/libs.versions.toml` | `workRuntimeKtx`, `hiltWork`, `leakcanary` 버전 및 라이브러리 추가 |
+| 9 | `app/build.gradle.kts` | WorkManager, hilt-work, LeakCanary(debugImplementation) 의존성 추가 |
+| 10 | `core/data/build.gradle.kts` | WorkManager, hilt-work 의존성 추가 |
+| 11 | `core/data/.../worker/FeedSyncWorker.kt` | **신규** — `@HiltWorker` + `FeedRepository`/`SettingsRepository` DI 주입, `getIntegratedFeed()` 호출, 최대 3회 retry |
+
+### 설계 결정 및 근거
+
+| 결정 | 근거 |
+|------|------|
+| `resolveActivity()` + `ActivityNotFoundException` 이중 방어 | API 28 이하·일부 OEM에서 `ACTION_HOME_SETTINGS` 미지원 시 크래시 방지; fallback으로 일반 설정 화면 진입 |
+| `values-night/themes.xml` 분리 | 라이트 모드(어두운 아이콘) vs 다크 모드(밝은 아이콘) — 배경색에 묻히지 않도록 `windowLightStatusBar` 분기 |
+| 하단 48dp 그라데이션 스크림 | `navigationBarsPadding`만으로는 밝은 배경화면에서 내비게이션 바 아이콘 가독성 저하; 15% alpha 옅은 스크림으로 보완 |
+| OneTimeWorkRequest + PeriodicWorkRequest 병행 | 최초 설치 시 캐시가 비어있을 수 있으므로 즉시 1회 실행; 6시간 주기는 배터리 효율 유지 |
+| `HiltWorkerFactory` + Manifest WorkManagerInitializer 제거 | WorkManager가 Hilt로 `FeedSyncWorker`를 생성하려면 커스텀 `Configuration.Provider`와 `tools:node="remove"` 필수 |
+| LeakCanary debugImplementation | 릴리즈 빌드 미포함; 드래그 앤 드롭(Step 19) Modifier·람다 캡처 부분 중점 점검 대상으로 devlog에 명시 |
+
+---
+
 ## [2026-02-23] feat(home): 홈 그리드 아이콘 레이아웃 + 수동 앱 배치
 
 ### 목표
