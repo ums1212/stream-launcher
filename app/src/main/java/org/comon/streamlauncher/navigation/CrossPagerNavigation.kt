@@ -240,17 +240,6 @@ private fun CenterRow(
                     Box(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
                         homeContent()
                     }
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .fillMaxWidth()
-                            .height(48.dp)
-                            .background(
-                                Brush.verticalGradient(
-                                    colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.15f)),
-                                ),
-                            ),
-                    )
                 }
                 2 -> RightPage(
                     pagerState = horizontalPagerState,
