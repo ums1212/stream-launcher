@@ -1,22 +1,22 @@
 package org.comon.streamlauncher.apps_drawer.ui
 
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
@@ -39,12 +39,20 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import org.comon.streamlauncher.domain.model.AppEntity
 import org.comon.streamlauncher.domain.model.GridCell
 import org.comon.streamlauncher.ui.component.AppIcon
 import org.comon.streamlauncher.ui.dragdrop.LocalDragDropState
 import org.comon.streamlauncher.ui.theme.StreamLauncherTheme
+import kotlin.math.ceil
+
+private const val COLUMNS = 4
+private const val ROWS = 6
+private const val ITEMS_PER_PAGE = COLUMNS * ROWS
 
 @Composable
 fun AppDrawerScreen(
@@ -55,6 +63,8 @@ fun AppDrawerScreen(
     onAppAssigned: (AppEntity, GridCell) -> Unit = { _, _ -> },
 ) {
     val colors = StreamLauncherTheme.colors
+    val pageCount = if (filteredApps.isEmpty()) 1 else ceil(filteredApps.size / ITEMS_PER_PAGE.toFloat()).toInt()
+    val pagerState = rememberPagerState(pageCount = { pageCount })
 
     Column(modifier = Modifier.fillMaxSize()) {
         OutlinedTextField(
@@ -89,35 +99,103 @@ fun AppDrawerScreen(
             ),
         )
 
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-        ) {
-            items(
-                items = filteredApps,
-                // packageName은 런처 액티비티 복수 등록 시 중복 가능 → activityName(FQCN)으로 고유 키 보장
-                key = { it.activityName },
-            ) { app ->
-                AppDrawerItem(
-                    app = app,
-                    onClick = { onAppClick(app) },
-                    onAppAssigned = onAppAssigned,
-                    modifier = Modifier.animateItem(
-                        fadeInSpec = tween(300),
-                        placementSpec = spring(
-                            dampingRatio = Spring.DampingRatioNoBouncy,
-                            stiffness = Spring.StiffnessMediumLow,
-                        ),
-                        fadeOutSpec = tween(200),
-                    ),
-                )
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f),
+        ) { page ->
+            val startIndex = page * ITEMS_PER_PAGE
+            val endIndex = minOf(startIndex + ITEMS_PER_PAGE, filteredApps.size)
+            val pageApps = if (startIndex < filteredApps.size) {
+                filteredApps.subList(startIndex, endIndex)
+            } else {
+                emptyList()
+            }
+
+            AppGridPage(
+                apps = pageApps,
+                onAppClick = onAppClick,
+                onAppAssigned = onAppAssigned,
+            )
+        }
+
+        // 페이지 인디케이터
+        if (pageCount > 1) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp),
+                horizontalArrangement = Arrangement.Center,
+            ) {
+                repeat(pageCount) { index ->
+                    val isSelected = pagerState.currentPage == index
+                    Box(
+                        modifier = Modifier
+                            .padding(horizontal = 4.dp)
+                            .size(if (isSelected) 8.dp else 6.dp)
+                            .then(
+                                Modifier.padding(0.dp)
+                            ),
+                    ) {
+                        androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
+                            drawCircle(
+                                color = if (isSelected) {
+                                    colors.accentPrimary
+                                } else {
+                                    colors.accentPrimary.copy(alpha = 0.3f)
+                                },
+                            )
+                        }
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
-private fun AppDrawerItem(
+private fun AppGridPage(
+    apps: List<AppEntity>,
+    onAppClick: (AppEntity) -> Unit,
+    onAppAssigned: (AppEntity, GridCell) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+    ) {
+        for (rowIndex in 0 until ROWS) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+            ) {
+                for (colIndex in 0 until COLUMNS) {
+                    val appIndex = rowIndex * COLUMNS + colIndex
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (appIndex < apps.size) {
+                            AppDrawerGridItem(
+                                app = apps[appIndex],
+                                onClick = { onAppClick(apps[appIndex]) },
+                                onAppAssigned = onAppAssigned,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AppDrawerGridItem(
     app: AppEntity,
     onClick: () -> Unit,
     onAppAssigned: (AppEntity, GridCell) -> Unit,
@@ -127,9 +205,8 @@ private fun AppDrawerItem(
     val dragDropState = LocalDragDropState.current
     var itemRootOffset by remember { mutableStateOf(Offset.Zero) }
 
-    Row(
+    Column(
         modifier = modifier
-            .fillMaxWidth()
             .onGloballyPositioned { coords ->
                 itemRootOffset = coords.positionInRoot()
             }
@@ -160,17 +237,21 @@ private fun AppDrawerItem(
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 onClick()
             }
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .padding(vertical = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         AppIcon(
             packageName = app.packageName,
-            modifier = Modifier.size(40.dp),
+            modifier = Modifier.size(48.dp),
         )
-        Spacer(modifier = Modifier.width(16.dp))
+        Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = app.label,
-            style = MaterialTheme.typography.bodyLarge,
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.width(64.dp),
         )
     }
 }

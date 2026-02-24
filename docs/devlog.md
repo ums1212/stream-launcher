@@ -2,6 +2,55 @@
 
 ---
 
+## [2026-02-24] feat(apps-drawer): 앱 드로어 스크롤 방식을 HorizontalPager 그리드로 변경
+
+### 목표
+
+앱 드로어 화면의 스크롤 방식을 기존 세로 리스트(`LazyColumn`)에서 좌우 스와이프 페이지 전환(`HorizontalPager`) 방식으로 변경한다. 한 페이지에 4(가로) × 6(세로) = 24개의 앱을 아이콘 그리드 형태로 배치하며, 왼쪽 상단부터 오른쪽 방향으로 배치 후 한 줄씩 내려가는 순서로 앱을 표시한다.
+
+### 변경 사항
+
+| # | 모듈 | 파일 | 작업 |
+|---|------|------|------|
+| 1 | `feature/apps-drawer` | `ui/AppDrawerScreen.kt` | `LazyColumn` 기반 세로 리스트 → `HorizontalPager` + 4×6 그리드 레이아웃으로 전면 교체 |
+| 2 | `feature/apps-drawer` | `ui/AppDrawerScreen.kt` | `AppDrawerItem` (Row: 아이콘+텍스트 가로 배치) → `AppDrawerGridItem` (Column: 아이콘 위 + 앱 이름 아래 세로 배치) 컴포저블 이름 및 레이아웃 변경 |
+| 3 | `feature/apps-drawer` | `ui/AppDrawerScreen.kt` | `AppGridPage` private 컴포저블 신규 추가 — 한 페이지의 4열×6행 그리드 배치, `Column > Row > Box` 중첩 구조로 균등 분배 |
+| 4 | `feature/apps-drawer` | `ui/AppDrawerScreen.kt` | 페이지 인디케이터(dot indicator) 추가 — 2페이지 이상일 때 하단에 현재 페이지 위치 표시, `Canvas`로 원형 그리기, `accentPrimary` 컬러 사용 |
+
+### 구조
+
+```
+AppDrawerScreen
+├─ OutlinedTextField (검색바, 기존 유지)
+├─ HorizontalPager (weight=1f)
+│   └─ AppGridPage (페이지별)
+│       └─ Column (6행)
+│           └─ Row (4열, weight 균등)
+│               └─ Box (contentAlignment = Center)
+│                   └─ AppDrawerGridItem
+│                       ├─ AppIcon (48dp)
+│                       └─ Text (11sp, maxLines=1, ellipsis, width=64dp)
+└─ Row (페이지 인디케이터, pageCount > 1일 때만)
+    └─ Canvas × pageCount (선택: 8dp, 비선택: 6dp)
+```
+
+- 페이지 분할: `filteredApps`를 24개씩 `ceil(size / 24)` 페이지로 분할
+- 배치 순서: `appIndex = rowIndex * COLUMNS + colIndex` (행 우선, 왼→오른, 위→아래)
+- 검색 기능: 기존과 동일하게 유지, 필터링된 결과도 페이지 단위로 표시
+- 드래그앤드롭: 기존 `detectDragGesturesAfterLongPress` 로직 완전 보존
+
+### 설계 결정 및 근거
+
+| 결정 | 근거 |
+|------|------|
+| `LazyVerticalGrid` 대신 `Column > Row` 고정 레이아웃 사용 | 한 페이지 최대 24개(4×6) 고정 아이템이므로 스크롤 불필요. 고정 레이아웃으로 `weight(1f)` 기반 균등 분배가 가능하여 기기 해상도에 독립적인 크기 조정 가능 |
+| 아이콘 크기 48dp + 앱 이름 너비 64dp | 4열 그리드에서 아이콘이 충분히 식별 가능한 크기이면서, 앱 이름이 너무 길어져 다른 열을 침범하지 않도록 고정 너비 제한 |
+| 페이지 인디케이터를 `Canvas` 직접 그리기로 구현 | 외부 라이브러리 의존성 없이 간단한 dot indicator 구현. `accentPrimary` 테마 컬러와 자연스럽게 통합 |
+| `rememberPagerState(pageCount = { pageCount })` 람다 방식 | 검색 결과에 따라 `filteredApps` 크기가 동적으로 변하므로, 리컴포지션 시 pageCount가 자동 갱신되도록 람다 형태로 전달 |
+| 상수 `COLUMNS=4`, `ROWS=6`, `ITEMS_PER_PAGE=24` 파일 상수로 정의 | 매직 넘버 방지 및 향후 레이아웃 변경 시 한 곳만 수정하면 되도록 상수화 |
+
+---
+
 ## [2026-02-24] feat(home): 홈 화면 그리드 편집 모드 (앱 삭제, 순서 변경 준비, 페이저 스크롤 잠금)
 
 ### 목표
