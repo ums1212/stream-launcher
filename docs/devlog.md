@@ -2,6 +2,68 @@
 
 ---
 
+## [2026-02-24] investigation: setRequestedFrameRate(NaN) 로그 매 프레임 출력 현상 원인 분석
+
+### 발견한 현상
+
+런처 앱을 실행하면 로그캣에서 아래와 같은 `setRequestedFrameRate frameRate=NaN` 로그가 **매 프레임마다** 빠르게 출력되는 현상을 발견했다.
+
+```
+View  I  setRequestedFrameRate frameRate=NaN, this=android.view.View{...}
+         caller=androidx.compose.ui.platform.Api35Impl.setRequestedFrameRate
+                androidx.compose.ui.platform.AndroidComposeView.dispatchDraw
+```
+
+- **홈 화면, 설정 화면, 피드 화면, 앱 드로어 화면**: 가만히 있어도 로그가 빠르게 연속 출력됨
+- **위젯 화면**: 로그가 출력되지 않음 (편집 모드가 아닌 한)
+- Compose BOM을 `2026.02.00`으로 업데이트해도 동일하게 발생
+
+### 원인 분석
+
+`FeedScreen.kt`의 `LiveStatusCard`에 **LIVE breathing 무한 애니메이션**이 존재한다:
+
+```kotlin
+// FeedScreen.kt — LiveStatusCard 내부
+val infiniteTransition = rememberInfiniteTransition(label = "liveBreathing")
+val breathAlpha by infiniteTransition.animateFloat(
+    initialValue = 0.4f,
+    targetValue = 1.0f,
+    animationSpec = infiniteRepeatable(
+        animation = tween(durationMillis = 1200),
+        repeatMode = RepeatMode.Reverse,
+    ),
+)
+```
+
+이 `rememberInfiniteTransition`은 컴포지션이 유지되는 한 **무한 반복**으로 매 프레임 `dispatchDraw()`를 유발한다. `dispatchDraw()` 호출 시 Compose 내부의 `Api35Impl.setRequestedFrameRate()`가 실행되며, 이때 프레임 레이트 값이 `NaN`으로 전달되어 로그가 출력된다.
+
+핵심은 `CrossPagerNavigation.kt`의 Pager 설정에 있다:
+
+```kotlin
+HorizontalPager(
+    beyondViewportPageCount = 1,  // 현재 페이지 ± 1페이지를 미리 렌더링
+)
+```
+
+`beyondViewportPageCount = 1` 설정으로 인해 **현재 보고 있는 페이지의 인접 페이지**가 항상 프리렌더링(Pre-compose)된다. FeedScreen은 `HorizontalPager`의 **page 0**에 위치하므로:
+
+| 현재 위치 | HorizontalPager 프리렌더링 범위 | FeedScreen (page 0) 포함 여부 |
+|-----------|-------------------------------|:---:|
+| 홈 (page 1) | page 0, page 2 | ✅ 포함 → 무한 애니메이션 실행 중 |
+| 위젯 (page 2) | page 1 만 | ❌ 범위 밖 → 애니메이션 미실행 |
+
+또한 `VerticalPager`도 `beyondViewportPageCount = 1`이므로:
+- **설정 화면** (vertical page 0) → CenterRow (page 1) 프리렌더링 → FeedScreen 활성 → 로그 출력
+- **앱 드로어** (vertical page 2) → CenterRow (page 1) 프리렌더링 → FeedScreen 활성 → 로그 출력
+
+위젯 화면만 FeedScreen과 **2페이지 이상 떨어져 있어** 프리렌더링 범위 밖이므로 무한 애니메이션이 활성화되지 않고, 결과적으로 매 프레임 draw가 발생하지 않아 로그가 출력되지 않는다.
+
+### 현재 상태
+
+원인 파악만 완료한 상태이며, 코드 수정은 아직 진행하지 않음. 향후 개선 방향으로는 FeedScreen이 실제로 화면에 보이지 않을 때 무한 애니메이션을 중단하는 방법(예: `PagerState.currentPage` 기반 조건부 애니메이션) 등을 검토할 예정.
+
+---
+
 ## [2026-02-24] feat(apps-drawer): 앱 드로어 스크롤 방식을 HorizontalPager 그리드로 변경
 
 ### 목표

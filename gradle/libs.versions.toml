@@ -1,30 +1,28 @@
 [versions]
 agp = "8.12.3"
-kotlin = "2.0.21"
-ksp = "2.0.21-1.0.28"
+kotlin = "2.2.20"
+ksp = "2.2.20-2.0.2"
 coreKtx = "1.17.0"
 junit = "4.13.2"
 junitVersion = "1.3.0"
 espressoCore = "3.7.0"
 lifecycleRuntimeKtx = "2.10.0"
 activityCompose = "1.12.4"
-composeBom = "2024.09.00"
-jetbrainsKotlinJvm = "2.0.21"
-appcompat = "1.7.1"
-material = "1.13.0"
-hilt = "2.51.1"
-coroutines = "1.8.1"
-datastorePreferences = "1.1.4"
-navigationCompose = "2.8.9"
-turbine = "1.2.0"
-mockk = "1.13.13"
+composeBom = "2026.02.00"
+jetbrainsKotlinJvm = "2.2.20"
+hilt = "2.58"
+coroutines = "1.10.2"
+datastorePreferences = "1.2.0"
+navigationCompose = "2.9.7"
+turbine = "1.2.1"
+mockk = "1.14.9"
 coil = "2.6.0"
-kotlinxSerialization = "1.7.3"
+kotlinxSerialization = "1.8.1"
 retrofit = "2.11.0"
 okhttp = "4.12.0"
-xmlutil = "0.90.3"
+xmlutil = "0.91.3"
 retrofitKotlinxSerialization = "1.0.0"
-workRuntimeKtx = "2.10.1"
+workRuntimeKtx = "2.11.1"
 hiltWork = "1.2.0"
 leakcanary = "2.14"
 
@@ -45,8 +43,6 @@ androidx-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-toolin
 androidx-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
 androidx-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
 androidx-material3 = { group = "androidx.compose.material3", name = "material3" }
-androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
-material = { group = "com.google.android.material", name = "material", version.ref = "material" }
 hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
 hilt-android-compiler = { group = "com.google.dagger", name = "hilt-android-compiler", version.ref = "hilt" }
 hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navigation-compose", version = "1.2.0" }
@@ -64,8 +60,8 @@ retrofit-core = { group = "com.squareup.retrofit2", name = "retrofit", version.r
 okhttp-core = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
 okhttp-logging = { group = "com.squareup.okhttp3", name = "logging-interceptor", version.ref = "okhttp" }
 retrofit-kotlinx-serialization = { group = "com.jakewharton.retrofit", name = "retrofit2-kotlinx-serialization-converter", version.ref = "retrofitKotlinxSerialization" }
-xmlutil-core = { group = "io.github.pdvrieze.xmlutil", name = "core-android", version.ref = "xmlutil" }
-xmlutil-serialization = { group = "io.github.pdvrieze.xmlutil", name = "serialization-android", version.ref = "xmlutil" }
+xmlutil-core = { group = "io.github.pdvrieze.xmlutil", name = "core", version.ref = "xmlutil" }
+xmlutil-serialization = { group = "io.github.pdvrieze.xmlutil", name = "serialization", version.ref = "xmlutil" }
 androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "workRuntimeKtx" }
 hilt-work = { group = "androidx.hilt", name = "hilt-work", version.ref = "hiltWork" }
 leakcanary-android = { group = "com.squareup.leakcanary", name = "leakcanary-android", version.ref = "leakcanary" }
