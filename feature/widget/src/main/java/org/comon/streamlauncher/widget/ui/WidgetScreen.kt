@@ -32,11 +32,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -79,15 +75,16 @@ fun WidgetScreen(
     appWidgetHost: AppWidgetHost,
     onAddWidgetClick: (slotIndex: Int) -> Unit,
     onDeleteWidgetClick: (slotIndex: Int) -> Unit,
+    isEditMode: Boolean,
+    onEditModeChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var isEditMode by remember { mutableStateOf(false) }
     val onSurface = StreamLauncherTheme.colors.glassOnSurface
 
     // 편집 모드일 때 뒤로가기 → 편집 모드 해제 (홈으로 가지 않음)
     // 편집 모드가 아닐 때는 비활성화 → 기본 뒤로가기 동작(홈 이동)
     BackHandler(enabled = isEditMode) {
-        isEditMode = false
+        onEditModeChange(false)
     }
 
     Column(modifier = modifier.fillMaxSize()) {
@@ -110,7 +107,7 @@ fun WidgetScreen(
                     modifier = Modifier.align(Alignment.Center),
                 )
                 TextButton(
-                    onClick = { isEditMode = false },
+                    onClick = { onEditModeChange(false) },
                     modifier = Modifier.align(Alignment.CenterEnd),
                 ) {
                     Text("완료", color = onSurface)
@@ -128,7 +125,7 @@ fun WidgetScreen(
                     .weight(1f)
                     .fillMaxWidth()
                     .pointerInput(Unit) {
-                        detectTapGestures(onLongPress = { isEditMode = true })
+                        detectTapGestures(onLongPress = { onEditModeChange(true) })
                     },
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -164,7 +161,7 @@ fun WidgetScreen(
                                         widgetId = widgetId,
                                         appWidgetHost = appWidgetHost,
                                         isEditMode = isEditMode,
-                                        onEnterEditMode = { isEditMode = true },
+                                        onEnterEditMode = { onEditModeChange(true) },
                                         onDeleteClick = { onDeleteWidgetClick(index) },
                                         modifier = Modifier
                                             .weight(1f)
@@ -175,7 +172,7 @@ fun WidgetScreen(
                                 EmptyCell(
                                     isEditMode = isEditMode,
                                     onAddClick = { onAddWidgetClick(index) },
-                                    onEnterEditMode = { isEditMode = true },
+                                    onEnterEditMode = { onEditModeChange(true) },
                                     tintColor = onSurface,
                                     modifier = Modifier
                                         .weight(1f)

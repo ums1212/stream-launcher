@@ -15,13 +15,16 @@ class WidgetViewModel @Inject constructor(
     private val widgetRepository: WidgetRepository,
 ) : ViewModel() {
 
-    /** 고정 MAX_WIDGETS 크기. null = 빈 슬롯, Int = 위젯 ID */
     val widgetSlots = widgetRepository.getWidgetSlots()
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000L),
             initialValue = List(MAX_WIDGETS) { null },
         )
+
+    private val _isEditMode = kotlinx.coroutines.flow.MutableStateFlow(false)
+    val isEditMode = _isEditMode.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), false)
+
 
     init {
         viewModelScope.launch {
@@ -39,5 +42,9 @@ class WidgetViewModel @Inject constructor(
         viewModelScope.launch {
             widgetRepository.clearSlot(slot)
         }
+    }
+
+    fun setEditMode(isEdit: Boolean) {
+        _isEditMode.value = isEdit
     }
 }

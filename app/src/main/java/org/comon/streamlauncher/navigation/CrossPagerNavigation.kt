@@ -5,13 +5,9 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -30,17 +26,13 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.lerp
-import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
 import org.comon.streamlauncher.ui.component.AppIcon
 import org.comon.streamlauncher.ui.dragdrop.LocalDragDropState
@@ -71,9 +63,9 @@ import kotlin.math.roundToInt
 fun CrossPagerNavigation(
     modifier: Modifier = Modifier,
     resetTrigger: Int = 0,
-    wallpaperImage: String? = null,
     appDrawerContent: @Composable () -> Unit,
     widgetContent: @Composable () -> Unit = {},
+    isWidgetEditMode: Boolean = false,
     settingsContent: @Composable () -> Unit = {},
     feedContent: @Composable () -> Unit = {},
     homeContent: @Composable () -> Unit,
@@ -137,9 +129,9 @@ fun CrossPagerNavigation(
                 1 -> CenterRow(
                     verticalPagerState = verticalPagerState,
                     horizontalPagerState = horizontalPagerState,
-                    wallpaperImage = wallpaperImage,
                     homeContent = homeContent,
                     widgetContent = widgetContent,
+                    isWidgetEditMode = isWidgetEditMode,
                     feedContent = feedContent,
                     isDragging = dragDropState.isDragging,
                 )
@@ -206,9 +198,9 @@ fun CrossPagerNavigation(
 private fun CenterRow(
     verticalPagerState: PagerState,
     horizontalPagerState: PagerState,
-    wallpaperImage: String? = null,
     homeContent: @Composable () -> Unit,
     widgetContent: @Composable () -> Unit,
+    isWidgetEditMode: Boolean,
     feedContent: @Composable () -> Unit,
     isDragging: Boolean = false,
 ) {
@@ -218,7 +210,6 @@ private fun CenterRow(
             .clipToBounds()
             .graphicsLayer { alpha = pageAlpha(verticalPagerState, 1) },
     ) {
-        WallpaperLayer(wallpaperImage = wallpaperImage, pagerState = horizontalPagerState)
 
         HorizontalPager(
             state = horizontalPagerState,
@@ -244,6 +235,7 @@ private fun CenterRow(
                 2 -> RightPage(
                     pagerState = horizontalPagerState,
                     page = horizontalPage,
+                    isWidgetEditMode = isWidgetEditMode,
                     content = widgetContent,
                 )
             }
@@ -312,30 +304,6 @@ private fun DownPage(
 }
 
 @Composable
-private fun WallpaperLayer(
-    wallpaperImage: String?,
-    pagerState: PagerState,
-) {
-    if (wallpaperImage == null) return
-    val containerSize = LocalWindowInfo.current.containerSize
-    val density = LocalDensity.current
-    val screenWidthPx = containerSize.width.toFloat()
-    val screenWidthDp = with(density) { screenWidthPx.toDp() }
-
-    AsyncImage(
-        model = wallpaperImage,
-        contentDescription = null,
-        contentScale = ContentScale.Crop,
-        modifier = Modifier
-            .fillMaxHeight()
-            .requiredWidth(screenWidthDp * 3)
-            .graphicsLayer {
-                translationX = (1 - pagerState.currentPage - pagerState.currentPageOffsetFraction) * screenWidthPx
-            },
-    )
-}
-
-@Composable
 private fun LeftPage(
     pagerState: PagerState,
     page: Int,
@@ -367,20 +335,22 @@ private fun LeftPage(
 private fun RightPage(
     pagerState: PagerState,
     page: Int,
+    isWidgetEditMode: Boolean,
     content: @Composable () -> Unit,
 ) {
-    val glassSurface = StreamLauncherTheme.colors.glassSurface.copy(alpha = 0.55f)
-
     Box(
         modifier = Modifier
             .fillMaxSize()
             .graphicsLayer { alpha = pageAlpha(pagerState, page) },
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .glassEffect(overlayColor = glassSurface),
-        )
+        if (isWidgetEditMode) {
+            val glassSurface = StreamLauncherTheme.colors.glassSurface.copy(alpha = 0.55f)
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .glassEffect(overlayColor = glassSurface),
+            )
+        }
         Box(
             modifier = Modifier
                 .fillMaxSize()

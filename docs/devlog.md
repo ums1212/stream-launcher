@@ -2,6 +2,33 @@
 
 ---
 
+## [2026-02-24] feat(ui): 시스템 배경화면 투명화 및 위젯 편집 모드 조건부 글래스 이펙트
+
+### 목표
+
+런처 전반의 자체 배경 이미지 대신 안드로이드 시스템 배경화면이 투명하게 비치도록 `windowShowWallpaper=true` 테마 속성을 적용한다. 또한, 위젯 화면은 기본적으로 투명한 상태를 유지하여 시스템 바탕화면 전체가 잘 보이게 하되, 롱클릭으로 "편집 모드(Edit Mode)"에 진입했을 때만 어두운 글래스 이펙트 처리(투명도 0.55)가 적용되어 위젯 배치에 집중할 수 있도록 개선한다. 기존 커스텀 배경화면 관리 코드는 모두 제거한다.
+
+### 변경 사항
+
+| # | 모듈 | 파일 | 작업 |
+|---|------|------|------|
+| 1 | `app` | `res/values/themes.xml` | `Theme.StreamLauncher`에 `android:windowBackground = @android:color/transparent` 및 `android:windowShowWallpaper = true` 속성 추가로 시스템 바탕화면 투과 허용 |
+| 2 | `app` | `res/values-night/themes.xml` | 다크 테마에도 동일하게 투명화 및 바탕화면 표시 속성 추가 |
+| 3 | `app` | `CrossPagerNavigation.kt` | 기존 커스텀 배경 이미지 표시용 뷰(`WallpaperLayer`) 삭제. `RightPage`(위젯 화면)에 `isWidgetEditMode` 상태 파라미터를 추가하여 켜져있을 때만 글래스 반투명 배경 테두리가 활성화 되도록 분기 처리 |
+| 4 | `app` | `MainActivity.kt` | 더 이상 사용하지 않는 `wallpaperImage` 관련 옵저빙 및 전달부 제거. 대신, `widgetViewModel.uiState.isEditMode`를 관찰하여 `CrossPagerNavigation`으로 파라미터 전달 |
+| 5 | `feature/widget` | `WidgetViewModel.kt` | 위젯 화면 내부에 고립되어 있던 `isEditMode` 상태를 뷰모델의 `uiState`인 `WidgetState`로 끌어올림(State Hoisting)하여 상위의 `MainActivity` 및 `CrossPagerNavigation`이 이를 구독하도록 개편 |
+| 6 | `feature/widget` | `WidgetScreen.kt` | 뷰모델에서 관리되는 `isEditMode`와 그 변경을 위한 이벤트 람다(`onEditModeChange`)를 받아 사용하도록 수정 |
+| 7 | `feature/launcher` | `SettingsScreen.kt` | 설정 화면의 기존 "배경화면" 설정을 삭제하고, 버튼 누를 시 시스템 배경화면 픽커 액티비티(`Intent.ACTION_SET_WALLPAPER`)를 직접 호출하도록 간소화 |
+| 8 | `feature/launcher` | `HomeViewModel.kt` 등 | `SetWallpaperImage` 유즈케이스와 `wallpaperImage` 영속성 보관 등의 불필요해진 이전 코드 삭제, Enum `SettingsTab.WALLPAPER` 제거 | 
+
+### 설계 결정 및 근거
+
+- **커스텀 배경 스크롤 패럴렉스 로직 삭제:** 이전의 방식은 배경 이미지를 앱 안에서 그리기 때문에 진정한 시스템 바탕화면과 괴리가 있었음. 시스템 바/내비 바 지원의 완벽한 일체감을 주고 불필요한 이미지 렌더 메모리 점유를 줄이기 위해 제거.
+- **`isEditMode` 호이스팅 (WidgetScreen → ViewModel):** 이전에는 편집 모드 상태가 `WidgetScreen` 내부에 종속적이었으나, 부모 레이어인 내비게이션 `RightPage` 단에서 글래스 이펙트 모서리를 그렸기 때문에 렌더링에 필요한 상태 파라미터를 위로 전달할 필요가 생겨 MVI 방식에 맞춰 뷰모델의 State로 승격시킴.
+- **편집 모드 조건부 글래스 배경:** 대부분 런처 시스템에서는 페이지 이동 시 위젯 페이지 전체의 아름다움(바탕화면 풀뷰)이 중시되지만, 실제 아이템의 사이즈 조정이나 이동(편집) 작업 중에는 배경이 너무 밝거나 복잡하면 방해가 되므로 편집 모드일 때만 반투명 검은 계열로 디밍 처리함.
+
+---
+
 ## [2026-02-24] bugfix(navigation): 홈 화면 뒤로가기 시 런처 종료 현상 수정
 
 ### 발생한 버그

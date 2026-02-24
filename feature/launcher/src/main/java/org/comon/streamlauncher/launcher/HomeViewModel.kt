@@ -19,7 +19,6 @@ import org.comon.streamlauncher.domain.usecase.SaveFeedSettingsUseCase
 import org.comon.streamlauncher.domain.usecase.SaveGridCellImageUseCase
 import org.comon.streamlauncher.domain.usecase.CheckFirstLaunchUseCase
 import org.comon.streamlauncher.domain.usecase.SetFirstLaunchUseCase
-import org.comon.streamlauncher.domain.usecase.SaveWallpaperImageUseCase
 import org.comon.streamlauncher.domain.util.ChosungMatcher
 import org.comon.streamlauncher.launcher.model.ImageType
 import org.comon.streamlauncher.launcher.model.SettingsTab
@@ -37,7 +36,6 @@ class HomeViewModel @Inject constructor(
     private val saveFeedSettingsUseCase: SaveFeedSettingsUseCase,
     private val checkFirstLaunchUseCase: CheckFirstLaunchUseCase,
     private val setFirstLaunchUseCase: SetFirstLaunchUseCase,
-    private val saveWallpaperImageUseCase: SaveWallpaperImageUseCase,
 ) : BaseViewModel<HomeState, HomeIntent, HomeSideEffect>(HomeState()) {
 
     private var loadJob: Job? = null
@@ -55,7 +53,6 @@ class HomeViewModel @Inject constructor(
                         chzzkChannelId = settings.chzzkChannelId,
                         youtubeChannelId = settings.youtubeChannelId,
                         rssUrl = settings.rssUrl,
-                        wallpaperImage = settings.wallpaperImage,
                     )
                 }
             }
@@ -88,7 +85,6 @@ class HomeViewModel @Inject constructor(
             is HomeIntent.AssignAppToCell -> assignAppToCell(intent.app, intent.cell)
             is HomeIntent.UnassignApp -> unassignApp(intent.app)
             is HomeIntent.SaveFeedSettings -> saveFeedSettings(intent.chzzkChannelId, intent.youtubeChannelId, intent.rssUrl)
-            is HomeIntent.SetWallpaperImage -> setWallpaperImage(intent.uri)
         }
     }
 
@@ -236,12 +232,6 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun setWallpaperImage(uri: String?) {
-        updateState { copy(wallpaperImage = uri) }
-        viewModelScope.launch {
-            saveWallpaperImageUseCase(uri)
-        }
-    }
 
     private fun filterApps(apps: List<AppEntity>, query: String): List<AppEntity> {
         if (query.isEmpty()) return apps

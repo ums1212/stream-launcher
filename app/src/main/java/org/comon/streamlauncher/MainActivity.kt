@@ -141,6 +141,7 @@ class MainActivity : ComponentActivity() {
             ) {
             CompositionLocalProvider(LocalDragDropState provides dragDropState) {
                 val widgetSlots by widgetViewModel.widgetSlots.collectAsStateWithLifecycle()
+                val isWidgetEditMode by widgetViewModel.isEditMode.collectAsStateWithLifecycle()
 
                 LaunchedEffect(Unit) {
                     viewModel.effect.collect { effect ->
@@ -193,7 +194,6 @@ class MainActivity : ComponentActivity() {
 
                 CrossPagerNavigation(
                     resetTrigger = resetTrigger,
-                    wallpaperImage = uiState.wallpaperImage,
                     feedContent = {
                         FeedScreen(
                             state = feedState,
@@ -217,12 +217,15 @@ class MainActivity : ComponentActivity() {
                             },
                         )
                     },
+                    isWidgetEditMode = isWidgetEditMode,
                     widgetContent = {
                         WidgetScreen(
                             widgetSlots = widgetSlots,
                             appWidgetHost = appWidgetHost,
                             onAddWidgetClick = ::launchWidgetPicker,
                             onDeleteWidgetClick = ::deleteWidget,
+                            isEditMode = isWidgetEditMode,
+                            onEditModeChange = { widgetViewModel.setEditMode(it) }
                         )
                     },
                 ) {
