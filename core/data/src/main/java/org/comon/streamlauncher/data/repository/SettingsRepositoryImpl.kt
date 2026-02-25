@@ -1,6 +1,5 @@
 package org.comon.streamlauncher.data.repository
 
-import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
@@ -8,13 +7,10 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.comon.streamlauncher.domain.model.GridCell
 import org.comon.streamlauncher.domain.model.GridCellImage
@@ -22,9 +18,6 @@ import org.comon.streamlauncher.domain.model.LauncherSettings
 import org.comon.streamlauncher.domain.repository.SettingsRepository
 import javax.inject.Inject
 import javax.inject.Singleton
-
-private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "launcher_settings")
-
 @Serializable
 private data class GridCellImageDto(
     val cell: Int,
@@ -40,7 +33,7 @@ private data class CellAssignmentDto(
 
 @Singleton
 class SettingsRepositoryImpl @Inject constructor(
-    @ApplicationContext private val context: Context,
+    private val dataStore: DataStore<Preferences>,
 ) : SettingsRepository {
 
     private val hasShownHomeSettingsOnFirstLaunchKey = booleanPreferencesKey("has_shown_home_settings_on_first_launch")
@@ -56,7 +49,7 @@ class SettingsRepositoryImpl @Inject constructor(
     private val appDrawerIconSizeRatioKey = floatPreferencesKey("app_drawer_icon_size_ratio")
 
     override fun getSettings(): Flow<LauncherSettings> =
-        context.dataStore.data.map { prefs ->
+        dataStore.data.map { prefs ->
             val colorPresetIndex = prefs[colorPresetIndexKey] ?: 0
             val imagesJson = prefs[gridCellImagesKey]
             val gridCellImages = parseGridCellImages(imagesJson)
@@ -84,22 +77,22 @@ class SettingsRepositoryImpl @Inject constructor(
         }
 
     override suspend fun hasShownHomeSettingsOnFirstLaunch(): Boolean =
-        context.dataStore.data.first()[hasShownHomeSettingsOnFirstLaunchKey] ?: false
+        dataStore.data.first()[hasShownHomeSettingsOnFirstLaunchKey] ?: false
 
     override suspend fun setHasShownHomeSettingsOnFirstLaunch() {
-        context.dataStore.edit { prefs ->
+        dataStore.edit { prefs ->
             prefs[hasShownHomeSettingsOnFirstLaunchKey] = true
         }
     }
 
     override suspend fun setColorPresetIndex(index: Int) {
-        context.dataStore.edit { prefs ->
+        dataStore.edit { prefs ->
             prefs[colorPresetIndexKey] = index
         }
     }
 
     override suspend fun setGridCellImage(cell: GridCell, idle: String?, expanded: String?) {
-        context.dataStore.edit { prefs ->
+        dataStore.edit { prefs ->
             val currentJson = prefs[gridCellImagesKey]
             val current = parseGridCellImageDtos(currentJson).toMutableList()
             val cellOrdinal = cell.ordinal
@@ -110,25 +103,25 @@ class SettingsRepositoryImpl @Inject constructor(
     }
 
     override suspend fun setChzzkChannelId(id: String) {
-        context.dataStore.edit { prefs ->
+        dataStore.edit { prefs ->
             prefs[chzzkChannelIdKey] = id
         }
     }
 
     override suspend fun setYoutubeChannelId(id: String) {
-        context.dataStore.edit { prefs ->
+        dataStore.edit { prefs ->
             prefs[youtubeChannelIdKey] = id
         }
     }
 
     override suspend fun setRssUrl(url: String) {
-        context.dataStore.edit { prefs ->
+        dataStore.edit { prefs ->
             prefs[rssUrlKey] = url
         }
     }
 
     override suspend fun setWallpaperImage(uri: String?) {
-        context.dataStore.edit { prefs ->
+        dataStore.edit { prefs ->
             if (uri != null) {
                 prefs[wallpaperImageKey] = uri
             } else {
@@ -138,7 +131,7 @@ class SettingsRepositoryImpl @Inject constructor(
     }
 
     override suspend fun setCellAssignment(cell: GridCell, packageNames: List<String>) {
-        context.dataStore.edit { prefs ->
+        dataStore.edit { prefs ->
             val currentJson = prefs[cellAssignmentsKey]
             val current = parseCellAssignmentDtos(currentJson).toMutableList()
             val cellOrdinal = cell.ordinal
@@ -151,7 +144,7 @@ class SettingsRepositoryImpl @Inject constructor(
     }
 
     override suspend fun setAppDrawerSettings(columns: Int, rows: Int, iconSizeRatio: Float) {
-        context.dataStore.edit { prefs ->
+        dataStore.edit { prefs ->
             prefs[appDrawerGridColumnsKey] = columns
             prefs[appDrawerGridRowsKey] = rows
             prefs[appDrawerIconSizeRatioKey] = iconSizeRatio

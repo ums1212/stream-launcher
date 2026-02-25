@@ -2,6 +2,25 @@
 
 ---
 
+## [2026-02-25] refactor(di): DataStore 의존성 주입을 위한 Hilt 모듈 분리
+
+### 목표
+
+`SettingsRepositoryImpl`에서 안드로이드 `Context`를 직접 주입받아 DataStore를 생성하던 방식을 개선하여, 클린 아키텍처 및 유닛 테스트 용이성을 확보하고자 별도의 Hilt 모듈(`DataStoreModule`)을 만들어 `DataStore<Preferences>` 자체를 주입받도록 리팩토링한다.
+
+### 변경 사항
+
+| # | 파일 | 작업 |
+|---|------|------|
+| 1 | `core/data/.../di/DataStoreModule.kt` | **신규** — `ApplicationContext`를 이용해 `DataStore<Preferences>` 싱글톤 인스턴스를 제공(`@Provides`)하는 Hilt 모듈 작성 |
+| 2 | `core/data/.../SettingsRepositoryImpl.kt` | 리포지터리 생성자에서 `Context` 대신 `DataStore<Preferences>`를 직접 주입받고, 해당 인스턴스를 사용하도록 교체하여 결합도 최소화 |
+
+### 설계 결정 및 근거
+
+- **테스트 용이성 (Testability) 확보**: 기존에는 Repository 테스트 시 안드로이드 프레임워크의 거대한 `Context` 구조물 전체를 모킹해야 했으나, 이제 `DataStore<Preferences>` 인터페이스만 모킹하면 되므로 유닛 테스트 작성이 간결하고 직관적으로 변경됨.
+- **최소 의존성 원칙 및 인터페이스 분리**: Repository 동작 시 실제 필요한 것은 구체적인 저장 매체(`DataStore`)이며 시스템 환경 정보(`Context`)가 아님. 따라서 더 작은 구체적 단위의 객체만 의존성으로 주입받아 객체 지향적 책임을 명확히 함.
+
+---
 ## [2026-02-25] feat(ui): 앱 드로어 아이콘 배열 하이브리드 전략 구현 (Responsive Design & Customization)
 
 ### 목표
