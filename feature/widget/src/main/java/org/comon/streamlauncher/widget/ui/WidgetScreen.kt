@@ -46,6 +46,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import org.comon.streamlauncher.ui.theme.StreamLauncherTheme
+import androidx.compose.ui.res.stringResource
+import org.comon.streamlauncher.widget.R
 
 /**
  * 편집 모드(isDeleteModeActive=true): dispatchTouchEvent에서 자식 터치 전부 차단.
@@ -107,7 +109,7 @@ fun WidgetScreen(
                     .padding(horizontal = 16.dp, vertical = 8.dp),
             ) {
                 Text(
-                    text = "위젯 편집",
+                    text = stringResource(R.string.widget_edit_title),
                     color = onSurface,
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.align(Alignment.Center),
@@ -116,7 +118,7 @@ fun WidgetScreen(
                     onClick = { onEditModeChange(false) },
                     modifier = Modifier.align(Alignment.CenterEnd),
                 ) {
-                    Text("완료", color = onSurface)
+                    Text(stringResource(R.string.widget_edit_done), color = onSurface)
                 }
             }
         }
@@ -161,7 +163,7 @@ fun WidgetScreen(
                             },
                     )
                     Text(
-                        text = "화면을 길게 눌러 위젯을 추가하세요",
+                        text = stringResource(R.string.widget_empty_hint),
                         color = Color.White.copy(alpha = 0.85f),
                         style = MaterialTheme.typography.bodyMedium.copy(
                             shadow = Shadow(
@@ -269,7 +271,7 @@ private fun WidgetCell(
             ) {
                 Icon(
                     imageVector = Icons.Default.Delete,
-                    contentDescription = "위젯 삭제",
+                    contentDescription = stringResource(R.string.widget_delete),
                 )
             }
         }
@@ -310,7 +312,7 @@ private fun EmptyCell(
             ) {
                 Icon(
                     imageVector = Icons.Default.Add,
-                    contentDescription = "위젯 추가",
+                    contentDescription = stringResource(R.string.widget_add),
                     modifier = Modifier.size(24.dp),
                 )
             }

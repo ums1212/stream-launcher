@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- SettingsScreen -->
+    <string name="settings_theme_color">Theme Color</string>
+    <string name="settings_home_image">Home Image</string>
+    <string name="settings_app_drawer">App Drawer</string>
+    <string name="settings_feed">Feed Settings</string>
+    <string name="settings_wallpaper">Wallpaper</string>
+    <string name="settings_default_home">Default Home App</string>
+    <string name="settings_wallpaper_error">Cannot open wallpaper settings</string>
+    <string name="settings_color_selected">Selected</string>
+    <string name="settings_idle_image">Idle Image</string>
+    <string name="settings_expanded_image">Expanded Image</string>
+    <string name="settings_feed_title">Feed Settings</string>
+    <string name="settings_chzzk_channel_id">Chzzk Channel ID</string>
+    <string name="settings_youtube_channel_id">YouTube Channel ID</string>
+    <string name="settings_youtube_placeholder">\@handle or Channel ID</string>
+    <string name="settings_rss_url">RSS Feed URL</string>
+    <string name="settings_no_whitespace">Cannot contain whitespace</string>
+    <string name="settings_invalid_url">Invalid URL format</string>
+    <string name="settings_save">Save</string>
+    <string name="settings_app_drawer_title">App Drawer Settings</string>
+    <string name="settings_columns">Columns</string>
+    <string name="settings_rows">Rows</string>
+    <string name="settings_icon_size_ratio">Icon Size Ratio</string>
+    <string name="settings_icon_clip_warning">Icons may be clipped depending on device resolution.</string>
+    <string name="settings_reset">Reset</string>
+
+    <!-- FeedScreen -->
+    <string name="feed_title">Feed</string>
+    <string name="feed_refresh">Refresh</string>
+    <string name="feed_no_items">No feed items.</string>
+    <string name="feed_subscribers">%1$s subscribers</string>
+    <string name="feed_subscribers_ten_thousand">%1$dM</string>
+    <string name="feed_subscribers_thousand">%1$dK</string>
+    <string name="feed_subscribers_count">%1$d</string>
+    <string name="feed_live_broadcasting">On Air</string>
+    <string name="feed_not_broadcasting">Not currently broadcasting.</string>
+    <string name="feed_viewers">%1$d viewers</string>
+    <string name="feed_live_badge">Live</string>
+    <string name="feed_chzzk">Chzzk</string>
+
+    <!-- HomeScreen -->
+    <string name="home_remove_app">Remove App</string>
+</resources>

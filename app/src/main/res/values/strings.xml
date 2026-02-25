@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">StreamLauncher</string>
+    <string name="drag_cancel">취소</string>
 </resources>

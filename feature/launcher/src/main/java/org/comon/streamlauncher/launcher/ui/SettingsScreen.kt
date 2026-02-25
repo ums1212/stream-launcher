@@ -74,6 +74,8 @@ import org.comon.streamlauncher.launcher.HomeState
 import org.comon.streamlauncher.launcher.model.ImageType
 import org.comon.streamlauncher.launcher.model.SettingsTab
 import org.comon.streamlauncher.ui.theme.StreamLauncherTheme
+import androidx.compose.ui.res.stringResource
+import org.comon.streamlauncher.launcher.R
 
 @Composable
 fun SettingsScreen(
@@ -116,7 +118,7 @@ private fun MainSettingsContent(onIntent: (HomeIntent) -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             SettingsButton(
-                label = "테마 컬러",
+                label = stringResource(R.string.settings_theme_color),
                 onClick = {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     onIntent(HomeIntent.ChangeSettingsTab(SettingsTab.COLOR))
@@ -125,7 +127,7 @@ private fun MainSettingsContent(onIntent: (HomeIntent) -> Unit) {
             )
             Spacer(modifier = Modifier.width(16.dp))
             SettingsButton(
-                label = "홈 이미지",
+                label = stringResource(R.string.settings_home_image),
                 onClick = {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     onIntent(HomeIntent.ChangeSettingsTab(SettingsTab.IMAGE))
@@ -138,7 +140,7 @@ private fun MainSettingsContent(onIntent: (HomeIntent) -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             SettingsButton(
-                label = "앱 서랍",
+                label = stringResource(R.string.settings_app_drawer),
                 onClick = {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     onIntent(HomeIntent.ChangeSettingsTab(SettingsTab.APP_DRAWER))
@@ -147,7 +149,7 @@ private fun MainSettingsContent(onIntent: (HomeIntent) -> Unit) {
             )
             Spacer(modifier = Modifier.width(16.dp))
             SettingsButton(
-                label = "피드 설정",
+                label = stringResource(R.string.settings_feed),
                 onClick = {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     onIntent(HomeIntent.ChangeSettingsTab(SettingsTab.FEED))
@@ -160,20 +162,20 @@ private fun MainSettingsContent(onIntent: (HomeIntent) -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             SettingsButton(
-                label = "배경화면",
+                label = stringResource(R.string.settings_wallpaper),
                 onClick = {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     try {
                         context.startActivity(Intent(Intent.ACTION_SET_WALLPAPER))
                     } catch (e: Exception) {
-                        Toast.makeText(context, "배경화면 설정 창을 열 수 없습니다", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, context.getString(R.string.settings_wallpaper_error), Toast.LENGTH_SHORT).show()
                     }
                 },
                 containerColor = accentPrimary.copy(alpha = 0.4f),
             )
             Spacer(modifier = Modifier.width(16.dp))
             SettingsButton(
-                label = "기본 홈 앱",
+                label = stringResource(R.string.settings_default_home),
                 onClick = {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     try {
@@ -239,7 +241,7 @@ private fun ColorSettingsContent(
             .padding(16.dp),
     ) {
         Text(
-            text = "테마 컬러",
+            text = stringResource(R.string.settings_theme_color),
             style = MaterialTheme.typography.titleLarge,
             modifier = Modifier.padding(bottom = 16.dp),
         )
@@ -280,7 +282,7 @@ private fun ColorSettingsContent(
                         if (isSelected) {
                             Icon(
                                 imageVector = Icons.Filled.Check,
-                                contentDescription = "선택됨",
+                                contentDescription = stringResource(R.string.settings_color_selected),
                                 tint = Color.White,
                                 modifier = Modifier.size(20.dp),
                             )
@@ -339,7 +341,7 @@ private fun ImageSettingsContent(
             .padding(16.dp),
     ) {
         Text(
-            text = "홈 이미지",
+            text = stringResource(R.string.settings_home_image),
             style = MaterialTheme.typography.titleLarge,
             modifier = Modifier.padding(bottom = 16.dp),
         )
@@ -426,7 +428,7 @@ private fun ImageSettingsContent(
                 modifier = Modifier.weight(1f),
                 colors = ButtonDefaults.buttonColors(containerColor = accentPrimary),
             ) {
-                Text(text = "축소 이미지")
+                Text(text = stringResource(R.string.settings_idle_image))
             }
             Button(
                 onClick = {
@@ -438,7 +440,7 @@ private fun ImageSettingsContent(
                 modifier = Modifier.weight(1f),
                 colors = ButtonDefaults.buttonColors(containerColor = StreamLauncherTheme.colors.accentSecondary),
             ) {
-                Text(text = "확장 이미지")
+                Text(text = stringResource(R.string.settings_expanded_image))
             }
         }
     }
@@ -483,7 +485,7 @@ private fun FeedSettingsContent(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Text(
-            text = "피드 설정",
+            text = stringResource(R.string.settings_feed_title),
             style = MaterialTheme.typography.titleLarge,
         )
 
@@ -491,10 +493,10 @@ private fun FeedSettingsContent(
         OutlinedTextField(
             value = chzzkChannelId,
             onValueChange = { chzzkChannelId = it },
-            label = { Text("치지직 채널 ID") },
+            label = { Text(stringResource(R.string.settings_chzzk_channel_id)) },
             isError = chzzkError,
             supportingText = if (chzzkError) {
-                { Text("공백을 포함할 수 없습니다") }
+                { Text(stringResource(R.string.settings_no_whitespace)) }
             } else null,
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
@@ -504,11 +506,11 @@ private fun FeedSettingsContent(
         OutlinedTextField(
             value = youtubeChannelId,
             onValueChange = { youtubeChannelId = it },
-            label = { Text("YouTube 채널 ID") },
-            placeholder = { Text("@handle 또는 채널 ID") },
+            label = { Text(stringResource(R.string.settings_youtube_channel_id)) },
+            placeholder = { Text(stringResource(R.string.settings_youtube_placeholder)) },
             isError = youtubeError,
             supportingText = if (youtubeError) {
-                { Text("공백을 포함할 수 없습니다") }
+                { Text(stringResource(R.string.settings_no_whitespace)) }
             } else null,
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
@@ -518,10 +520,10 @@ private fun FeedSettingsContent(
         OutlinedTextField(
             value = rssUrl,
             onValueChange = { rssUrl = it },
-            label = { Text("RSS 피드 URL") },
+            label = { Text(stringResource(R.string.settings_rss_url)) },
             isError = rssUrlError,
             supportingText = if (rssUrlError) {
-                { Text("올바른 URL 형식이 아닙니다") }
+                { Text(stringResource(R.string.settings_invalid_url)) }
             } else null,
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
@@ -543,7 +545,7 @@ private fun FeedSettingsContent(
             modifier = Modifier.fillMaxWidth(),
             colors = ButtonDefaults.buttonColors(containerColor = accentPrimary),
         ) {
-            Text(text = "저장")
+            Text(text = stringResource(R.string.settings_save))
         }
     }
 }
@@ -576,13 +578,13 @@ private fun AppDrawerSettingsContent(
         verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
         Text(
-            text = "앱 서랍 설정",
+            text = stringResource(R.string.settings_app_drawer_title),
             style = MaterialTheme.typography.titleLarge,
         )
 
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(text = "가로 앱 개수 (열)", style = MaterialTheme.typography.bodyLarge)
+                Text(text = stringResource(R.string.settings_columns), style = MaterialTheme.typography.bodyLarge)
                 Text(text = "$columns", style = MaterialTheme.typography.bodyLarge, color = accentPrimary)
             }
             Slider(
@@ -595,7 +597,7 @@ private fun AppDrawerSettingsContent(
 
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(text = "세로 앱 개수 (행)", style = MaterialTheme.typography.bodyLarge)
+                Text(text = stringResource(R.string.settings_rows), style = MaterialTheme.typography.bodyLarge)
                 Text(text = "$rows", style = MaterialTheme.typography.bodyLarge, color = accentPrimary)
             }
             Slider(
@@ -608,7 +610,7 @@ private fun AppDrawerSettingsContent(
 
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(text = "아이콘 크기 배율", style = MaterialTheme.typography.bodyLarge)
+                Text(text = stringResource(R.string.settings_icon_size_ratio), style = MaterialTheme.typography.bodyLarge)
                 Text(text = "${(iconSizeRatio * 100).roundToInt()}%", style = MaterialTheme.typography.bodyLarge, color = accentPrimary)
             }
             Slider(
@@ -618,7 +620,7 @@ private fun AppDrawerSettingsContent(
                 steps = 19,
             )
             Text(
-                text = "디바이스 해상도에 따라 아이콘이 잘릴 수 있습니다.",
+                text = stringResource(R.string.settings_icon_clip_warning),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -639,7 +641,7 @@ private fun AppDrawerSettingsContent(
                 },
                 modifier = Modifier.weight(1f),
             ) {
-                Text(text = "초기화")
+                Text(text = stringResource(R.string.settings_reset))
             }
 
             Button(
@@ -652,7 +654,7 @@ private fun AppDrawerSettingsContent(
                 modifier = Modifier.weight(1f),
                 colors = ButtonDefaults.buttonColors(containerColor = accentPrimary),
             ) {
-                Text(text = "저장")
+                Text(text = stringResource(R.string.settings_save))
             }
         }
     }

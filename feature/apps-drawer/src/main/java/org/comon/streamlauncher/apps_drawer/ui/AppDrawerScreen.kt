@@ -53,6 +53,8 @@ import org.comon.streamlauncher.domain.model.GridCell
 import org.comon.streamlauncher.ui.component.AppIcon
 import org.comon.streamlauncher.ui.dragdrop.LocalDragDropState
 import org.comon.streamlauncher.ui.theme.StreamLauncherTheme
+import androidx.compose.ui.res.stringResource
+import org.comon.streamlauncher.apps_drawer.R
 import kotlin.math.ceil
 
 
@@ -81,7 +83,7 @@ fun AppDrawerScreen(
                 .fillMaxWidth()
                 .statusBarsPadding()
                 .padding(horizontal = 16.dp, vertical = 12.dp),
-            placeholder = { Text("앱 검색") },
+            placeholder = { Text(stringResource(R.string.app_drawer_search)) },
             leadingIcon = {
                 Icon(
                     imageVector = Icons.Default.Search,
@@ -93,7 +95,7 @@ fun AppDrawerScreen(
                     IconButton(onClick = { onSearch("") }) {
                         Icon(
                             imageVector = Icons.Default.Clear,
-                            contentDescription = "검색어 지우기",
+                            contentDescription = stringResource(R.string.app_drawer_clear_search),
                         )
                     }
                 }

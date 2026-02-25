@@ -50,6 +50,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import coil.transform.CircleCropTransformation
@@ -123,7 +124,7 @@ private fun FeedContent(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = "피드",
+                text = stringResource(R.string.feed_title),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.Bold,
@@ -131,7 +132,7 @@ private fun FeedContent(
             IconButton(onClick = { onIntent(FeedIntent.Refresh) }) {
                 Icon(
                     imageVector = Icons.Default.Refresh,
-                    contentDescription = "새로고침",
+                    contentDescription = stringResource(R.string.feed_refresh),
                     tint = StreamLauncherTheme.colors.accentPrimary,
                     modifier = Modifier.graphicsLayer {
                         rotationZ = refreshRotation.value
@@ -177,7 +178,7 @@ private fun FeedContent(
             state.feedItems.isEmpty() -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
-                        text = state.errorMessage ?: "피드 항목이 없습니다.",
+                        text = state.errorMessage ?: stringResource(R.string.feed_no_items),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -286,7 +287,7 @@ private fun ChannelProfileCard(
                     label = "subscriberCount",
                 ) { count ->
                     Text(
-                        text = "구독자 ${formatSubscriberCount(count)}",
+                        text = stringResource(R.string.feed_subscribers, formatSubscriberCount(context, count)),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -319,7 +320,7 @@ private fun LiveStatusCard(
             // 치지직 플랫폼 아이콘
             Image(
                 painter = painterResource(id = R.drawable.chzzk_ic),
-                contentDescription = "치지직",
+                contentDescription = stringResource(R.string.feed_chzzk),
                 modifier = Modifier
                     .size(32.dp)
                     .clip(RoundedCornerShape(8.dp)),
@@ -341,7 +342,7 @@ private fun LiveStatusCard(
                         color = accentPrimary,
                     )
                     Text(
-                        text = liveStatus.title.ifEmpty { "방송 중" },
+                        text = liveStatus.title.ifEmpty { stringResource(R.string.feed_live_broadcasting) },
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
@@ -350,13 +351,13 @@ private fun LiveStatusCard(
                 }
 
                 Text(
-                    text = "${liveStatus.viewerCount}명",
+                    text = stringResource(R.string.feed_viewers, liveStatus.viewerCount),
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             } else {
                 Text(
-                    text = "현재 방송 중이 아닙니다.",
+                    text = stringResource(R.string.feed_not_broadcasting),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -456,11 +457,11 @@ private fun formatDate(millis: Long): String {
     }
 }
 
-private fun formatSubscriberCount(count: Long): String {
+private fun formatSubscriberCount(context: android.content.Context, count: Long): String {
     return when {
-        count >= 10_000 -> "${count / 10_000}만명"
-        count >= 1_000 -> "${count / 1_000}천명"
-        else -> "${count}명"
+        count >= 10_000 -> context.getString(R.string.feed_subscribers_ten_thousand, (count / 10_000).toInt())
+        count >= 1_000 -> context.getString(R.string.feed_subscribers_thousand, (count / 1_000).toInt())
+        else -> context.getString(R.string.feed_subscribers_count, count.toInt())
     }
 }
 
@@ -507,7 +508,7 @@ private fun BreathingLiveBadge(
     ) {
         Icon(
             imageVector = Icons.Default.PlayArrow,
-            contentDescription = "라이브",
+            contentDescription = stringResource(R.string.feed_live_badge),
             tint = accentPrimary,
             modifier = Modifier.size(20.dp),
         )

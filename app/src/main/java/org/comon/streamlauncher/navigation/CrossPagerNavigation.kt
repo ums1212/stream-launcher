@@ -38,6 +38,8 @@ import org.comon.streamlauncher.ui.component.AppIcon
 import org.comon.streamlauncher.ui.dragdrop.LocalDragDropState
 import org.comon.streamlauncher.ui.modifier.glassEffect
 import org.comon.streamlauncher.ui.theme.StreamLauncherTheme
+import androidx.compose.ui.res.stringResource
+import org.comon.streamlauncher.R
 import kotlin.math.absoluteValue
 import kotlin.math.roundToInt
 
@@ -186,7 +188,7 @@ fun CrossPagerNavigation(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Close,
-                                contentDescription = "취소",
+                                contentDescription = stringResource(R.string.drag_cancel),
                                 tint = Color.Red.copy(alpha = 0.8f),
                                 modifier = Modifier.size(32.dp),
                             )
