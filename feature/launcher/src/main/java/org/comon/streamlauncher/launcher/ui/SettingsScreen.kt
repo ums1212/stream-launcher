@@ -39,12 +39,16 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -62,6 +66,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import kotlin.math.roundToInt
 import org.comon.streamlauncher.domain.model.ColorPresets
 import org.comon.streamlauncher.domain.model.GridCell
 import org.comon.streamlauncher.launcher.HomeIntent
@@ -89,6 +94,7 @@ fun SettingsScreen(
             SettingsTab.COLOR -> ColorSettingsContent(state = state, onIntent = onIntent)
             SettingsTab.IMAGE -> ImageSettingsContent(state = state, onIntent = onIntent)
             SettingsTab.FEED -> FeedSettingsContent(state = state, onIntent = onIntent)
+            SettingsTab.APP_DRAWER -> AppDrawerSettingsContent(state = state, onIntent = onIntent)
         }
     }
 }
@@ -132,14 +138,27 @@ private fun MainSettingsContent(onIntent: (HomeIntent) -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             SettingsButton(
+                label = "앱 서랍",
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onIntent(HomeIntent.ChangeSettingsTab(SettingsTab.APP_DRAWER))
+                },
+                containerColor = accentPrimary.copy(alpha = 0.7f),
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+            SettingsButton(
                 label = "피드 설정",
                 onClick = {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     onIntent(HomeIntent.ChangeSettingsTab(SettingsTab.FEED))
                 },
-                containerColor = accentPrimary.copy(alpha = 0.7f),
+                containerColor = accentSecondary.copy(alpha = 0.7f),
             )
-            Spacer(modifier = Modifier.width(16.dp))
+        }
+        Row(
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             SettingsButton(
                 label = "배경화면",
                 onClick = {
@@ -150,26 +169,27 @@ private fun MainSettingsContent(onIntent: (HomeIntent) -> Unit) {
                         Toast.makeText(context, "배경화면 설정 창을 열 수 없습니다", Toast.LENGTH_SHORT).show()
                     }
                 },
-                containerColor = accentSecondary.copy(alpha = 0.7f),
+                containerColor = accentPrimary.copy(alpha = 0.4f),
             )
-        }
-        SettingsButton(
-            label = "기본 홈 앱",
-            onClick = {
-                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                try {
-                    val homeIntent = Intent(Settings.ACTION_HOME_SETTINGS)
-                    if (homeIntent.resolveActivity(context.packageManager) != null) {
-                        context.startActivity(homeIntent)
-                    } else {
+            Spacer(modifier = Modifier.width(16.dp))
+            SettingsButton(
+                label = "기본 홈 앱",
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    try {
+                        val homeIntent = Intent(Settings.ACTION_HOME_SETTINGS)
+                        if (homeIntent.resolveActivity(context.packageManager) != null) {
+                            context.startActivity(homeIntent)
+                        } else {
+                            context.startActivity(Intent(Settings.ACTION_SETTINGS))
+                        }
+                    } catch (_: ActivityNotFoundException) {
                         context.startActivity(Intent(Settings.ACTION_SETTINGS))
                     }
-                } catch (_: ActivityNotFoundException) {
-                    context.startActivity(Intent(Settings.ACTION_SETTINGS))
-                }
-            },
-            containerColor = MaterialTheme.colorScheme.outline,
-        )
+                },
+                containerColor = accentSecondary.copy(alpha = 0.4f),
+            )
+        }
     }
 }
 
@@ -524,6 +544,116 @@ private fun FeedSettingsContent(
             colors = ButtonDefaults.buttonColors(containerColor = accentPrimary),
         ) {
             Text(text = "저장")
+        }
+    }
+}
+
+@Composable
+private fun AppDrawerSettingsContent(
+    state: HomeState,
+    onIntent: (HomeIntent) -> Unit,
+) {
+    val haptic = LocalHapticFeedback.current
+    val accentPrimary = StreamLauncherTheme.colors.accentPrimary
+
+    var columns by remember(state.appDrawerGridColumns) { mutableIntStateOf(state.appDrawerGridColumns) }
+    var rows by remember(state.appDrawerGridRows) { mutableIntStateOf(state.appDrawerGridRows) }
+    var iconSizeRatio by remember(state.appDrawerIconSizeRatio) { mutableFloatStateOf(state.appDrawerIconSizeRatio) }
+
+    val hasChanges by remember(columns, rows, iconSizeRatio, state.appDrawerGridColumns, state.appDrawerGridRows, state.appDrawerIconSizeRatio) {
+        derivedStateOf {
+            columns != state.appDrawerGridColumns ||
+                rows != state.appDrawerGridRows ||
+                iconSizeRatio != state.appDrawerIconSizeRatio
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(24.dp),
+    ) {
+        Text(
+            text = "앱 서랍 설정",
+            style = MaterialTheme.typography.titleLarge,
+        )
+
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(text = "가로 앱 개수 (열)", style = MaterialTheme.typography.bodyLarge)
+                Text(text = "$columns", style = MaterialTheme.typography.bodyLarge, color = accentPrimary)
+            }
+            Slider(
+                value = columns.toFloat(),
+                onValueChange = { columns = it.roundToInt() },
+                valueRange = 3f..6f,
+                steps = 2,
+            )
+        }
+
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(text = "세로 앱 개수 (행)", style = MaterialTheme.typography.bodyLarge)
+                Text(text = "$rows", style = MaterialTheme.typography.bodyLarge, color = accentPrimary)
+            }
+            Slider(
+                value = rows.toFloat(),
+                onValueChange = { rows = it.roundToInt() },
+                valueRange = 4f..8f,
+                steps = 3,
+            )
+        }
+
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(text = "아이콘 크기 배율", style = MaterialTheme.typography.bodyLarge)
+                Text(text = "${(iconSizeRatio * 100).roundToInt()}%", style = MaterialTheme.typography.bodyLarge, color = accentPrimary)
+            }
+            Slider(
+                value = iconSizeRatio,
+                onValueChange = { iconSizeRatio = (it * 20).roundToInt() / 20f }, // 0.05 단위 스냅
+                valueRange = 0.5f..1.5f,
+                steps = 19,
+            )
+            Text(
+                text = "디바이스 해상도에 따라 아이콘이 잘릴 수 있습니다.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        Spacer(modifier = Modifier.weight(1f, fill = false))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            OutlinedButton(
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    columns = 4
+                    rows = 6
+                    iconSizeRatio = 1.0f
+                },
+                modifier = Modifier.weight(1f),
+            ) {
+                Text(text = "초기화")
+            }
+
+            Button(
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onIntent(HomeIntent.SaveAppDrawerSettings(columns, rows, iconSizeRatio))
+//                Toast.makeText(LocalContext.current, "설정이 저장되었습니다.", Toast.LENGTH_SHORT).show()
+                },
+                enabled = hasChanges,
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.buttonColors(containerColor = accentPrimary),
+            ) {
+                Text(text = "저장")
+            }
         }
     }
 }

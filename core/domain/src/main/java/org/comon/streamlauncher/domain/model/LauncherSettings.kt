@@ -8,4 +8,7 @@ data class LauncherSettings(
     val rssUrl: String = "",
     val youtubeChannelId: String = "",
     val wallpaperImage: String? = null,
+    val appDrawerGridColumns: Int = 4,
+    val appDrawerGridRows: Int = 6,
+    val appDrawerIconSizeRatio: Float = 1.0f,
 )

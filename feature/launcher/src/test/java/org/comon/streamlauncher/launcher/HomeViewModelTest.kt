@@ -18,10 +18,10 @@ import org.comon.streamlauncher.domain.usecase.GetLauncherSettingsUseCase
 import org.comon.streamlauncher.domain.usecase.SaveCellAssignmentUseCase
 import org.comon.streamlauncher.domain.usecase.SaveColorPresetUseCase
 import org.comon.streamlauncher.domain.usecase.SaveFeedSettingsUseCase
+import org.comon.streamlauncher.domain.usecase.SaveAppDrawerSettingsUseCase
 import org.comon.streamlauncher.domain.usecase.SaveGridCellImageUseCase
 import org.comon.streamlauncher.domain.usecase.CheckFirstLaunchUseCase
 import org.comon.streamlauncher.domain.usecase.SetFirstLaunchUseCase
-import org.comon.streamlauncher.domain.usecase.SaveWallpaperImageUseCase
 import org.comon.streamlauncher.launcher.model.ImageType
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -51,9 +51,9 @@ class HomeViewModelTest {
     private lateinit var saveGridCellImageUseCase: SaveGridCellImageUseCase
     private lateinit var saveCellAssignmentUseCase: SaveCellAssignmentUseCase
     private lateinit var saveFeedSettingsUseCase: SaveFeedSettingsUseCase
+    private lateinit var saveAppDrawerSettingsUseCase: SaveAppDrawerSettingsUseCase
     private lateinit var checkFirstLaunchUseCase: CheckFirstLaunchUseCase
     private lateinit var setFirstLaunchUseCase: SetFirstLaunchUseCase
-    private lateinit var saveWallpaperImageUseCase: SaveWallpaperImageUseCase
     private lateinit var viewModel: HomeViewModel
 
     @Before
@@ -69,9 +69,9 @@ class HomeViewModelTest {
         saveGridCellImageUseCase = mockk(relaxed = true)
         saveCellAssignmentUseCase = mockk(relaxed = true)
         saveFeedSettingsUseCase = mockk(relaxed = true)
+        saveAppDrawerSettingsUseCase = mockk(relaxed = true)
         checkFirstLaunchUseCase = mockk(relaxed = true)
         setFirstLaunchUseCase = mockk(relaxed = true)
-        saveWallpaperImageUseCase = mockk(relaxed = true)
 
         viewModel = makeViewModel()
     }
@@ -89,9 +89,9 @@ class HomeViewModelTest {
         imageSaveUseCase: SaveGridCellImageUseCase = saveGridCellImageUseCase,
         cellAssignmentUseCase: SaveCellAssignmentUseCase = saveCellAssignmentUseCase,
         feedSettingsUseCase: SaveFeedSettingsUseCase = saveFeedSettingsUseCase,
+        appDrawerSettingsUseCase: SaveAppDrawerSettingsUseCase = saveAppDrawerSettingsUseCase,
         checkFirstLaunch: CheckFirstLaunchUseCase = checkFirstLaunchUseCase,
         setFirstLaunch: SetFirstLaunchUseCase = setFirstLaunchUseCase,
-        saveWallpaper: SaveWallpaperImageUseCase = saveWallpaperImageUseCase,
     ): HomeViewModel = HomeViewModel(
         appsUseCase,
         settingsUseCase,
@@ -99,9 +99,9 @@ class HomeViewModelTest {
         imageSaveUseCase,
         cellAssignmentUseCase,
         feedSettingsUseCase,
+        appDrawerSettingsUseCase,
         checkFirstLaunch,
         setFirstLaunch,
-        saveWallpaper,
     )
 
     // 1. 초기 상태 확인
@@ -566,5 +566,21 @@ class HomeViewModelTest {
         val assignmentsAfter = vm.uiState.value.cellAssignments[GridCell.TOP_LEFT]
         assertEquals(HomeViewModel.MAX_APPS_PER_CELL, assignmentsAfter?.size)
         assertFalse(assignmentsAfter?.contains(overflowApp.packageName) == true)
+    }
+
+    // 32. SaveAppDrawerSettings → state 업데이트 및 유스케이스 호출
+    @Test
+    fun `SaveAppDrawerSettings 처리 시 설정 상태가 업데이트되고 유스케이스가 호출됨`() = runTest {
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.handleIntent(HomeIntent.SaveAppDrawerSettings(5, 7, 1.2f))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(5, state.appDrawerGridColumns)
+        assertEquals(7, state.appDrawerGridRows)
+        assertEquals(1.2f, state.appDrawerIconSizeRatio, 0.0f)
+        
+        coVerify { saveAppDrawerSettingsUseCase(5, 7, 1.2f) }
     }
 }

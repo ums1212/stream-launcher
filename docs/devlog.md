@@ -2,6 +2,33 @@
 
 ---
 
+## [2026-02-25] feat(ui): 앱 드로어 아이콘 배열 하이브리드 전략 구현 (Responsive Design & Customization)
+
+### 목표
+
+다양한 기기 해상도 및 화면 비율에서도 앱 드로어 배열이 깨지지 않도록 가용 영역에 맞춰 동적으로 조절하는 하이브리드 전략(Step 1)과, 사용자가 직접 가로/세로 그리드 개수 및 아이콘 크기를 조절할 수 있는 커스터마이징 기능(Step 2)을 통합하여 구현한다. 이로써 런처 앱의 안정성과 개인화 요구를 동시에 충족시킨다.
+
+### 변경 사항
+
+| # | 파일 | 작업 |
+|---|------|------|
+| 1 | `docs/app_drawer_icon_layout_strategy.md` | **신규** — 앱 드로어 아이콘 배열 파편화 해결 방안에 대한 하이브리드 전략(Step 1: 자동 적응, Step 2: 설정 추가) 기획 문서 작성 |
+| 2 | `core/domain/.../LauncherSettings.kt` | `LauncherSettings`에 `appDrawerGridColumns`, `appDrawerGridRows`, `appDrawerIconSizeRatio` 속성 추가 |
+| 3 | `core/data/.../SettingsRepositoryImpl.kt` | 신규 설정(컬럼, 로우, 사이즈 배율)에 대한 Preferences 키 추가 및 `DataStore` 저장/불러오기 로직 반영 |
+| 4 | `core/domain/.../SaveAppDrawerSettingsUseCase.kt` | **신규** — 설정값 3가지를 묶어서 Repository에 저장하는 UseCase 클래스 작성 |
+| 5 | `feature/launcher/.../ui/SettingsScreen.kt` | 설정 화면 내 '앱 서랍' 탭 신설, 슬라이더 3개(열 개수, 행 개수, 사이즈 배율) 및 초기화, 저장 버튼이 포함된 `AppDrawerSettingsContent` UI 구현 |
+| 6 | `feature/apps-drawer/.../AppDrawerScreen.kt` | `AppGridPage` 내부를 `BoxWithConstraints`로 감싸고, 기기 해상도 및 사용자 설정값(`columns`, `rows`, `iconSizeRatio`)에 맞춰 `iconSize`, `textWidth`, `fontSize`를 동적 계산하도록 개선 |
+| 7 | `feature/launcher/.../HomeViewModel.kt` 등 | 앱 서랍 설정 Intent(`SaveAppDrawerSettings`) 처리 로직 파이프라인 형성 및 관련 단위 테스트 추가 검증 |
+
+### 설계 결정 및 근거
+
+- **`BoxWithConstraints` 활용**: 페이저 내부의 패딩 등을 고려하여 실제 렌더링 가능한 가용 영역(`maxWidth`, `maxHeight`)을 기반으로 정확히 셀의 크기를 계산하기 위해 채택.
+- **동적 최소/최대 제약**: 아이콘 크기가 너무 작아지거나 터치 영역을 침범하지 않도록 `coerceAtLeast(36.dp)` 하한선을 두고, 테블릿 등에서 비정상적으로 커지지 않도록 `minOf(64.dp)` 상한선을 설정하여 시각적 안정성 보장.
+- **단방향 데이터 흐름 정립**: 설정 화면에서 값을 변경하고 저장하면 최상위 `HomeViewModel`의 State가 갱신되며 이 상태가 AppDrawer까지 흘러들어가 별도 화면 로딩 없이 즉각 재렌더링(Recomposition)되도록 설계함.
+- **UI 슬라이더 안전 범위 제어**: 유저가 무효한 형태의 그리드를 생성하지 않도록 열(3~6), 행(4~8), 사이즈 배율(50%~150%) 등 유효한 범위 안에서 스냅 단위로만 조절하도록 제한하고, `초기화(Reset)` 버튼을 제공해 기본값 접근성을 높임.
+
+---
+
 ## [2026-02-25] refactor(ui): Coil 기반의 앱 서랍 아이콘 로딩 렌더링 파이프라인 구축 및 메모리 최적화
 
 ### 목표

@@ -216,6 +216,9 @@ class MainActivity : ComponentActivity() {
                             onAppAssigned = { app, cell ->
                                 viewModel.handleIntent(HomeIntent.AssignAppToCell(app, cell))
                             },
+                            columns = uiState.appDrawerGridColumns,
+                            rows = uiState.appDrawerGridRows,
+                            iconSizeRatio = uiState.appDrawerIconSizeRatio,
                         )
                     },
                     isWidgetEditMode = isWidgetEditMode,

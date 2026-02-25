@@ -13,6 +13,7 @@ import org.comon.streamlauncher.domain.model.GridCell
 import org.comon.streamlauncher.domain.model.GridCellImage
 import org.comon.streamlauncher.domain.usecase.GetInstalledAppsUseCase
 import org.comon.streamlauncher.domain.usecase.GetLauncherSettingsUseCase
+import org.comon.streamlauncher.domain.usecase.SaveAppDrawerSettingsUseCase
 import org.comon.streamlauncher.domain.usecase.SaveCellAssignmentUseCase
 import org.comon.streamlauncher.domain.usecase.SaveColorPresetUseCase
 import org.comon.streamlauncher.domain.usecase.SaveFeedSettingsUseCase
@@ -34,6 +35,7 @@ class HomeViewModel @Inject constructor(
     private val saveGridCellImageUseCase: SaveGridCellImageUseCase,
     private val saveCellAssignmentUseCase: SaveCellAssignmentUseCase,
     private val saveFeedSettingsUseCase: SaveFeedSettingsUseCase,
+    private val saveAppDrawerSettingsUseCase: SaveAppDrawerSettingsUseCase,
     private val checkFirstLaunchUseCase: CheckFirstLaunchUseCase,
     private val setFirstLaunchUseCase: SetFirstLaunchUseCase,
 ) : BaseViewModel<HomeState, HomeIntent, HomeSideEffect>(HomeState()) {
@@ -53,6 +55,9 @@ class HomeViewModel @Inject constructor(
                         chzzkChannelId = settings.chzzkChannelId,
                         youtubeChannelId = settings.youtubeChannelId,
                         rssUrl = settings.rssUrl,
+                        appDrawerGridColumns = settings.appDrawerGridColumns,
+                        appDrawerGridRows = settings.appDrawerGridRows,
+                        appDrawerIconSizeRatio = settings.appDrawerIconSizeRatio,
                     )
                 }
             }
@@ -85,6 +90,7 @@ class HomeViewModel @Inject constructor(
             is HomeIntent.AssignAppToCell -> assignAppToCell(intent.app, intent.cell)
             is HomeIntent.UnassignApp -> unassignApp(intent.app)
             is HomeIntent.SaveFeedSettings -> saveFeedSettings(intent.chzzkChannelId, intent.youtubeChannelId, intent.rssUrl)
+            is HomeIntent.SaveAppDrawerSettings -> saveAppDrawerSettings(intent.columns, intent.rows, intent.iconSizeRatio)
             is HomeIntent.SetEditingCell -> updateState { copy(editingCell = intent.cell) }
             is HomeIntent.MoveAppInCell -> moveAppInCell(intent.cell, intent.fromIndex, intent.toIndex)
         }
@@ -232,6 +238,19 @@ class HomeViewModel @Inject constructor(
         }
         viewModelScope.launch {
             saveFeedSettingsUseCase(chzzkChannelId, youtubeChannelId, rssUrl)
+        }
+    }
+
+    private fun saveAppDrawerSettings(columns: Int, rows: Int, iconSizeRatio: Float) {
+        updateState {
+            copy(
+                appDrawerGridColumns = columns,
+                appDrawerGridRows = rows,
+                appDrawerIconSizeRatio = iconSizeRatio,
+            )
+        }
+        viewModelScope.launch {
+            saveAppDrawerSettingsUseCase(columns, rows, iconSizeRatio)
         }
     }
 

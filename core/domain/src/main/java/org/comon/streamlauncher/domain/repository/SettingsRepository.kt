@@ -15,4 +15,5 @@ interface SettingsRepository {
     suspend fun setYoutubeChannelId(id: String)
     suspend fun setRssUrl(url: String)
     suspend fun setWallpaperImage(uri: String?)
+    suspend fun setAppDrawerSettings(columns: Int, rows: Int, iconSizeRatio: Float)
 }

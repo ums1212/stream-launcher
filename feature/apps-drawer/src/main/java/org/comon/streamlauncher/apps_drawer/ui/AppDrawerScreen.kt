@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -42,6 +43,9 @@ import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.coerceAtLeast
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.comon.streamlauncher.domain.model.AppEntity
@@ -51,9 +55,7 @@ import org.comon.streamlauncher.ui.dragdrop.LocalDragDropState
 import org.comon.streamlauncher.ui.theme.StreamLauncherTheme
 import kotlin.math.ceil
 
-private const val COLUMNS = 4
-private const val ROWS = 6
-private const val ITEMS_PER_PAGE = COLUMNS * ROWS
+
 
 @Composable
 fun AppDrawerScreen(
@@ -62,9 +64,13 @@ fun AppDrawerScreen(
     onSearch: (String) -> Unit,
     onAppClick: (AppEntity) -> Unit,
     onAppAssigned: (AppEntity, GridCell) -> Unit = { _, _ -> },
+    columns: Int = 4,
+    rows: Int = 6,
+    iconSizeRatio: Float = 1.0f,
 ) {
     val colors = StreamLauncherTheme.colors
-    val pageCount = if (filteredApps.isEmpty()) 1 else ceil(filteredApps.size / ITEMS_PER_PAGE.toFloat()).toInt()
+    val appsPerPage = columns * rows
+    val pageCount = if (filteredApps.isEmpty()) 1 else ceil(filteredApps.size / appsPerPage.toFloat()).toInt()
     val pagerState = rememberPagerState(pageCount = { pageCount })
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -106,8 +112,8 @@ fun AppDrawerScreen(
                 .fillMaxWidth()
                 .weight(1f),
         ) { page ->
-            val startIndex = page * ITEMS_PER_PAGE
-            val endIndex = minOf(startIndex + ITEMS_PER_PAGE, filteredApps.size)
+            val startIndex = page * appsPerPage
+            val endIndex = minOf(startIndex + appsPerPage, filteredApps.size)
             val pageApps = if (startIndex < filteredApps.size) {
                 filteredApps.subList(startIndex, endIndex)
             } else {
@@ -116,6 +122,9 @@ fun AppDrawerScreen(
 
             AppGridPage(
                 apps = pageApps,
+                columns = columns,
+                rows = rows,
+                iconSizeRatio = iconSizeRatio,
                 onAppClick = onAppClick,
                 onAppAssigned = onAppAssigned,
             )
@@ -169,35 +178,51 @@ private fun PageIndicatorDot(
 @Composable
 private fun AppGridPage(
     apps: List<AppEntity>,
+    columns: Int,
+    rows: Int,
+    iconSizeRatio: Float,
     onAppClick: (AppEntity) -> Unit,
     onAppAssigned: (AppEntity, GridCell) -> Unit,
 ) {
-    Column(
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = 12.dp, vertical = 8.dp),
     ) {
-        for (rowIndex in 0 until ROWS) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-            ) {
-                for (colIndex in 0 until COLUMNS) {
-                    val appIndex = rowIndex * COLUMNS + colIndex
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight(),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        if (appIndex < apps.size) {
-                            AppDrawerGridItem(
-                                app = apps[appIndex],
-                                onClick = { onAppClick(apps[appIndex]) },
-                                onAppAssigned = onAppAssigned,
-                            )
+        val itemWidth = maxWidth / columns
+        val itemHeight = maxHeight / rows
+
+        val baseIconSize = minOf(64.dp, minOf(itemWidth * 0.6f, itemHeight * 0.45f)).coerceAtLeast(36.dp)
+        val iconSize = baseIconSize * iconSizeRatio
+        val textWidth = itemWidth * 0.9f
+        val fontSize = if (maxWidth < 360.dp) 10.sp else 11.sp
+
+        Column(modifier = Modifier.fillMaxSize()) {
+            for (rowIndex in 0 until rows) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                ) {
+                    for (colIndex in 0 until columns) {
+                        val appIndex = rowIndex * columns + colIndex
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight(),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            if (appIndex < apps.size) {
+                                AppDrawerGridItem(
+                                    app = apps[appIndex],
+                                    iconSize = iconSize,
+                                    textWidth = textWidth,
+                                    fontSize = fontSize,
+                                    onClick = { onAppClick(apps[appIndex]) },
+                                    onAppAssigned = onAppAssigned,
+                                )
+                            }
                         }
                     }
                 }
@@ -209,6 +234,9 @@ private fun AppGridPage(
 @Composable
 private fun AppDrawerGridItem(
     app: AppEntity,
+    iconSize: Dp,
+    textWidth: Dp,
+    fontSize: TextUnit,
     onClick: () -> Unit,
     onAppAssigned: (AppEntity, GridCell) -> Unit,
     modifier: Modifier = Modifier,
@@ -254,16 +282,16 @@ private fun AppDrawerGridItem(
     ) {
         AppIcon(
             packageName = app.packageName,
-            modifier = Modifier.size(48.dp),
+            modifier = Modifier.size(iconSize),
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = app.label,
-            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = fontSize),
             textAlign = TextAlign.Center,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.width(64.dp),
+            modifier = Modifier.width(textWidth),
         )
     }
 }

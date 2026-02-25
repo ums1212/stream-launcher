@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -50,6 +51,9 @@ class SettingsRepositoryImpl @Inject constructor(
     private val youtubeChannelIdKey = stringPreferencesKey("youtube_channel_id")
     private val rssUrlKey = stringPreferencesKey("rss_url")
     private val wallpaperImageKey = stringPreferencesKey("launcher_background_image")
+    private val appDrawerGridColumnsKey = intPreferencesKey("app_drawer_grid_columns")
+    private val appDrawerGridRowsKey = intPreferencesKey("app_drawer_grid_rows")
+    private val appDrawerIconSizeRatioKey = floatPreferencesKey("app_drawer_icon_size_ratio")
 
     override fun getSettings(): Flow<LauncherSettings> =
         context.dataStore.data.map { prefs ->
@@ -62,6 +66,9 @@ class SettingsRepositoryImpl @Inject constructor(
             val youtubeChannelId = prefs[youtubeChannelIdKey] ?: ""
             val rssUrl = prefs[rssUrlKey] ?: ""
             val wallpaperImage = prefs[wallpaperImageKey]
+            val appDrawerGridColumns = prefs[appDrawerGridColumnsKey] ?: 4
+            val appDrawerGridRows = prefs[appDrawerGridRowsKey] ?: 6
+            val appDrawerIconSizeRatio = prefs[appDrawerIconSizeRatioKey] ?: 1.0f
             LauncherSettings(
                 colorPresetIndex = colorPresetIndex,
                 gridCellImages = gridCellImages,
@@ -70,6 +77,9 @@ class SettingsRepositoryImpl @Inject constructor(
                 youtubeChannelId = youtubeChannelId,
                 rssUrl = rssUrl,
                 wallpaperImage = wallpaperImage,
+                appDrawerGridColumns = appDrawerGridColumns,
+                appDrawerGridRows = appDrawerGridRows,
+                appDrawerIconSizeRatio = appDrawerIconSizeRatio,
             )
         }
 
@@ -137,6 +147,14 @@ class SettingsRepositoryImpl @Inject constructor(
                 current.add(CellAssignmentDto(cell = cellOrdinal, packages = packageNames))
             }
             prefs[cellAssignmentsKey] = Json.encodeToString(current)
+        }
+    }
+
+    override suspend fun setAppDrawerSettings(columns: Int, rows: Int, iconSizeRatio: Float) {
+        context.dataStore.edit { prefs ->
+            prefs[appDrawerGridColumnsKey] = columns
+            prefs[appDrawerGridRowsKey] = rows
+            prefs[appDrawerIconSizeRatioKey] = iconSizeRatio
         }
     }
 
