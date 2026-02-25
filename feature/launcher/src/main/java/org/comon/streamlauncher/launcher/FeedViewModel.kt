@@ -29,6 +29,11 @@ class FeedViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             getLauncherSettingsUseCase().collect { settings ->
+                val prev = currentState
+                val isChanged = prev.chzzkChannelId != settings.chzzkChannelId ||
+                        prev.youtubeChannelId != settings.youtubeChannelId ||
+                        prev.rssUrl != settings.rssUrl
+
                 updateState {
                     copy(
                         chzzkChannelId = settings.chzzkChannelId,
@@ -36,7 +41,7 @@ class FeedViewModel @Inject constructor(
                         youtubeChannelId = settings.youtubeChannelId,
                     )
                 }
-                refresh(force = lastRefreshMillis == 0L)
+                refresh(force = lastRefreshMillis == 0L || isChanged)
             }
         }
     }
@@ -64,6 +69,10 @@ class FeedViewModel @Inject constructor(
             val youtubeChannelId = currentState.youtubeChannelId
 
             val liveJob = launch {
+                if (channelId.isEmpty()) {
+                    updateState { copy(liveStatus = null) }
+                    return@launch
+                }
                 try {
                     getLiveStatusUseCase(channelId).collect { result ->
                         result.fold(
@@ -98,7 +107,10 @@ class FeedViewModel @Inject constructor(
             }
 
             val profileJob = launch {
-                if (youtubeChannelId.isEmpty()) return@launch
+                if (youtubeChannelId.isEmpty()) {
+                    updateState { copy(channelProfile = null) }
+                    return@launch
+                }
                 try {
                     getChannelProfileUseCase(youtubeChannelId).collect { result ->
                         result.onSuccess { profile ->

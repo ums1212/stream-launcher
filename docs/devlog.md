@@ -2,6 +2,27 @@
 
 ---
 
+## [2026-02-25] bugfix(feed): 피드 설정 즉각 반영 및 채널 ID 빈값 처리 로직 개선
+
+### 목표
+
+설정 화면에서 피드 설정(유튜브 채널 ID, 치지직 채널 ID 등)을 변경하고 피드 화면으로 돌아왔을 때 변경된 설정이 즉시 반영되지 않는 문제(최소 새로고침 쿨타임 제한)를 해결한다. 또한 사용자가 설정에서 특정 채널 ID를 명시적으로 비우고 저장했을 때, 피드 화면에 남아있던 해당 채널의 이전 프로필 카드나 라이브 상태 카드가 완전히 숨김 처리되도록 로직을 개선한다.
+
+### 변경 사항
+
+| # | 파일 | 작업 |
+|---|------|------|
+| 1 | `feature/launcher/.../FeedViewModel.kt` | `init` 블록에서 DataStore의 설정을 수집할 때마다 이전 상태값과 비교하여 변경 여부(`isChanged`)를 판단하고, 설정이 변경되었다면 API 강제 새로고침(`refresh(force = true)`)을 호출하도록 수정 |
+| 2 | `feature/launcher/.../FeedViewModel.kt` | `refresh()` 메서드의 `profileJob` 내에서 `youtubeChannelId`가 빈 문자열일 경우, 즉시 화면 State의 `channelProfile`을 `null`로 초기화하여 UI 상에서 유튜브 채널 카드가 렌더링되지 않도록 추가 |
+| 3 | `feature/launcher/.../FeedViewModel.kt` | `refresh()` 메서드의 `liveJob` 내에서 `chzzkChannelId`가 빈 문자열일 경우, 화면 State의 `liveStatus`를 `null`로 초기화하여 텅 빈 라이브 상태 카드가 노출되지 않도록 방어 코드 추가 |
+
+### 설계 결정 및 근거
+
+- **강제 새로고침(Force Refresh) 플래그 우회 구조**: API 할당량 소모를 막기 위해 존재하는 60초 쿨타임(`MIN_REFRESH_INTERVAL_MS`) 메커니즘은 유지하되, 사용자의 명시적인 UI 설정 변경 이벤트가 감지되었을 때만 예외적으로 쿨타임을 무시하도록 구현하여 즉각적인 피드백(반응성)을 확보함.
+- **채널 ID 빈값에 대한 State null 역산 처리**: 사용자가 채널 연동을 해제(문자열 지움)한 경우 빈 ID로 불필요한 API 네트워크 요청을 보내 에러를 받는 대신, ViewModel 단계에서 조기에 차단(`return@launch`)하고 State의 해당 슬롯을 명시적 `null`로 바꾸어 View(Compose) 단에서 아예 해당 카드 컴포넌트를 그리지 않도록(Visually Hidden) 근본적인 상태 분리 설계를 적용함.
+
+---
+
 ## [2026-02-25] refactor(di): DataStore 의존성 주입을 위한 Hilt 모듈 분리
 
 ### 목표
