@@ -149,7 +149,8 @@ fun CrossPagerNavigation(
         // 드래그 오버레이
         if (dragDropState.isDragging) {
             val density = LocalDensity.current
-            val iconSizePx = with(density) { 48.dp.toPx() }
+            val dragIconSize = 96.dp
+            val iconSizePx = with(density) { dragIconSize.toPx() }
             val halfIconPx = iconSizePx / 2
 
             val cancelAlpha by animateFloatAsState(
@@ -167,7 +168,7 @@ fun CrossPagerNavigation(
                                 y = (dragDropState.dragOffset.y - halfIconPx).roundToInt(),
                             )
                         }
-                        .size(48.dp)
+                        .size(dragIconSize)
                         .graphicsLayer { alpha = 0.85f },
                 ) {
                     AppIcon(
