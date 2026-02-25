@@ -77,7 +77,13 @@ fun HomeScreen(
     onIntent: (HomeIntent) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val expandedCell = state.expandedCell
+    val dragDropState = LocalDragDropState.current
+    // 드래그 중일 때는 hoveredCell을 expandedCell로 임시 사용
+    val expandedCell = if (dragDropState.isDragging) {
+        dragDropState.hoveredCell
+    } else {
+        state.expandedCell
+    }
     val editingCell = state.editingCell
 
     BackHandler(enabled = editingCell != null) {

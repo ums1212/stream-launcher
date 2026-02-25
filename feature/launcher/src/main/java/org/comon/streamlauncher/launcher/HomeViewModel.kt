@@ -196,6 +196,7 @@ class HomeViewModel @Inject constructor(
             copy(
                 cellAssignments = newAssignments,
                 appsInCells = distributeApps(allApps, newAssignments),
+                expandedCell = cell,
             )
         }
         // DataStore에 변경된 셀들 저장

@@ -2,7 +2,45 @@
 
 ---
 
+## [2026-02-25] feat(ui): 앱 드로어 드래그 시 홈 그리드 섹션 자동 확장 + 드롭 후 확장 유지
+
+### 목표
+
+앱 드로어에서 앱 아이콘을 홈 화면으로 드래그할 때, 마우스 포인터(손가락)가 올라간 그리드 섹션이 자동으로 확장(80%)되어 배치 대상 셀을 시각적으로 명확히 하고, 드롭 완료 후에는 해당 섹션이 확장된 상태를 유지하도록 한다.
+
+### 변경 사항
+
+| # | 파일 | 작업 |
+|---|------|------|
+| 1 | `feature/launcher/.../ui/HomeScreen.kt` | `HomeScreen` 컴포저블 상단에서 `LocalDragDropState.current`를 읽어, 드래그 중(`isDragging == true`)일 때는 `hoveredCell`을, 그 외에는 기존 `state.expandedCell`을 `expandedCell`로 사용하도록 분기 처리 |
+| 2 | `feature/launcher/.../HomeViewModel.kt` | `assignAppToCell()` 함수의 `updateState` 블록에 `expandedCell = cell` 추가 — 앱 배치 완료 시 해당 셀을 영구 확장 상태로 설정 |
+
+### 동작 흐름
+
+```
+1. 앱 드로어에서 길게 눌러 드래그 시작
+   → DragDropState.startDrag() 호출 → isDragging = true
+2. 드래그 중 그리드 섹션 위로 이동
+   → DragDropState.updateDrag() → hoveredCell 갱신
+   → HomeScreen: expandedCell = hoveredCell → spring 애니메이션으로 해당 섹션 확장(80%)
+3. 드래그를 섹션 밖으로 이동
+   → hoveredCell = null → 균등(50%) 복원
+4. 원하는 셀 위에서 드롭 (손가락 뗌)
+   → AssignAppToCell 인텐트 처리
+   → assignAppToCell()에서 expandedCell = cell 설정
+   → isDragging = false 이므로 state.expandedCell(= 배치된 셀) 유지
+```
+
+### 설계 결정 및 근거
+
+- **로컬 상태 override 방식 채택**: 드래그 중 일시적 확장은 ViewModel의 비즈니스 로직을 건드리지 않고 `HomeScreen` 컴포저블 내 로컬 연산으로 처리. `DragDropState.hoveredCell`이 이미 `Compose State`로 관리되므로 recomposition이 자동으로 트리거됨.
+- **기존 spring 애니메이션 재활용**: `topRowWeight`, `leftColWeight`의 `animateFloatAsState(spring)` 애니메이션이 `expandedCell` 변경에 자동 반응하므로 별도 애니메이션 추가 없이 자연스러운 확장/축소 효과 제공.
+- **드롭 후 확장 유지**: 배치 완료 후 ViewModel의 `state.expandedCell`을 해당 셀로 설정하여 드래그 이후에도 사용자가 배치 결과를 즉시 확인할 수 있도록 함.
+
+---
+
 ## [2026-02-25] feat(feed): 유튜브 채널 라이브 상태 표시 배지 추가
+
 
 ### 목표
 
