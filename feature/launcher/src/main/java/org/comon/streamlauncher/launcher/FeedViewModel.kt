@@ -10,6 +10,7 @@ import org.comon.streamlauncher.domain.usecase.GetChannelProfileUseCase
 import org.comon.streamlauncher.domain.usecase.GetIntegratedFeedUseCase
 import org.comon.streamlauncher.domain.usecase.GetLauncherSettingsUseCase
 import org.comon.streamlauncher.domain.usecase.GetChzzkLiveStatusUseCase
+import org.comon.streamlauncher.domain.usecase.GetYoutubeLiveStatusUseCase
 import org.comon.streamlauncher.ui.BaseViewModel
 import javax.inject.Inject
 
@@ -19,6 +20,7 @@ private const val MIN_REFRESH_INTERVAL_MS = 60_000L
 class FeedViewModel @Inject constructor(
     private val getLauncherSettingsUseCase: GetLauncherSettingsUseCase,
     private val getChzzkLiveStatusUseCase: GetChzzkLiveStatusUseCase,
+    private val getYoutubeLiveStatusUseCase: GetYoutubeLiveStatusUseCase,
     private val getIntegratedFeedUseCase: GetIntegratedFeedUseCase,
     private val getChannelProfileUseCase: GetChannelProfileUseCase,
 ) : BaseViewModel<FeedState, FeedIntent, FeedSideEffect>(FeedState()) {
@@ -122,7 +124,25 @@ class FeedViewModel @Inject constructor(
                 } catch (_: Exception) { /* 프로필 fetch 실패는 silent */ }
             }
 
+            val youtubeLiveJob = launch {
+                if (youtubeChannelId.isEmpty()) {
+                    updateState { copy(youtubeLiveStatus = null) }
+                    return@launch
+                }
+                try {
+                    getYoutubeLiveStatusUseCase(youtubeChannelId).collect { result ->
+                        result.fold(
+                            onSuccess = { status -> updateState { copy(youtubeLiveStatus = status) } },
+                            onFailure = { /* 라이브 상태 오류 무시 */ },
+                        )
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) { /* ignore */ }
+            }
+
             liveJob.join()
+            youtubeLiveJob.join()
             feedJob.join()
             profileJob.join()
         }

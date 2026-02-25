@@ -2,6 +2,29 @@
 
 ---
 
+## [2026-02-25] feat(feed): 유튜브 채널 라이브 상태 표시 배지 추가
+
+### 목표
+
+사용자가 설정한 유튜브 채널이 현재 라이브 방송 중인지 파악하여 피드 화면의 채널 프로필 카드에 시각적인 LIVE 배지를 표시한다. 기존 치지직 라이브 상태 배지와 통일감 있는 애니메이션을 주어 사용자 경험을 개선한다.
+
+### 변경 사항
+
+| # | 모듈 | 파일 | 작업 |
+|---|------|------|------|
+| 1 | `core/data` | `FeedRepositoryImpl.kt` | 유튜브 Search API를 호출하여 `eventType="live"` 조건으로 현재 스트리밍 중인 영상을 검색해 상태를 반환하는 `getYoutubeLiveStatus` 구현 |
+| 2 | `core/domain` | `GetYoutubeLiveStatusUseCase.kt` | 채널 ID를 기반으로 라이브 상태 조회를 요청하는 신규 UseCase 생성 |
+| 3 | `feature/launcher` | `FeedViewModel.kt` | `refresh` 단계에서 치지직 채널 상태와 함께 별도의 코루틴 Job으로 `GetYoutubeLiveStatusUseCase`를 실행하여 뷰모델 상태 업데이트 |
+| 4 | `feature/launcher` | `FeedScreen.kt` | 치지직의 기존 숨쉬기(Breathing) 애니메이션 글로우 효과 코드를 공용 컴포저블(`BreathingLiveBadge`)로 추출하여, 채널 프로필 이름 옆에 붉은색 네온 라이브 뱃지가 노출되도록 디자인 개선 |
+| 5 | `feature/launcher` | `FeedViewModelTest.kt` | 새로 주입받는 `GetYoutubeLiveStatusUseCase`에 대한 mockk 객체를 뷰모델 테스트 코드에 추가하고 초기 설정 갱신 |
+| 6 | `feature/launcher` | `FeedContract.kt` | `FeedState`에 `youtubeLiveStatus` 변수를 추가하여 상태로 관리 |
+
+### 설계 결정 및 근거
+
+- **과도한 API 트래픽 제어**: 유튜브 Search API(`list=live`)는 1회 통신당 API 할당량(Quota) 100을 소모하므로 코스트가 매우 높다. 따라서 피드를 계속 당긴다고 해서 무조건 조회하지 않고, `MIN_REFRESH_INTERVAL_MS`(60초) 쿨타임 정책을 동일하게 적용하여 불필요한 호출을 제어함.
+- **애니메이션 컴포넌트 재사용**: 치지직 채널 카드의 'LIVE' 배지가 제공하는 `drawBehind` 네온 글로우 애니메이션 코드가 동일하게 사용되므로, 이를 떼어내어 `BreathingLiveBadge` 컴포저블 함수로 재사용 구조를 설계하여 UI 일관성을 확보함.
+- **배지 영역에서의 링크 분리 (동작 결정)**: 유튜브 라이브 배지 부분의 터치 시 명시적인 라이브 URL로 연결하는 클릭 인텐트를 분리할지 고민했으나, 전체 프로필 영역(`ChannelProfileCard`)의 클릭 동작을 최우선으로 고려해 클릭 리스너 분리를 해제하고 시각적 인디케이터로만 작동하도록 의도함.
+
 ## [2026-02-25] refactor(domain): GetLiveStatusUseCase 클래스명 변경
 
 ### 목표

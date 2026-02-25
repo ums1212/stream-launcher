@@ -14,6 +14,7 @@ interface YouTubeService {
         @Query("channelId") channelId: String,
         @Query("order") order: String,
         @Query("type") type: String,
+        @Query("eventType") eventType: String? = null,
         @Query("maxResults") maxResults: Int,
         @Query("key") apiKey: String,
     ): YouTubeSearchResponse

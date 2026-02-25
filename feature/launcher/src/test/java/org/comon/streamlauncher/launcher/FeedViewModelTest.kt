@@ -18,6 +18,7 @@ import org.comon.streamlauncher.domain.usecase.GetChannelProfileUseCase
 import org.comon.streamlauncher.domain.usecase.GetIntegratedFeedUseCase
 import org.comon.streamlauncher.domain.usecase.GetLauncherSettingsUseCase
 import org.comon.streamlauncher.domain.usecase.GetChzzkLiveStatusUseCase
+import org.comon.streamlauncher.domain.usecase.GetYoutubeLiveStatusUseCase
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -33,6 +34,7 @@ class FeedViewModelTest {
 
     private lateinit var getLauncherSettingsUseCase: GetLauncherSettingsUseCase
     private lateinit var getChzzkLiveStatusUseCase: GetChzzkLiveStatusUseCase
+    private lateinit var getYoutubeLiveStatusUseCase: GetYoutubeLiveStatusUseCase
     private lateinit var getIntegratedFeedUseCase: GetIntegratedFeedUseCase
     private lateinit var getChannelProfileUseCase: GetChannelProfileUseCase
     private lateinit var viewModel: FeedViewModel
@@ -61,11 +63,13 @@ class FeedViewModelTest {
         Dispatchers.setMain(testDispatcher)
         getLauncherSettingsUseCase = mockk()
         getChzzkLiveStatusUseCase = mockk()
+        getYoutubeLiveStatusUseCase = mockk()
         getIntegratedFeedUseCase = mockk()
         getChannelProfileUseCase = mockk(relaxed = true)
 
         every { getLauncherSettingsUseCase() } returns flowOf(defaultSettings)
         every { getChzzkLiveStatusUseCase(any()) } returns flowOf(Result.success(sampleLiveStatus))
+        every { getYoutubeLiveStatusUseCase(any()) } returns flowOf(Result.success(sampleLiveStatus.copy(channelId = "UCtest")))
         every { getIntegratedFeedUseCase(any(), any()) } returns flowOf(Result.success(sampleFeedItems))
         every { getChannelProfileUseCase(any()) } returns flowOf(
             Result.success(ChannelProfile("UCtest", "Test Channel", "", 10000L, 100L))
@@ -80,6 +84,7 @@ class FeedViewModelTest {
     private fun makeViewModel() = FeedViewModel(
         getLauncherSettingsUseCase,
         getChzzkLiveStatusUseCase,
+        getYoutubeLiveStatusUseCase,
         getIntegratedFeedUseCase,
         getChannelProfileUseCase,
     )
@@ -88,6 +93,7 @@ class FeedViewModelTest {
     fun `초기 상태 - 기본값 확인`() {
         every { getLauncherSettingsUseCase() } returns flowOf(LauncherSettings())
         every { getChzzkLiveStatusUseCase(any()) } returns flowOf(Result.success(LiveStatus(false, "", 0, "", "")))
+        every { getYoutubeLiveStatusUseCase(any()) } returns flowOf(Result.success(LiveStatus(false, "", 0, "", "")))
         every { getIntegratedFeedUseCase(any(), any()) } returns flowOf(Result.success(emptyList()))
 
         viewModel = makeViewModel()
@@ -190,6 +196,7 @@ class FeedViewModelTest {
     @Test
     fun `피드 로드 실패 - errorMessage 설정`() = runTest {
         every { getChzzkLiveStatusUseCase(any()) } returns flowOf(Result.success(LiveStatus(false, "", 0, "", "")))
+        every { getYoutubeLiveStatusUseCase(any()) } returns flowOf(Result.success(LiveStatus(false, "", 0, "", "")))
         every { getIntegratedFeedUseCase(any(), any()) } returns flowOf(Result.failure(RuntimeException("네트워크 오류")))
 
         viewModel = makeViewModel()
@@ -203,6 +210,7 @@ class FeedViewModelTest {
     fun `isLoading - 로딩 중 상태 관리`() = runTest {
         every { getIntegratedFeedUseCase(any(), any()) } returns flowOf(Result.success(emptyList()))
         every { getChzzkLiveStatusUseCase(any()) } returns flowOf(Result.success(LiveStatus(false, "", 0, "", "")))
+        every { getYoutubeLiveStatusUseCase(any()) } returns flowOf(Result.success(LiveStatus(false, "", 0, "", "")))
 
         viewModel = makeViewModel()
         // advanceUntilIdle 전 로딩 상태 확인은 타이밍 이슈가 있으므로 완료 후 false 확인

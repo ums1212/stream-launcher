@@ -164,7 +164,7 @@ class FeedRepositoryImplTest {
                 ),
             ),
         )
-        coEvery { youTubeService.searchVideos(any(), any(), any(), any(), any(), any(), any()) } returns ytResponse
+        coEvery { youTubeService.searchVideos(any(), any(), any(), any(), any(), any(), any(), any()) } returns ytResponse
 
         repository.getIntegratedFeed("", "UCsomeChannelId").test {
             val result = awaitItem()
@@ -187,7 +187,7 @@ class FeedRepositoryImplTest {
                 ),
             ),
         )
-        coEvery { youTubeService.searchVideos(any(), any(), any(), any(), any(), any(), any()) } returns ytResponse
+        coEvery { youTubeService.searchVideos(any(), any(), any(), any(), any(), any(), any(), any()) } returns ytResponse
 
         repository.getIntegratedFeed("https://rss.url", "UCsomeChannelId").test {
             val result = awaitItem()
@@ -217,7 +217,7 @@ class FeedRepositoryImplTest {
             ),
         )
         coEvery { rssFeedApi.getRssFeed(any()) } returns rssResponse
-        coEvery { youTubeService.searchVideos(any(), any(), any(), any(), any(), any(), any()) } returns ytResponse
+        coEvery { youTubeService.searchVideos(any(), any(), any(), any(), any(), any(), any(), any()) } returns ytResponse
 
         repository.getIntegratedFeed("https://rss.url", "UCsomeId").test {
             val result = awaitItem()

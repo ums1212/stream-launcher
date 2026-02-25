@@ -14,7 +14,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.comon.streamlauncher.data.util.DateParser
 import org.comon.streamlauncher.domain.model.ChannelProfile
@@ -88,6 +87,58 @@ class FeedRepositoryImpl @Inject constructor(
         emit(Result.success(status))
     }.catch { e ->
         Log.e(TAG, "getLiveStatus failed", e)
+        emit(Result.failure(e))
+    }.flowOn(Dispatchers.IO)
+
+    override fun getYoutubeLiveStatus(channelId: String): Flow<Result<LiveStatus>> = flow {
+        if (channelId.isEmpty()) {
+            Log.d(TAG, "getYoutubeLiveStatus: channelId empty, skip")
+            emit(Result.success(LiveStatus(false, "", 0, "", "")))
+            return@flow
+        }
+
+        val resolvedId = if (channelId.startsWith("@")) {
+            handleToChannelIdCache.getOrPut(channelId) {
+                val resp = youTubeService.getChannelByHandle(
+                    url = "https://www.googleapis.com/youtube/v3/channels",
+                    part = "id",
+                    handle = channelId,
+                    apiKey = NetworkConstants.YOUTUBE_API_KEY,
+                )
+                resp.items.firstOrNull()?.id ?: return@flow
+            }
+        } else {
+            channelId
+        }
+
+        Log.d(TAG, "getYoutubeLiveStatus: resolved channelId='$resolvedId'")
+        val searchResponse = youTubeService.searchVideos(
+            url = "https://www.googleapis.com/youtube/v3/search",
+            part = "snippet",
+            channelId = resolvedId,
+            order = "date",
+            type = "video",
+            eventType = "live",
+            maxResults = 1,
+            apiKey = NetworkConstants.YOUTUBE_API_KEY,
+        )
+
+        val liveItem = searchResponse.items.firstOrNull()
+        val isLive = liveItem != null
+        val status = LiveStatus(
+            isLive = isLive,
+            title = liveItem?.snippet?.title ?: "",
+            viewerCount = 0,
+            thumbnailUrl = liveItem?.snippet?.thumbnails?.high?.url
+                ?: liveItem?.snippet?.thumbnails?.default?.url
+                ?: "",
+            channelId = channelId,
+        )
+
+        Log.d(TAG, "getYoutubeLiveStatus: isLive=${status.isLive} title='${status.title}'")
+        emit(Result.success(status))
+    }.catch { e ->
+        Log.e(TAG, "getYoutubeLiveStatus failed", e)
         emit(Result.failure(e))
     }.flowOn(Dispatchers.IO)
 

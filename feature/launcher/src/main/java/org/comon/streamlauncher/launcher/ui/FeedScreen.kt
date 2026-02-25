@@ -12,7 +12,6 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -41,7 +40,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
@@ -62,6 +60,8 @@ import org.comon.streamlauncher.launcher.FeedIntent
 import org.comon.streamlauncher.launcher.FeedState
 import org.comon.streamlauncher.ui.theme.StreamLauncherTheme
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.res.painterResource
 import org.comon.streamlauncher.launcher.R
 import java.text.SimpleDateFormat
@@ -160,6 +160,7 @@ private fun FeedContent(
             if (profile.name.isNotEmpty()) {
                 ChannelProfileCard(
                     profile = profile,
+                    youtubeLiveStatus = state.youtubeLiveStatus,
                     onClick = { onIntent(FeedIntent.ClickChannelProfile) },
                 )
                 Spacer(modifier = Modifier.height(12.dp))
@@ -208,6 +209,7 @@ private fun FeedContent(
 @Composable
 private fun ChannelProfileCard(
     profile: ChannelProfile,
+    youtubeLiveStatus: LiveStatus?,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -252,14 +254,27 @@ private fun ChannelProfileCard(
             Spacer(modifier = Modifier.width(12.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = profile.name,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = profile.name,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    if (youtubeLiveStatus?.isLive == true) {
+                        Text(
+                            text = "LIVE",
+                            modifier = Modifier.padding(start = 4.dp),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = StreamLauncherTheme.colors.accentPrimary,
+                        )
+                    }
+                }
                 Spacer(modifier = Modifier.height(2.dp))
                 // 구독자 수 AnimatedContent
                 AnimatedContent(
@@ -314,48 +329,7 @@ private fun LiveStatusCard(
             Spacer(modifier = Modifier.width(8.dp))
 
             if (liveStatus.isLive) {
-                val breathAlpha = if (isVisible) {
-                    val infiniteTransition = rememberInfiniteTransition(label = "liveBreathing")
-                    val alpha by infiniteTransition.animateFloat(
-                        initialValue = 0.4f,
-                        targetValue = 1.0f,
-                        animationSpec = infiniteRepeatable(
-                            animation = tween(durationMillis = 1200),
-                            repeatMode = RepeatMode.Reverse,
-                        ),
-                        label = "breathAlpha",
-                    )
-                    alpha
-                } else {
-                    1.0f
-                }
-                // LIVE 배지 (Breathing 네온 글로우)
-                Box(
-                    modifier = Modifier
-                        .drawBehind {
-                            drawCircle(
-                                color = accentPrimary.copy(alpha = 0.15f * breathAlpha),
-                                radius = size.minDimension * 0.9f,
-                            )
-                            drawCircle(
-                                color = accentPrimary.copy(alpha = 0.30f * breathAlpha),
-                                radius = size.minDimension * 0.65f,
-                            )
-                            drawCircle(
-                                color = accentPrimary.copy(alpha = 0.80f * breathAlpha),
-                                radius = size.minDimension * 0.42f,
-                            )
-                        }
-                        .padding(8.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.PlayArrow,
-                        contentDescription = "라이브",
-                        tint = accentPrimary,
-                        modifier = Modifier.size(20.dp),
-                    )
-                }
+                BreathingLiveBadge(isVisible = isVisible)
 
                 Spacer(modifier = Modifier.width(8.dp))
 
@@ -487,5 +461,55 @@ private fun formatSubscriberCount(count: Long): String {
         count >= 10_000 -> "${count / 10_000}만명"
         count >= 1_000 -> "${count / 1_000}천명"
         else -> "${count}명"
+    }
+}
+
+@Composable
+private fun BreathingLiveBadge(
+    isVisible: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val accentPrimary = StreamLauncherTheme.colors.accentPrimary
+    val breathAlpha = if (isVisible) {
+        val infiniteTransition = rememberInfiniteTransition(label = "liveBreathing")
+        val alpha by infiniteTransition.animateFloat(
+            initialValue = 0.4f,
+            targetValue = 1.0f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 1200),
+                repeatMode = RepeatMode.Reverse,
+            ),
+            label = "breathAlpha",
+        )
+        alpha
+    } else {
+        1.0f
+    }
+
+    Box(
+        modifier = modifier
+            .drawBehind {
+                drawCircle(
+                    color = accentPrimary.copy(alpha = 0.15f * breathAlpha),
+                    radius = size.minDimension * 0.9f,
+                )
+                drawCircle(
+                    color = accentPrimary.copy(alpha = 0.30f * breathAlpha),
+                    radius = size.minDimension * 0.65f,
+                )
+                drawCircle(
+                    color = accentPrimary.copy(alpha = 0.80f * breathAlpha),
+                    radius = size.minDimension * 0.42f,
+                )
+            }
+            .padding(8.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = Icons.Default.PlayArrow,
+            contentDescription = "라이브",
+            tint = accentPrimary,
+            modifier = Modifier.size(20.dp),
+        )
     }
 }
