@@ -17,12 +17,11 @@ import org.comon.streamlauncher.domain.model.LiveStatus
 import org.comon.streamlauncher.domain.usecase.GetChannelProfileUseCase
 import org.comon.streamlauncher.domain.usecase.GetIntegratedFeedUseCase
 import org.comon.streamlauncher.domain.usecase.GetLauncherSettingsUseCase
-import org.comon.streamlauncher.domain.usecase.GetLiveStatusUseCase
+import org.comon.streamlauncher.domain.usecase.GetChzzkLiveStatusUseCase
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -33,7 +32,7 @@ class FeedViewModelTest {
     private val testDispatcher = StandardTestDispatcher()
 
     private lateinit var getLauncherSettingsUseCase: GetLauncherSettingsUseCase
-    private lateinit var getLiveStatusUseCase: GetLiveStatusUseCase
+    private lateinit var getChzzkLiveStatusUseCase: GetChzzkLiveStatusUseCase
     private lateinit var getIntegratedFeedUseCase: GetIntegratedFeedUseCase
     private lateinit var getChannelProfileUseCase: GetChannelProfileUseCase
     private lateinit var viewModel: FeedViewModel
@@ -61,12 +60,12 @@ class FeedViewModelTest {
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
         getLauncherSettingsUseCase = mockk()
-        getLiveStatusUseCase = mockk()
+        getChzzkLiveStatusUseCase = mockk()
         getIntegratedFeedUseCase = mockk()
         getChannelProfileUseCase = mockk(relaxed = true)
 
         every { getLauncherSettingsUseCase() } returns flowOf(defaultSettings)
-        every { getLiveStatusUseCase(any()) } returns flowOf(Result.success(sampleLiveStatus))
+        every { getChzzkLiveStatusUseCase(any()) } returns flowOf(Result.success(sampleLiveStatus))
         every { getIntegratedFeedUseCase(any(), any()) } returns flowOf(Result.success(sampleFeedItems))
         every { getChannelProfileUseCase(any()) } returns flowOf(
             Result.success(ChannelProfile("UCtest", "Test Channel", "", 10000L, 100L))
@@ -80,7 +79,7 @@ class FeedViewModelTest {
 
     private fun makeViewModel() = FeedViewModel(
         getLauncherSettingsUseCase,
-        getLiveStatusUseCase,
+        getChzzkLiveStatusUseCase,
         getIntegratedFeedUseCase,
         getChannelProfileUseCase,
     )
@@ -88,7 +87,7 @@ class FeedViewModelTest {
     @Test
     fun `초기 상태 - 기본값 확인`() {
         every { getLauncherSettingsUseCase() } returns flowOf(LauncherSettings())
-        every { getLiveStatusUseCase(any()) } returns flowOf(Result.success(LiveStatus(false, "", 0, "", "")))
+        every { getChzzkLiveStatusUseCase(any()) } returns flowOf(Result.success(LiveStatus(false, "", 0, "", "")))
         every { getIntegratedFeedUseCase(any(), any()) } returns flowOf(Result.success(emptyList()))
 
         viewModel = makeViewModel()
@@ -190,7 +189,7 @@ class FeedViewModelTest {
 
     @Test
     fun `피드 로드 실패 - errorMessage 설정`() = runTest {
-        every { getLiveStatusUseCase(any()) } returns flowOf(Result.success(LiveStatus(false, "", 0, "", "")))
+        every { getChzzkLiveStatusUseCase(any()) } returns flowOf(Result.success(LiveStatus(false, "", 0, "", "")))
         every { getIntegratedFeedUseCase(any(), any()) } returns flowOf(Result.failure(RuntimeException("네트워크 오류")))
 
         viewModel = makeViewModel()
@@ -203,7 +202,7 @@ class FeedViewModelTest {
     @Test
     fun `isLoading - 로딩 중 상태 관리`() = runTest {
         every { getIntegratedFeedUseCase(any(), any()) } returns flowOf(Result.success(emptyList()))
-        every { getLiveStatusUseCase(any()) } returns flowOf(Result.success(LiveStatus(false, "", 0, "", "")))
+        every { getChzzkLiveStatusUseCase(any()) } returns flowOf(Result.success(LiveStatus(false, "", 0, "", "")))
 
         viewModel = makeViewModel()
         // advanceUntilIdle 전 로딩 상태 확인은 타이밍 이슈가 있으므로 완료 후 false 확인

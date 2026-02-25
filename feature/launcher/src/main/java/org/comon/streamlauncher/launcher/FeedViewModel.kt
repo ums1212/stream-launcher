@@ -9,7 +9,7 @@ import org.comon.streamlauncher.domain.model.FeedItem
 import org.comon.streamlauncher.domain.usecase.GetChannelProfileUseCase
 import org.comon.streamlauncher.domain.usecase.GetIntegratedFeedUseCase
 import org.comon.streamlauncher.domain.usecase.GetLauncherSettingsUseCase
-import org.comon.streamlauncher.domain.usecase.GetLiveStatusUseCase
+import org.comon.streamlauncher.domain.usecase.GetChzzkLiveStatusUseCase
 import org.comon.streamlauncher.ui.BaseViewModel
 import javax.inject.Inject
 
@@ -18,7 +18,7 @@ private const val MIN_REFRESH_INTERVAL_MS = 60_000L
 @HiltViewModel
 class FeedViewModel @Inject constructor(
     private val getLauncherSettingsUseCase: GetLauncherSettingsUseCase,
-    private val getLiveStatusUseCase: GetLiveStatusUseCase,
+    private val getChzzkLiveStatusUseCase: GetChzzkLiveStatusUseCase,
     private val getIntegratedFeedUseCase: GetIntegratedFeedUseCase,
     private val getChannelProfileUseCase: GetChannelProfileUseCase,
 ) : BaseViewModel<FeedState, FeedIntent, FeedSideEffect>(FeedState()) {
@@ -74,7 +74,7 @@ class FeedViewModel @Inject constructor(
                     return@launch
                 }
                 try {
-                    getLiveStatusUseCase(channelId).collect { result ->
+                    getChzzkLiveStatusUseCase(channelId).collect { result ->
                         result.fold(
                             onSuccess = { status -> updateState { copy(liveStatus = status) } },
                             onFailure = { /* 라이브 상태 오류는 조용히 무시 */ },

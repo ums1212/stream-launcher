@@ -2,6 +2,27 @@
 
 ---
 
+## [2026-02-25] refactor(domain): GetLiveStatusUseCase 클래스명 변경
+
+### 목표
+
+유튜브 채널의 실시간 라이브 상태 조회 기능 추가를 앞두고, 기존 치지직의 라이브 상태 조회를 전담하던 `GetLiveStatusUseCase`의 이름을 명확하게 변경하여 역할과 책임을 구분한다.
+
+### 변경 사항
+
+| # | 모듈 | 파일 | 작업 |
+|---|------|------|------|
+| 1 | `core/domain` | `usecase/GetChzzkLiveStatusUseCase.kt` | 기존 `GetLiveStatusUseCase.kt` 파일명 및 클래스명을 `GetChzzkLiveStatusUseCase`로 변경 |
+| 2 | `core/domain` | `usecase/GetChzzkLiveStatusUseCaseTest.kt` | 파일명 및 테스트 클래스명, 내부 인스턴스 변수명 변경 반영 |
+| 3 | `feature/launcher` | `FeedViewModel.kt` | 의존성 주입 시 기존 `GetLiveStatusUseCase` 대신 `GetChzzkLiveStatusUseCase`를 주입받고 호출하도록 변경 |
+| 4 | `feature/launcher` | `FeedViewModelTest.kt` | 관련된 mockk 모의 객체 선언부 및 변수명 일괄 수정 |
+
+### 설계 결정 및 근거
+
+- **도메인 명확화**: 앞으로 피드 화면에서 '치지직 라이브'와 '유튜브 라이브' 두 가지 비동기 상태를 동시에 다루게 되므로, 각 플랫폼별 UseCase를 명명 규칙에서부터 확실히 분리하여 혼동을 막기 위해 리팩토링을 선행함.
+
+---
+
 ## [2026-02-25] bugfix(feed): 피드 설정 즉각 반영 및 채널 ID 빈값 처리 로직 개선
 
 ### 목표

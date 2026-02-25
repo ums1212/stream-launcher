@@ -13,15 +13,15 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
-class GetLiveStatusUseCaseTest {
+class GetChzzkLiveStatusUseCaseTest {
 
     private lateinit var feedRepository: FeedRepository
-    private lateinit var useCase: GetLiveStatusUseCase
+    private lateinit var useCase: GetChzzkLiveStatusUseCase
 
     @Before
     fun setUp() {
         feedRepository = mockk()
-        useCase = GetLiveStatusUseCase(feedRepository)
+        useCase = GetChzzkLiveStatusUseCase(feedRepository)
     }
 
     @Test
