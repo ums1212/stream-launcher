@@ -67,7 +67,7 @@ fun CrossPagerNavigation(
     widgetContent: @Composable () -> Unit = {},
     isWidgetEditMode: Boolean = false,
     settingsContent: @Composable () -> Unit = {},
-    feedContent: @Composable () -> Unit = {},
+    feedContent: @Composable (isFeedVisible: Boolean) -> Unit = {},
     isHomeEditMode: Boolean = false,
     homeContent: @Composable () -> Unit,
 ) {
@@ -204,7 +204,7 @@ private fun CenterRow(
     homeContent: @Composable () -> Unit,
     widgetContent: @Composable () -> Unit,
     isWidgetEditMode: Boolean,
-    feedContent: @Composable () -> Unit,
+    feedContent: @Composable (isFeedVisible: Boolean) -> Unit,
     isDragging: Boolean = false,
     isHomeEditMode: Boolean = false,
 ) {
@@ -214,6 +214,7 @@ private fun CenterRow(
             .clipToBounds()
             .graphicsLayer { alpha = pageAlpha(verticalPagerState, 1) },
     ) {
+        val isFeedVisible = verticalPagerState.targetPage == 1 && horizontalPagerState.targetPage == 0
 
         HorizontalPager(
             state = horizontalPagerState,
@@ -225,7 +226,7 @@ private fun CenterRow(
                 0 -> LeftPage(
                     pagerState = horizontalPagerState,
                     page = horizontalPage,
-                    content = feedContent,
+                    content = { feedContent(isFeedVisible) },
                 )
                 1 -> Box(
                     modifier = Modifier

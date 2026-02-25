@@ -2,6 +2,37 @@
 
 ---
 
+## [2026-02-25] bugfix(ui): 피드 화면 비활성 시 LIVE 무한 애니메이션 중단 로직 구현
+
+### 목표
+
+`FeedScreen.kt`의 `LiveStatusCard` 내에 있는 LIVE 배지(네온 숨결 효과) 애니메이션이 `HorizontalPager` 및 `VerticalPager`의 프리렌더링 때문에 화면에 보이지 않을 때에도 무한 반복 실행되며 `setRequestedFrameRate frameRate=NaN` 로그를 매 프레임 남기던 현상을 해결한다.
+
+### 변경 사항
+
+| # | 파일 | 작업 |
+|---|------|------|
+| 1 | `app/.../CrossPagerNavigation.kt` | 화면 노출 여부(`isFeedVisible`)를 계산하여 `feedContent` 람다로 전달 (`verticalPagerState.targetPage == 1 && horizontalPagerState.targetPage == 0`) |
+| 2 | `app/.../MainActivity.kt` | `CrossPagerNavigation`에서 전달받은 `isVisible` 파라미터를 `FeedScreen`으로 전달토록 변경 |
+| 3 | `feature/launcher/.../ui/FeedScreen.kt` | `FeedScreen`, `FeedContent`, `LiveStatusCard` 컴포저블에 `isVisible: Boolean` 파라미터 추가 (`LiveStatusCard`까지 상태 파이프라인 형성) |
+| 4 | `feature/launcher/.../ui/FeedScreen.kt` | `LiveStatusCard` 내부의 `rememberInfiniteTransition` 블록을 `if(isVisible)` 조건문으로 감싸 노출될 때만 무한 애니메이션을 구동시키고 아니면 정적 알파(`1.0f`)를 반환하도록 처리 |
+
+### 설계 결정 및 근거
+
+| 결정 | 근거 |
+|------|------|
+| `targetPage` 기반 렌더링 검사 | 현재 보고 있는 페이지이거나 곧 볼 예정인 페이지만 애니메이션하기 적합. `currentPage`를 사용할 경우 스크롤 중 애니메이션이 뒤늦게 활성화될 우려가 있음. |
+| `LiveStatusCard`에 상태 의존성 주입 | 컴포저블 트리 최상단(`CrossPagerNavigation`)에서 판단한 가시성(Visibility) 값을 단방향 데이터 흐름을 통해 단방향으로 명시적으로 전달하여 의존성 및 생명주기를 투명하게 만듦. |
+
+### 성능 최적화 효과
+
+화면에 보이지 않는 상태에서도 `rememberInfiniteTransition`이 계속 동작하면 안드로이드의 `dispatchDraw()`가 단말기 주사율에 맞춰 매 프레임(초당 60~120회) 강제 호출됩니다. 이 현상을 해결함으로써 얻어지는 직접적인 이점은 다음과 같습니다.
+1. **배터리 수명 및 디바이스 발열 방지**: 불필요한 GPU/CPU 렌더링 파이프라인 호출 방지
+2. **UI 스레드 부하 감소**: 앱 서랍과 설정 화면에서의 스크롤링 및 네비게이션 애니메이션 프레임 드랍(버벅임)을 예방
+3. **디버그 환경 개선**: `setRequestedFrameRate frameRate=NaN`과 같은 무의미한 로그 스팸이 제거되어 정상적인 로그캣 가독성 확보
+
+---
+
 ## [2026-02-24] investigation: setRequestedFrameRate(NaN) 로그 매 프레임 출력 현상 원인 분석
 
 ### 발견한 현상

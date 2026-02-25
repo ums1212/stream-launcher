@@ -194,9 +194,10 @@ class MainActivity : ComponentActivity() {
 
                 CrossPagerNavigation(
                     resetTrigger = resetTrigger,
-                    feedContent = {
+                    feedContent = { isVisible ->
                         FeedScreen(
                             state = feedState,
+                            isVisible = isVisible,
                             onIntent = feedViewModel::handleIntent,
                         )
                     },

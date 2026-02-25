@@ -71,17 +71,19 @@ import java.util.Locale
 @Composable
 fun FeedScreen(
     state: FeedState,
-    onIntent: (FeedIntent) -> Unit,
     modifier: Modifier = Modifier,
+    isVisible: Boolean = true,
+    onIntent: (FeedIntent) -> Unit,
 ) {
     Box(modifier = modifier.fillMaxSize()) {
-        FeedContent(state = state, onIntent = onIntent)
+        FeedContent(state = state, isVisible = isVisible, onIntent = onIntent)
     }
 }
 
 @Composable
 private fun FeedContent(
     state: FeedState,
+    isVisible: Boolean,
     onIntent: (FeedIntent) -> Unit,
 ) {
     Column(
@@ -144,6 +146,7 @@ private fun FeedContent(
         state.liveStatus?.let { liveStatus ->
             LiveStatusCard(
                 liveStatus = liveStatus,
+                isVisible = isVisible,
                 onClick = {
                     if (liveStatus.isLive) onIntent(FeedIntent.ClickLiveStatus)
                     else onIntent(FeedIntent.ClickOfflineStatus)
@@ -281,6 +284,7 @@ private fun ChannelProfileCard(
 @Composable
 private fun LiveStatusCard(
     liveStatus: LiveStatus,
+    isVisible: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -310,16 +314,21 @@ private fun LiveStatusCard(
             Spacer(modifier = Modifier.width(8.dp))
 
             if (liveStatus.isLive) {
-                val infiniteTransition = rememberInfiniteTransition(label = "liveBreathing")
-                val breathAlpha by infiniteTransition.animateFloat(
-                    initialValue = 0.4f,
-                    targetValue = 1.0f,
-                    animationSpec = infiniteRepeatable(
-                        animation = tween(durationMillis = 1200),
-                        repeatMode = RepeatMode.Reverse,
-                    ),
-                    label = "breathAlpha",
-                )
+                val breathAlpha = if (isVisible) {
+                    val infiniteTransition = rememberInfiniteTransition(label = "liveBreathing")
+                    val alpha by infiniteTransition.animateFloat(
+                        initialValue = 0.4f,
+                        targetValue = 1.0f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(durationMillis = 1200),
+                            repeatMode = RepeatMode.Reverse,
+                        ),
+                        label = "breathAlpha",
+                    )
+                    alpha
+                } else {
+                    1.0f
+                }
                 // LIVE 배지 (Breathing 네온 글로우)
                 Box(
                     modifier = Modifier
