@@ -56,7 +56,7 @@ class FeedRepositoryImpl @Inject constructor(
     private val chzzkService: ChzzkService,
     private val youTubeService: YouTubeService,
     private val rssFeedApi: RssFeedApi,
-    @Named("feed_cache") private val cacheDataStore: DataStore<Preferences>,
+    @param:Named("feed_cache") private val cacheDataStore: DataStore<Preferences>,
 ) : FeedRepository {
 
     private val feedCacheKey = stringPreferencesKey("feed_cache_json")
@@ -300,17 +300,12 @@ class FeedRepositoryImpl @Inject constructor(
         val cachedChannelId = prefs[profileCacheChannelIdKey] ?: ""
         val now = System.currentTimeMillis()
         val isSameChannel = cachedChannelId == youtubeChannelId
-        val isValid = isSameChannel &&
-            !cachedJson.isNullOrEmpty() &&
-            (now - cachedTimestamp) < PROFILE_CACHE_TTL_MS
-
-        if (isValid && cachedJson != null) {
-            Log.d(TAG, "getChannelProfile: cache hit (valid)")
-            emit(Result.success(parseProfileDto(cachedJson)))
-            return@flow
-        }
-
         if (isSameChannel && !cachedJson.isNullOrEmpty()) {
+            if ((now - cachedTimestamp) < PROFILE_CACHE_TTL_MS) {
+                Log.d(TAG, "getChannelProfile: cache hit (valid)")
+                emit(Result.success(parseProfileDto(cachedJson)))
+                return@flow
+            }
             Log.d(TAG, "getChannelProfile: stale cache, emitting before refresh")
             emit(Result.success(parseProfileDto(cachedJson)))
         }
