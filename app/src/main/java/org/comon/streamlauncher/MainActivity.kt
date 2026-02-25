@@ -1,12 +1,16 @@
 package org.comon.streamlauncher
 
+import android.app.WallpaperColors
+import android.app.WallpaperManager
 import android.appwidget.AppWidgetHost
 import android.appwidget.AppWidgetManager
 import android.content.ActivityNotFoundException
 import android.content.Intent
-import android.content.res.Configuration
-import android.provider.Settings
+import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.provider.Settings
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
@@ -19,8 +23,10 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.core.graphics.ColorUtils
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dagger.hilt.android.AndroidEntryPoint
@@ -58,8 +64,61 @@ class MainActivity : ComponentActivity() {
     private var pendingWidgetId: Int = AppWidgetManager.INVALID_APPWIDGET_ID
     private var pendingSlot: Int = -1
 
+    // 월페이퍼 밝기 상태 (true = 어두운 월페이퍼 → 시스템바 아이콘 밝게)
+    private var isWallpaperDark = mutableStateOf(false)
+
+    private val wallpaperColorsChangedListener =
+        WallpaperManager.OnColorsChangedListener { colors, _ ->
+            val dark = isDarkFromColors(colors)
+            isWallpaperDark.value = dark
+            updateSystemBarStyle(dark)
+        }
+
     companion object {
         private const val HOST_ID = 1
+    }
+
+    /**
+     * WallpaperColors에서 배경이 "어두운지" 판별합니다.
+     *
+     * - API 31+: HINT_SUPPORTS_DARK_TEXT 비트 플래그 (공식 방법)
+     * - API 28-30: primaryColor의 luminance로 직접 판별
+     *   (HINT_SUPPORTS_DARK_TEXT 상수 자체가 API 31에서 추가되었으므로
+     *    그 이전 버전에서 colorHints를 비교하면 항상 0이 반환됨)
+     *
+     * @return true = 어두운 배경 → 시스템바 아이콘 흰색
+     *         false = 밝은 배경 → 시스템바 아이콘 검은색
+     */
+    private fun isDarkFromColors(colors: WallpaperColors?): Boolean {
+        if (colors == null) return true
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            // API 31+: HINT_SUPPORTS_DARK_TEXT(=1) 플래그가 없으면 어두운 배경
+            (colors.colorHints and WallpaperColors.HINT_SUPPORTS_DARK_TEXT) == 0
+        } else {
+            // API 28-30: 주 색상의 상대적 휘도로 판별 (0.0=검정, 1.0=흰색)
+            val luminance = ColorUtils.calculateLuminance(colors.primaryColor.toArgb())
+            luminance < 0.5
+        }
+    }
+
+    /**
+     * 월페이퍼 밝기에 따라 시스템바 아이콘 색상을 동적으로 전환합니다.
+     * - isDark=true  (어두운 월페이퍼) → SystemBarStyle.dark  → 아이콘 흰색
+     * - isDark=false (밝은 월페이퍼)  → SystemBarStyle.light → 아이콘 검은색
+     */
+    private fun updateSystemBarStyle(isDark: Boolean) {
+        val transparent = android.graphics.Color.TRANSPARENT
+        if (isDark) {
+            enableEdgeToEdge(
+                statusBarStyle = SystemBarStyle.dark(transparent),
+                navigationBarStyle = SystemBarStyle.dark(transparent),
+            )
+        } else {
+            enableEdgeToEdge(
+                statusBarStyle = SystemBarStyle.light(transparent, transparent),
+                navigationBarStyle = SystemBarStyle.light(transparent, transparent),
+            )
+        }
     }
 
     // 위젯 구성 액티비티 결과 처리
@@ -113,16 +172,18 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val transparent = android.graphics.Color.TRANSPARENT
-        enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.auto(transparent, transparent) { resources ->
-                (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
-                    Configuration.UI_MODE_NIGHT_YES
-            },
-            navigationBarStyle = SystemBarStyle.auto(transparent, transparent) { resources ->
-                (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
-                    Configuration.UI_MODE_NIGHT_YES
-            },
+
+        // 초기 월페이퍼 색상 조회 → 시스템바 스타일 결정
+        val wallpaperManager = WallpaperManager.getInstance(this)
+        val initialColors = wallpaperManager.getWallpaperColors(WallpaperManager.FLAG_SYSTEM)
+        val initialDark = isDarkFromColors(initialColors)
+        isWallpaperDark.value = initialDark
+        updateSystemBarStyle(initialDark)
+
+        // 월페이퍼 변경 리스너 등록
+        wallpaperManager.addOnColorsChangedListener(
+            wallpaperColorsChangedListener,
+            Handler(Looper.getMainLooper()),
         )
 
         appWidgetHost = AppWidgetHost(this, HOST_ID)
@@ -246,9 +307,27 @@ class MainActivity : ComponentActivity() {
         appWidgetHost.startListening()
     }
 
+    override fun onResume() {
+        super.onResume()
+        // 백그라운드에서 월페이퍼가 변경된 경우를 대비해 포그라운드 복귀 시 재조회
+        val colors = WallpaperManager.getInstance(this)
+            .getWallpaperColors(WallpaperManager.FLAG_SYSTEM)
+        val isDark = isDarkFromColors(colors)
+        if (isDark != isWallpaperDark.value) {
+            isWallpaperDark.value = isDark
+            updateSystemBarStyle(isDark)
+        }
+    }
+
     override fun onStop() {
         super.onStop()
         appWidgetHost.stopListening()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        WallpaperManager.getInstance(this)
+            .removeOnColorsChangedListener(wallpaperColorsChangedListener)
     }
 
     override fun onNewIntent(intent: Intent) {

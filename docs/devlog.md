@@ -2,6 +2,93 @@
 
 ---
 
+## [2026-02-25] 월페이퍼 색상 대응 — 시스템바 동적 스타일 & 위젯 화면 가시성 개선
+
+### 목표
+
+어두운 월페이퍼 사용 시 상단 시스템바 아이콘(시간·배터리 등)과 위젯 화면의 "화면을 길게 눌러 위젯을 추가하세요" 메시지·아이콘이 배경에 묻혀 보이지 않는 문제를 해결한다.
+
+### 변경 사항
+
+| # | 파일 | 변경 내용 |
+|---|------|----------|
+| 1 | `app/.../MainActivity.kt` | `WallpaperManager.OnColorsChangedListener` 등록/해제; `onCreate`에서 초기 색상 즉시 조회; `onResume`에서 백그라운드 변경 재조회; `updateSystemBarStyle(isDark)` — `SystemBarStyle.dark` / `SystemBarStyle.light` 동적 전환 |
+| 2 | `feature/widget/.../WidgetScreen.kt` | `+` 아이콘 tint `Color.White.copy(alpha=0.7f)` 고정; `drawBehind` + `BlurMaskFilter`로 아이콘 원형 글로우 쉐도우 추가; 메시지 텍스트 `Color.White.copy(alpha=0.85f)` + `TextStyle.shadow(blurRadius=12f)` 적용 |
+
+### 핵심 구현 상세
+
+#### 1. 월페이퍼 밝기 판별 — `isDarkFromColors()`
+
+`WallpaperColors.HINT_SUPPORTS_DARK_TEXT` 상수는 **API 31(Android 12)에서 추가**되었으므로, API 28~30에서 `colorHints`와 비트 비교하면 항상 `0`이 반환되어 모든 배경을 "어둡다"고 오판한다. API 레벨에 따라 분기 처리한다.
+
+```kotlin
+private fun isDarkFromColors(colors: WallpaperColors?): Boolean {
+    if (colors == null) return true
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        // API 31+: HINT_SUPPORTS_DARK_TEXT(=1) 플래그가 없으면 어두운 배경
+        (colors.colorHints and WallpaperColors.HINT_SUPPORTS_DARK_TEXT) == 0
+    } else {
+        // API 28-30: 주 색상의 상대적 휘도로 판별 (0.0=검정, 1.0=흰색)
+        val luminance = ColorUtils.calculateLuminance(colors.primaryColor.toArgb())
+        luminance < 0.5
+    }
+}
+```
+
+| API 범위 | 판별 방법 | 사용 이유 |
+|---|---|---|
+| API 31+ | `colorHints and HINT_SUPPORTS_DARK_TEXT` | 상수가 API 31에서 추가된 공식 방법 |
+| API 28~30 | `ColorUtils.calculateLuminance(primaryColor)` | 상수가 없어 colorHints는 항상 0 → luminance 직접 계산 |
+
+#### 2. 시스템바 동적 전환
+
+```kotlin
+private fun updateSystemBarStyle(isDark: Boolean) {
+    val transparent = android.graphics.Color.TRANSPARENT
+    if (isDark) {
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(transparent),
+            navigationBarStyle = SystemBarStyle.dark(transparent),
+        )
+    } else {
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.light(transparent, transparent),
+            navigationBarStyle = SystemBarStyle.light(transparent, transparent),
+        )
+    }
+}
+```
+
+#### 3. onResume 재조회 (백그라운드 변경 대응)
+
+`OnColorsChangedListener`만으로는 앱이 백그라운드일 때 변경된 월페이퍼 색상을 포그라운드 복귀 시 반영하지 못하는 경우가 있어, `onResume`에서 추가로 재조회한다.
+
+```kotlin
+override fun onResume() {
+    super.onResume()
+    val colors = WallpaperManager.getInstance(this)
+        .getWallpaperColors(WallpaperManager.FLAG_SYSTEM)
+    val isDark = isDarkFromColors(colors)   // API 레벨 분기 포함
+    if (isDark != isWallpaperDark.value) {  // 변경된 경우에만 재적용
+        isWallpaperDark.value = isDark
+        updateSystemBarStyle(isDark)
+    }
+}
+```
+
+### 설계 결정 및 근거
+
+| 결정 | 근거 |
+|------|------|
+| `SystemBarStyle.auto()` → `dark/light` 직접 지정 | `auto()`는 시스템 다크모드 기준으로만 판단하여 월페이퍼 색상을 반영하지 못함. `dark/light` 직접 호출로 월페이퍼 밝기와 시스템바 아이콘 색상을 1:1 대응 |
+| API 31+: `HINT_SUPPORTS_DARK_TEXT` 비트 플래그 | `WallpaperColors.HINT_SUPPORTS_DARK_TEXT` 상수 자체가 API 31에서 추가됨. 그 이전 버전에서 `colorHints`를 비트 비교하면 항상 `0` 반환 → 항상 어두운 배경으로 오판 |
+| API 28~30: `ColorUtils.calculateLuminance()` | `primaryColor`의 상대 휘도(0.0~1.0)를 직접 계산하여 0.5 미만이면 어두운 배경으로 판별. `androidx.core`에 포함되어 추가 의존성 없음 |
+| `isDarkFromColors()` 단일 함수로 추출 | 리스너·`onCreate`·`onResume` 세 곳에서 동일한 판별 로직 재사용. API 분기 코드를 한 곳에서만 관리 |
+| `colors == null` 시 `isDark=true`(어두운 배경) 처리 | 라이브 배경화면 등 색상 정보 없는 경우의 safe default. 런처 특성상 어두운 배경이 기본값으로 적절 |
+| `onResume` 재조회 + `if (isDark != isWallpaperDark.value)` 조건 | 리스너 누락 케이스 보완, 불필요한 `enableEdgeToEdge` 재호출 방지 |
+
+---
+
 ## [2026-02-25] feat(ui): 앱 드로어 드래그 시 홈 그리드 섹션 자동 확장 + 드롭 후 확장 유지
 
 ### 목표

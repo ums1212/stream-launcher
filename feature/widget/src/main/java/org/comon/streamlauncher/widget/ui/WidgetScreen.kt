@@ -35,7 +35,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -132,13 +138,38 @@ fun WidgetScreen(
                     Icon(
                         imageVector = Icons.Default.Add,
                         contentDescription = null,
-                        tint = onSurface.copy(alpha = 0.38f),
-                        modifier = Modifier.size(48.dp),
+                        tint = Color.White.copy(alpha = 0.7f),
+                        modifier = Modifier
+                            .size(48.dp)
+                            .drawBehind {
+                                drawIntoCanvas { canvas ->
+                                    val paint = Paint()
+                                    paint.asFrameworkPaint().apply {
+                                        isAntiAlias = true
+                                        color = Color.Black.copy(alpha = 0.1f).toArgb()
+                                        maskFilter = android.graphics.BlurMaskFilter(
+                                            12f,
+                                            android.graphics.BlurMaskFilter.Blur.NORMAL,
+                                        )
+                                    }
+                                    canvas.drawCircle(
+                                        center = Offset(size.width / 2f, size.height / 2f + 1f),
+                                        radius = size.minDimension / 2f,
+                                        paint = paint,
+                                    )
+                                }
+                            },
                     )
                     Text(
                         text = "화면을 길게 눌러 위젯을 추가하세요",
-                        color = onSurface.copy(alpha = 0.6f),
-                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White.copy(alpha = 0.85f),
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            shadow = Shadow(
+                                color = Color.Black.copy(alpha = 0.75f),
+                                offset = Offset(0f, 1f),
+                                blurRadius = 12f,
+                            ),
+                        ),
                         modifier = Modifier.padding(top = 12.dp),
                     )
                 }
