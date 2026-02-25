@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
@@ -129,27 +130,38 @@ fun AppDrawerScreen(
                 horizontalArrangement = Arrangement.Center,
             ) {
                 repeat(pageCount) { index ->
-                    val isSelected = pagerState.currentPage == index
-                    Box(
-                        modifier = Modifier
-                            .padding(horizontal = 4.dp)
-                            .size(if (isSelected) 8.dp else 6.dp)
-                            .then(
-                                Modifier.padding(0.dp)
-                            ),
-                    ) {
-                        androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
-                            drawCircle(
-                                color = if (isSelected) {
-                                    colors.accentPrimary
-                                } else {
-                                    colors.accentPrimary.copy(alpha = 0.3f)
-                                },
-                            )
-                        }
-                    }
+                    PageIndicatorDot(
+                        pagerState = pagerState,
+                        index = index,
+                        color = colors.accentPrimary
+                    )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun PageIndicatorDot(
+    pagerState: PagerState,
+    index: Int,
+    color: androidx.compose.ui.graphics.Color
+) {
+    val isSelected = pagerState.currentPage == index
+    Box(
+        modifier = Modifier
+            .padding(horizontal = 4.dp)
+            .size(if (isSelected) 8.dp else 6.dp)
+            .then(Modifier.padding(0.dp)),
+    ) {
+        androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
+            drawCircle(
+                color = if (isSelected) {
+                    color
+                } else {
+                    color.copy(alpha = 0.3f)
+                },
+            )
         }
     }
 }

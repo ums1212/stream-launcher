@@ -2,6 +2,34 @@
 
 ---
 
+## [2026-02-25] refactor(ui): Coil 기반의 앱 서랍 아이콘 로딩 렌더링 파이프라인 구축 및 메모리 최적화
+
+### 목표
+
+수십 개의 아이콘 렌더링 시 발생하는 가비지 컬렉션(GC) 및 프레임 드랍(Jank) 이슈를 근본적으로 해결하기 위해, LruCache 수동 캐싱 방식을 버리고 `Coil` 이미지 로더 기반의 커스텀 파이프라인 생태계를 프로젝트에 구축합니다. 추가로 Coil의 내부 String 매퍼와의 원천적인 타입 충돌을 피하기 위해 런처 파이프라인 전용의 강타입 데이터 모델(`AppIconData`)을 도입했습니다.
+
+### 변경 사항
+
+| # | 파일 | 작업 |
+|---|------|------|
+| 1 | `org/comon/streamlauncher/ui/component/AppIconFetcher.kt` | **신규** — `PackageManager`로 앱 아이콘을 가져오고 Bitmap 가속 포맷으로 넘겨주는 Coil `Fetcher` 및 `Factory` 구현. |
+| 2 | `org/comon/streamlauncher/ui/component/AppIconFetcher.kt` | **신규 데이터 타입** — 커스텀 로더만 안전하게 통과시키기 위한 파이프라인 전용 모델 클래스 `AppIconData` 추가. |
+| 3 | `core/ui/build.gradle.kts` | `AppIconFetcher` 구현을 위한 `coil` 및 `coil-compose` 의존성 모듈 선언. |
+| 4 | `app/.../StreamLauncherApplication.kt` | 글로벌 `ImageLoader`의 `ComponentRegistry` 인스턴스에 `AppIconFetcher.Factory()`를 주입하여 백그라운드 스레드에서 전역 관리하도록 연결. |
+| 5 | `core.../ui/component/AppIcon.kt` | 직접 LruCache를 생성, 관리하던 기존 보일러플레이트 코드 완전 제거, `SubcomposeAsyncImage` 단일 컴포저블로 마이그레이션 적용 및 `AppIconData` 전파. |
+| 6 | `docs/appdrawer_performance_issue.md` | 현상에 따른 프레임 드랍 이슈 원인과 이 Coil 렌더 파이프라인을 통한 아키텍처 해결 과정을 한 문서로 요약 통합. |
+| 7 | `docs/launcher_icon_architecture_plan.md` | **삭제** — 도입 사전 기획 문서를 상기 `#6` 문서의 해결 과정 챕터로 병합한 후 완전히 제거. |
+
+### 설계 결정 및 근거
+
+| 결정 | 근거 |
+|------|------|
+| 직접 Caching이 아닌 Coil Fetcher 통합 | `Coil`은 `LRU Cache`, 백그라운드 최적화 스레드 풀 운용, `Hardware Accelerate Display` 등 안드로이드 비트맵 제어의 모든 Best Practice를 지원합니다. 이를 우회할 이유가 없습니다. |
+| `String` 패키지네임 대신 `AppIconData` 래핑 객체 파라미터 사용 | Coil의 수많은 내부 기본 Mapper(URI, 로컬 File 경로 등 지정)가 단순 String 입력을 가로채면서 `Error` 취급해버려 기본 아이콘이 나오는 치명적인 버그가 발생했기 때문에, 커스텀 Fetcher만 100% 매핑 반응하도록 타입 수준에서 격리시켰습니다. |
+| `AsyncImage` 대신 `SubcomposeAsyncImage` 사용 | `AsyncImage`의 `error` 매개변수는 단순 `Painter`만을 입력받기 때문에 복잡한 구조의 UI(예: Surface + Icon 컴포저블)를 대응 아이콘으로 조립할 수 없었으므로 더 높은 UI 커스텀 제어권을 위해 교체했습니다. |
+
+---
+
 ## [2026-02-25] bugfix(ui): 피드 화면 비활성 시 LIVE 무한 애니메이션 중단 로직 구현
 
 ### 목표

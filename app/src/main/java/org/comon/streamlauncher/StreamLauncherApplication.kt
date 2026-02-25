@@ -16,6 +16,7 @@ import coil.disk.DiskCache
 import coil.memory.MemoryCache
 import dagger.hilt.android.HiltAndroidApp
 import org.comon.streamlauncher.data.worker.FeedSyncWorker
+import org.comon.streamlauncher.ui.component.AppIconFetcher
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
@@ -46,6 +47,9 @@ class StreamLauncherApplication : Application(), ImageLoaderFactory, Configurati
                     .directory(cacheDir.resolve("coil_cache"))
                     .maxSizeBytes(50L * 1024 * 1024)
                     .build()
+            }
+            .components {
+                add(AppIconFetcher.Factory())
             }
             .crossfade(true)
             .build()
