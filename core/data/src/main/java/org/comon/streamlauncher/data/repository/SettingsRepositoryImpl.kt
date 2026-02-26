@@ -55,7 +55,7 @@ class SettingsRepositoryImpl @Inject constructor(
             val gridCellImages = parseGridCellImages(imagesJson)
             val assignmentsJson = prefs[cellAssignmentsKey]
             val cellAssignments = parseCellAssignments(assignmentsJson)
-            val chzzkChannelId = prefs[chzzkChannelIdKey] ?: "d2fb83a5db130bf4d273c981b82ca41f"
+            val chzzkChannelId = prefs[chzzkChannelIdKey] ?: ""
             val youtubeChannelId = prefs[youtubeChannelIdKey] ?: ""
             val rssUrl = prefs[rssUrlKey] ?: ""
             val wallpaperImage = prefs[wallpaperImageKey]
