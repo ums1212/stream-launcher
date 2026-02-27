@@ -14,19 +14,19 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -35,8 +35,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.rounded.Campaign
+import androidx.compose.material.icons.rounded.GridView
+import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.Image
+import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.RssFeed
+import androidx.compose.material.icons.rounded.Wallpaper
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -59,10 +67,13 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
@@ -71,11 +82,10 @@ import org.comon.streamlauncher.domain.model.ColorPresets
 import org.comon.streamlauncher.domain.model.GridCell
 import org.comon.streamlauncher.launcher.HomeIntent
 import org.comon.streamlauncher.launcher.HomeState
+import org.comon.streamlauncher.launcher.R
 import org.comon.streamlauncher.launcher.model.ImageType
 import org.comon.streamlauncher.launcher.model.SettingsTab
 import org.comon.streamlauncher.ui.theme.StreamLauncherTheme
-import androidx.compose.ui.res.stringResource
-import org.comon.streamlauncher.launcher.R
 
 @Composable
 fun SettingsScreen(
@@ -103,7 +113,6 @@ fun SettingsScreen(
 
 @Composable
 private fun MainSettingsContent(onIntent: (HomeIntent) -> Unit) {
-    val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
     val accentPrimary = StreamLauncherTheme.colors.accentPrimary
     val accentSecondary = StreamLauncherTheme.colors.accentSecondary
@@ -115,83 +124,77 @@ private fun MainSettingsContent(onIntent: (HomeIntent) -> Unit) {
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Row(
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.fillMaxWidth(),
         ) {
-            SettingsButton(
+            GlassSettingsTile(
                 label = stringResource(R.string.settings_theme_color),
-                onClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onIntent(HomeIntent.ChangeSettingsTab(SettingsTab.COLOR))
-                },
-                containerColor = accentPrimary,
+                icon = Icons.Rounded.Palette,
+                accentColor = accentPrimary,
+                onClick = { onIntent(HomeIntent.ChangeSettingsTab(SettingsTab.COLOR)) },
+                modifier = Modifier.weight(1f),
             )
-            Spacer(modifier = Modifier.width(16.dp))
-            SettingsButton(
+            GlassSettingsTile(
                 label = stringResource(R.string.settings_home_image),
-                onClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onIntent(HomeIntent.ChangeSettingsTab(SettingsTab.IMAGE))
-                },
-                containerColor = accentSecondary,
+                icon = Icons.Rounded.Image,
+                accentColor = lerp(accentPrimary, accentSecondary, 0.17f),
+                onClick = { onIntent(HomeIntent.ChangeSettingsTab(SettingsTab.IMAGE)) },
+                modifier = Modifier.weight(1f),
             )
         }
         Row(
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.fillMaxWidth(),
         ) {
-            SettingsButton(
+            GlassSettingsTile(
                 label = stringResource(R.string.settings_app_drawer),
-                onClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onIntent(HomeIntent.ChangeSettingsTab(SettingsTab.APP_DRAWER))
-                },
-                containerColor = accentPrimary.copy(alpha = 0.7f),
+                icon = Icons.Rounded.GridView,
+                accentColor = lerp(accentPrimary, accentSecondary, 0.33f),
+                onClick = { onIntent(HomeIntent.ChangeSettingsTab(SettingsTab.APP_DRAWER)) },
+                modifier = Modifier.weight(1f),
             )
-            Spacer(modifier = Modifier.width(16.dp))
-            SettingsButton(
+            GlassSettingsTile(
                 label = stringResource(R.string.settings_feed),
-                onClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onIntent(HomeIntent.ChangeSettingsTab(SettingsTab.FEED))
-                },
-                containerColor = accentSecondary.copy(alpha = 0.7f),
+                icon = Icons.Rounded.RssFeed,
+                accentColor = lerp(accentPrimary, accentSecondary, 0.5f),
+                onClick = { onIntent(HomeIntent.ChangeSettingsTab(SettingsTab.FEED)) },
+                modifier = Modifier.weight(1f),
             )
         }
         Row(
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.fillMaxWidth(),
         ) {
-            SettingsButton(
+            GlassSettingsTile(
                 label = stringResource(R.string.settings_notice),
-                onClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onIntent(HomeIntent.ShowNotice)
-                },
-                containerColor = accentPrimary.copy(alpha = 0.25f),
+                icon = Icons.Rounded.Campaign,
+                accentColor = lerp(accentPrimary, accentSecondary, 0.67f),
+                onClick = { onIntent(HomeIntent.ShowNotice) },
+                modifier = Modifier.weight(1f),
             )
-        }
-        Row(
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            SettingsButton(
+            GlassSettingsTile(
                 label = stringResource(R.string.settings_wallpaper),
+                icon = Icons.Rounded.Wallpaper,
+                accentColor = lerp(accentPrimary, accentSecondary, 0.83f),
                 onClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     try {
                         context.startActivity(Intent(Intent.ACTION_SET_WALLPAPER))
                     } catch (e: Exception) {
                         Toast.makeText(context, settingsWallpaperErrorMessage, Toast.LENGTH_SHORT).show()
                     }
                 },
-                containerColor = accentPrimary.copy(alpha = 0.4f),
+                modifier = Modifier.weight(1f),
             )
-            Spacer(modifier = Modifier.width(16.dp))
-            SettingsButton(
+        }
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            GlassSettingsTile(
                 label = stringResource(R.string.settings_default_home),
+                icon = Icons.Rounded.Home,
+                accentColor = accentSecondary,
                 onClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     try {
                         val homeIntent = Intent(Settings.ACTION_HOME_SETTINGS)
                         if (homeIntent.resolveActivity(context.packageManager) != null) {
@@ -203,39 +206,106 @@ private fun MainSettingsContent(onIntent: (HomeIntent) -> Unit) {
                         context.startActivity(Intent(Settings.ACTION_SETTINGS))
                     }
                 },
-                containerColor = accentSecondary.copy(alpha = 0.4f),
+                modifier = Modifier.weight(1f),
+            )
+            Spacer(modifier = Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
+private fun GlassSettingsTile(
+    label: String,
+    icon: ImageVector,
+    accentColor: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val haptic = LocalHapticFeedback.current
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.95f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium,
+        ),
+        label = "tileScale_$label",
+    )
+    val glassSurface = StreamLauncherTheme.colors.glassSurface
+    val glassOnSurface = StreamLauncherTheme.colors.glassOnSurface
+    val tileShape = RoundedCornerShape(16.dp)
+
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = modifier
+            .scale(scale)
+            .height(88.dp)
+            .clip(tileShape)
+            .background(glassSurface)
+            .border(
+                width = 1.dp,
+                color = accentColor.copy(alpha = 0.35f),
+                shape = tileShape,
+            )
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+            ) {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                onClick()
+            },
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier.padding(8.dp),
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = accentColor,
+                modifier = Modifier.size(28.dp),
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge,
+                color = glassOnSurface,
             )
         }
     }
 }
 
 @Composable
-private fun SettingsButton(
-    label: String,
-    onClick: () -> Unit,
-    containerColor: Color,
+private fun SettingsPageHeader(
+    title: String,
+    icon: ImageVector,
 ) {
-    val scale by animateFloatAsState(
-        targetValue = 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMedium,
-        ),
-        label = "buttonScale_$label",
-    )
+    val accentPrimary = StreamLauncherTheme.colors.accentPrimary
+    val glassOnSurface = StreamLauncherTheme.colors.glassOnSurface
 
-    Button(
-        onClick = onClick,
-        shape = RoundedCornerShape(16.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = containerColor),
-        modifier = Modifier
-            .defaultMinSize(minHeight = 48.dp)
-            .scale(scale),
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelLarge,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+    Column {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = accentPrimary,
+                modifier = Modifier.size(24.dp),
+            )
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge,
+                color = glassOnSurface,
+            )
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        HorizontalDivider(
+            color = accentPrimary.copy(alpha = 0.4f),
+            thickness = 1.dp,
         )
     }
 }
@@ -254,11 +324,11 @@ private fun ColorSettingsContent(
             .fillMaxSize()
             .padding(16.dp),
     ) {
-        Text(
-            text = stringResource(R.string.settings_theme_color),
-            style = MaterialTheme.typography.titleLarge,
-            modifier = Modifier.padding(bottom = 16.dp),
+        SettingsPageHeader(
+            title = stringResource(R.string.settings_theme_color),
+            icon = Icons.Rounded.Palette,
         )
+        Spacer(modifier = Modifier.height(16.dp))
         LazyVerticalGrid(
             columns = GridCells.Fixed(3),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -275,7 +345,6 @@ private fun ColorSettingsContent(
                         .aspectRatio(1f)
                         .clip(shape)
                         .drawBehind {
-                            // 좌반: primary, 우반: secondary
                             val half = size.width / 2f
                             drawRect(color = primary, topLeft = Offset.Zero, size = size.copy(width = half))
                             drawRect(color = secondary, topLeft = Offset(half, 0f), size = size.copy(width = half))
@@ -325,7 +394,6 @@ private fun ImageSettingsContent(
 
     var selectedCell by remember { mutableStateOf(GridCell.TOP_LEFT) }
 
-    // 축소 이미지 선택 런처
     val idleImageLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
     ) { uri ->
@@ -337,7 +405,6 @@ private fun ImageSettingsContent(
         onIntent(HomeIntent.SetGridImage(selectedCell, ImageType.IDLE, uri.toString()))
     }
 
-    // 확장 이미지 선택 런처
     val expandedImageLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
     ) { uri ->
@@ -354,11 +421,11 @@ private fun ImageSettingsContent(
             .fillMaxSize()
             .padding(16.dp),
     ) {
-        Text(
-            text = stringResource(R.string.settings_home_image),
-            style = MaterialTheme.typography.titleLarge,
-            modifier = Modifier.padding(bottom = 16.dp),
+        SettingsPageHeader(
+            title = stringResource(R.string.settings_home_image),
+            icon = Icons.Rounded.Image,
         )
+        Spacer(modifier = Modifier.height(16.dp))
 
         // 2×2 미니 그리드 — 셀 선택
         Column(
@@ -406,7 +473,6 @@ private fun ImageSettingsContent(
                                         contentScale = ContentScale.Crop,
                                         modifier = Modifier.fillMaxSize(),
                                     )
-                                    // 텍스트 가독성을 위한 반투명 오버레이
                                     Box(
                                         modifier = Modifier
                                             .fillMaxSize()
@@ -427,7 +493,6 @@ private fun ImageSettingsContent(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // 이미지 선택 버튼
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -498,12 +563,11 @@ private fun FeedSettingsContent(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text(
-            text = stringResource(R.string.settings_feed_title),
-            style = MaterialTheme.typography.titleLarge,
+        SettingsPageHeader(
+            title = stringResource(R.string.settings_feed_title),
+            icon = Icons.Rounded.RssFeed,
         )
 
-        // 치지직 채널 ID
         OutlinedTextField(
             value = chzzkChannelId,
             onValueChange = { chzzkChannelId = it },
@@ -516,7 +580,6 @@ private fun FeedSettingsContent(
             singleLine = true,
         )
 
-        // YouTube 채널 ID
         OutlinedTextField(
             value = youtubeChannelId,
             onValueChange = { youtubeChannelId = it },
@@ -530,7 +593,6 @@ private fun FeedSettingsContent(
             singleLine = true,
         )
 
-        // RSS URL
         OutlinedTextField(
             value = rssUrl,
             onValueChange = { rssUrl = it },
@@ -543,7 +605,6 @@ private fun FeedSettingsContent(
             singleLine = true,
         )
 
-        // 저장 버튼
         Button(
             onClick = {
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -591,9 +652,9 @@ private fun AppDrawerSettingsContent(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
-        Text(
-            text = stringResource(R.string.settings_app_drawer_title),
-            style = MaterialTheme.typography.titleLarge,
+        SettingsPageHeader(
+            title = stringResource(R.string.settings_app_drawer_title),
+            icon = Icons.Rounded.GridView,
         )
 
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -629,14 +690,14 @@ private fun AppDrawerSettingsContent(
             }
             Slider(
                 value = iconSizeRatio,
-                onValueChange = { iconSizeRatio = (it * 20).roundToInt() / 20f }, // 0.05 단위 스냅
+                onValueChange = { iconSizeRatio = (it * 20).roundToInt() / 20f },
                 valueRange = 0.5f..1.5f,
                 steps = 19,
             )
             Text(
                 text = stringResource(R.string.settings_icon_clip_warning),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
 
@@ -644,7 +705,7 @@ private fun AppDrawerSettingsContent(
 
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             OutlinedButton(
                 onClick = {
@@ -662,7 +723,6 @@ private fun AppDrawerSettingsContent(
                 onClick = {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     onIntent(HomeIntent.SaveAppDrawerSettings(columns, rows, iconSizeRatio))
-//                Toast.makeText(LocalContext.current, "설정이 저장되었습니다.", Toast.LENGTH_SHORT).show()
                 },
                 enabled = hasChanges,
                 modifier = Modifier.weight(1f),
@@ -673,4 +733,3 @@ private fun AppDrawerSettingsContent(
         }
     }
 }
-
