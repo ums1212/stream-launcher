@@ -40,6 +40,7 @@ import org.comon.streamlauncher.launcher.HomeSideEffect
 import org.comon.streamlauncher.launcher.HomeViewModel
 import org.comon.streamlauncher.launcher.ui.FeedScreen
 import org.comon.streamlauncher.launcher.ui.HomeScreen
+import org.comon.streamlauncher.launcher.ui.NoticeDialog
 import org.comon.streamlauncher.launcher.ui.SettingsScreen
 import org.comon.streamlauncher.navigation.CrossPagerNavigation
 import org.comon.streamlauncher.ui.dragdrop.DragDropState
@@ -190,6 +191,7 @@ class MainActivity : ComponentActivity() {
         appWidgetManager = AppWidgetManager.getInstance(this)
 
         viewModel.handleIntent(HomeIntent.CheckFirstLaunch)
+        viewModel.handleIntent(HomeIntent.CheckNotice(BuildConfig.VERSION_NAME))
 
         setContent {
             val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -296,6 +298,14 @@ class MainActivity : ComponentActivity() {
                     isHomeEditMode = uiState.editingCell != null,
                 ) {
                     HomeScreen(state = uiState, onIntent = viewModel::handleIntent)
+                }
+
+                if (uiState.showNoticeDialog) {
+                    NoticeDialog(
+                        noticeText = androidx.compose.ui.res.stringResource(org.comon.streamlauncher.launcher.R.string.notice_body),
+                        version = BuildConfig.VERSION_NAME,
+                        onDismiss = { viewModel.handleIntent(HomeIntent.DismissNotice) },
+                    )
                 }
             } // CompositionLocalProvider
             } // StreamLauncherTheme

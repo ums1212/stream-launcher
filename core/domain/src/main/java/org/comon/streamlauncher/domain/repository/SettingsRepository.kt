@@ -16,4 +16,6 @@ interface SettingsRepository {
     suspend fun setRssUrl(url: String)
     suspend fun setWallpaperImage(uri: String?)
     suspend fun setAppDrawerSettings(columns: Int, rows: Int, iconSizeRatio: Float)
+    suspend fun getLastShownNoticeVersion(): String?
+    suspend fun setLastShownNoticeVersion(version: String)
 }

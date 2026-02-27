@@ -42,4 +42,11 @@
 
     <!-- HomeScreen -->
     <string name="home_remove_app">Remove App</string>
+
+    <!-- NoticeDialog -->
+    <string name="settings_notice">Notice</string>
+    <string name="notice_title">Notice</string>
+    <string name="notice_dismiss">OK</string>
+    <string name="notice_version">v%1$s</string>
+    <string name="notice_body">Thank you for installing StreamLauncher!\n\nChanges in this version:\n- A notice dialog is displayed on the first launch after installation.\n- The notice will appear again when the version is updated.\n- You can view the notice again from the Settings screen.</string>
 </resources>

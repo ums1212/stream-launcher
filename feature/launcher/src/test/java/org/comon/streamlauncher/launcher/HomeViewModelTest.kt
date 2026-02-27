@@ -21,6 +21,8 @@ import org.comon.streamlauncher.domain.usecase.SaveFeedSettingsUseCase
 import org.comon.streamlauncher.domain.usecase.SaveAppDrawerSettingsUseCase
 import org.comon.streamlauncher.domain.usecase.SaveGridCellImageUseCase
 import org.comon.streamlauncher.domain.usecase.CheckFirstLaunchUseCase
+import org.comon.streamlauncher.domain.usecase.CheckNoticeUseCase
+import org.comon.streamlauncher.domain.usecase.DismissNoticeUseCase
 import org.comon.streamlauncher.domain.usecase.SetFirstLaunchUseCase
 import org.comon.streamlauncher.launcher.model.ImageType
 import org.junit.After
@@ -54,6 +56,8 @@ class HomeViewModelTest {
     private lateinit var saveAppDrawerSettingsUseCase: SaveAppDrawerSettingsUseCase
     private lateinit var checkFirstLaunchUseCase: CheckFirstLaunchUseCase
     private lateinit var setFirstLaunchUseCase: SetFirstLaunchUseCase
+    private lateinit var checkNoticeUseCase: CheckNoticeUseCase
+    private lateinit var dismissNoticeUseCase: DismissNoticeUseCase
     private lateinit var viewModel: HomeViewModel
 
     @Before
@@ -72,6 +76,8 @@ class HomeViewModelTest {
         saveAppDrawerSettingsUseCase = mockk(relaxed = true)
         checkFirstLaunchUseCase = mockk(relaxed = true)
         setFirstLaunchUseCase = mockk(relaxed = true)
+        checkNoticeUseCase = mockk(relaxed = true)
+        dismissNoticeUseCase = mockk(relaxed = true)
 
         viewModel = makeViewModel()
     }
@@ -92,6 +98,8 @@ class HomeViewModelTest {
         appDrawerSettingsUseCase: SaveAppDrawerSettingsUseCase = saveAppDrawerSettingsUseCase,
         checkFirstLaunch: CheckFirstLaunchUseCase = checkFirstLaunchUseCase,
         setFirstLaunch: SetFirstLaunchUseCase = setFirstLaunchUseCase,
+        checkNotice: CheckNoticeUseCase = checkNoticeUseCase,
+        dismissNotice: DismissNoticeUseCase = dismissNoticeUseCase,
     ): HomeViewModel = HomeViewModel(
         appsUseCase,
         settingsUseCase,
@@ -102,6 +110,8 @@ class HomeViewModelTest {
         appDrawerSettingsUseCase,
         checkFirstLaunch,
         setFirstLaunch,
+        checkNotice,
+        dismissNotice,
     )
 
     // 1. 초기 상태 확인

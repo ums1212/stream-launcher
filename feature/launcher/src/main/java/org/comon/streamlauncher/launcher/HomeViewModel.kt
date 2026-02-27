@@ -19,6 +19,8 @@ import org.comon.streamlauncher.domain.usecase.SaveColorPresetUseCase
 import org.comon.streamlauncher.domain.usecase.SaveFeedSettingsUseCase
 import org.comon.streamlauncher.domain.usecase.SaveGridCellImageUseCase
 import org.comon.streamlauncher.domain.usecase.CheckFirstLaunchUseCase
+import org.comon.streamlauncher.domain.usecase.CheckNoticeUseCase
+import org.comon.streamlauncher.domain.usecase.DismissNoticeUseCase
 import org.comon.streamlauncher.domain.usecase.SetFirstLaunchUseCase
 import org.comon.streamlauncher.domain.util.ChosungMatcher
 import org.comon.streamlauncher.launcher.model.ImageType
@@ -38,7 +40,11 @@ class HomeViewModel @Inject constructor(
     private val saveAppDrawerSettingsUseCase: SaveAppDrawerSettingsUseCase,
     private val checkFirstLaunchUseCase: CheckFirstLaunchUseCase,
     private val setFirstLaunchUseCase: SetFirstLaunchUseCase,
+    private val checkNoticeUseCase: CheckNoticeUseCase,
+    private val dismissNoticeUseCase: DismissNoticeUseCase,
 ) : BaseViewModel<HomeState, HomeIntent, HomeSideEffect>(HomeState()) {
+
+    private var currentNoticeVersion: String = ""
 
     private var loadJob: Job? = null
     private val _searchQuery = MutableStateFlow("")
@@ -93,6 +99,25 @@ class HomeViewModel @Inject constructor(
             is HomeIntent.SaveAppDrawerSettings -> saveAppDrawerSettings(intent.columns, intent.rows, intent.iconSizeRatio)
             is HomeIntent.SetEditingCell -> updateState { copy(editingCell = intent.cell) }
             is HomeIntent.MoveAppInCell -> moveAppInCell(intent.cell, intent.fromIndex, intent.toIndex)
+            is HomeIntent.CheckNotice -> checkNotice(intent.version)
+            is HomeIntent.ShowNotice -> updateState { copy(showNoticeDialog = true) }
+            is HomeIntent.DismissNotice -> dismissNotice()
+        }
+    }
+
+    private fun checkNotice(version: String) {
+        currentNoticeVersion = version
+        viewModelScope.launch {
+            if (checkNoticeUseCase(version)) {
+                updateState { copy(showNoticeDialog = true) }
+            }
+        }
+    }
+
+    private fun dismissNotice() {
+        updateState { copy(showNoticeDialog = false) }
+        viewModelScope.launch {
+            dismissNoticeUseCase(currentNoticeVersion)
         }
     }
 

@@ -107,6 +107,7 @@ private fun MainSettingsContent(onIntent: (HomeIntent) -> Unit) {
     val context = LocalContext.current
     val accentPrimary = StreamLauncherTheme.colors.accentPrimary
     val accentSecondary = StreamLauncherTheme.colors.accentSecondary
+    val settingsWallpaperErrorMessage = stringResource(R.string.settings_wallpaper_error)
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -162,13 +163,26 @@ private fun MainSettingsContent(onIntent: (HomeIntent) -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             SettingsButton(
+                label = stringResource(R.string.settings_notice),
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onIntent(HomeIntent.ShowNotice)
+                },
+                containerColor = accentPrimary.copy(alpha = 0.25f),
+            )
+        }
+        Row(
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            SettingsButton(
                 label = stringResource(R.string.settings_wallpaper),
                 onClick = {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     try {
                         context.startActivity(Intent(Intent.ACTION_SET_WALLPAPER))
                     } catch (e: Exception) {
-                        Toast.makeText(context, context.getString(R.string.settings_wallpaper_error), Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, settingsWallpaperErrorMessage, Toast.LENGTH_SHORT).show()
                     }
                 },
                 containerColor = accentPrimary.copy(alpha = 0.4f),

@@ -47,6 +47,7 @@ class SettingsRepositoryImpl @Inject constructor(
     private val appDrawerGridColumnsKey = intPreferencesKey("app_drawer_grid_columns")
     private val appDrawerGridRowsKey = intPreferencesKey("app_drawer_grid_rows")
     private val appDrawerIconSizeRatioKey = floatPreferencesKey("app_drawer_icon_size_ratio")
+    private val lastShownNoticeVersionKey = stringPreferencesKey("last_shown_notice_version")
 
     override fun getSettings(): Flow<LauncherSettings> =
         dataStore.data.map { prefs ->
@@ -148,6 +149,15 @@ class SettingsRepositoryImpl @Inject constructor(
             prefs[appDrawerGridColumnsKey] = columns
             prefs[appDrawerGridRowsKey] = rows
             prefs[appDrawerIconSizeRatioKey] = iconSizeRatio
+        }
+    }
+
+    override suspend fun getLastShownNoticeVersion(): String? =
+        dataStore.data.first()[lastShownNoticeVersionKey]
+
+    override suspend fun setLastShownNoticeVersion(version: String) {
+        dataStore.edit { prefs ->
+            prefs[lastShownNoticeVersionKey] = version
         }
     }
 

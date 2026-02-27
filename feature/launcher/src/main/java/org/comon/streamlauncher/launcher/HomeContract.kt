@@ -27,6 +27,7 @@ data class HomeState(
     val appDrawerGridColumns: Int = 4,
     val appDrawerGridRows: Int = 6,
     val appDrawerIconSizeRatio: Float = 1.0f,
+    val showNoticeDialog: Boolean = false,
 ) : UiState {
     val pinnedPackages: Set<String> get() = cellAssignments.values.flatten().toSet()
 }
@@ -51,6 +52,9 @@ sealed interface HomeIntent : UiIntent {
     data class SetEditingCell(val cell: GridCell?) : HomeIntent
     data class MoveAppInCell(val cell: GridCell, val fromIndex: Int, val toIndex: Int) : HomeIntent
     data class SaveAppDrawerSettings(val columns: Int, val rows: Int, val iconSizeRatio: Float) : HomeIntent
+    data class CheckNotice(val version: String) : HomeIntent
+    data object ShowNotice : HomeIntent
+    data object DismissNotice : HomeIntent
 }
 
 sealed interface HomeSideEffect : UiSideEffect {
