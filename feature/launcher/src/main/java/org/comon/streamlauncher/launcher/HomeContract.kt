@@ -35,7 +35,7 @@ data class HomeState(
 sealed interface HomeIntent : UiIntent {
     data object LoadApps : HomeIntent
     data object ResetHome : HomeIntent
-    data object CheckFirstLaunch : HomeIntent
+    data class CheckFirstLaunch(val version: String) : HomeIntent
     data class ClickGrid(val cell: GridCell) : HomeIntent
     data class ClickApp(val app: AppEntity) : HomeIntent
     data class Search(val query: String) : HomeIntent
@@ -52,7 +52,6 @@ sealed interface HomeIntent : UiIntent {
     data class SetEditingCell(val cell: GridCell?) : HomeIntent
     data class MoveAppInCell(val cell: GridCell, val fromIndex: Int, val toIndex: Int) : HomeIntent
     data class SaveAppDrawerSettings(val columns: Int, val rows: Int, val iconSizeRatio: Float) : HomeIntent
-    data class CheckNotice(val version: String) : HomeIntent
     data object ShowNotice : HomeIntent
     data object DismissNotice : HomeIntent
 }
@@ -60,5 +59,5 @@ sealed interface HomeIntent : UiIntent {
 sealed interface HomeSideEffect : UiSideEffect {
     data class NavigateToApp(val packageName: String) : HomeSideEffect
     data class ShowError(val message: String) : HomeSideEffect
-    data object NavigateToHomeSettings : HomeSideEffect
+    data object SetDefaultHomeApp : HomeSideEffect
 }

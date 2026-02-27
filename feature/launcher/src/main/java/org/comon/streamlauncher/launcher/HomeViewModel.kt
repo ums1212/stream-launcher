@@ -83,7 +83,7 @@ class HomeViewModel @Inject constructor(
         when (intent) {
             is HomeIntent.LoadApps -> loadApps()
             is HomeIntent.ResetHome -> resetHome()
-            is HomeIntent.CheckFirstLaunch -> checkFirstLaunch()
+            is HomeIntent.CheckFirstLaunch -> checkFirstLaunch(intent.version)
             is HomeIntent.ClickGrid -> toggleCell(intent.cell)
             is HomeIntent.ClickApp -> {
                 sendEffect(HomeSideEffect.NavigateToApp(intent.app.packageName))
@@ -99,18 +99,8 @@ class HomeViewModel @Inject constructor(
             is HomeIntent.SaveAppDrawerSettings -> saveAppDrawerSettings(intent.columns, intent.rows, intent.iconSizeRatio)
             is HomeIntent.SetEditingCell -> updateState { copy(editingCell = intent.cell) }
             is HomeIntent.MoveAppInCell -> moveAppInCell(intent.cell, intent.fromIndex, intent.toIndex)
-            is HomeIntent.CheckNotice -> checkNotice(intent.version)
             is HomeIntent.ShowNotice -> updateState { copy(showNoticeDialog = true) }
             is HomeIntent.DismissNotice -> dismissNotice()
-        }
-    }
-
-    private fun checkNotice(version: String) {
-        currentNoticeVersion = version
-        viewModelScope.launch {
-            if (checkNoticeUseCase(version)) {
-                updateState { copy(showNoticeDialog = true) }
-            }
         }
     }
 
@@ -121,11 +111,15 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun checkFirstLaunch() {
+    private fun checkFirstLaunch(version: String) {
+        currentNoticeVersion = version
         viewModelScope.launch {
             if (checkFirstLaunchUseCase()) {
-                sendEffect(HomeSideEffect.NavigateToHomeSettings)
+                sendEffect(HomeSideEffect.SetDefaultHomeApp)
                 setFirstLaunchUseCase()
+            }
+            if (checkNoticeUseCase(version)) {
+                updateState { copy(showNoticeDialog = true) }
             }
         }
     }

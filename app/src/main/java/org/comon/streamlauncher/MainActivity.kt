@@ -190,8 +190,7 @@ class MainActivity : ComponentActivity() {
         appWidgetHost = AppWidgetHost(this, HOST_ID)
         appWidgetManager = AppWidgetManager.getInstance(this)
 
-        viewModel.handleIntent(HomeIntent.CheckFirstLaunch)
-        viewModel.handleIntent(HomeIntent.CheckNotice(BuildConfig.VERSION_NAME))
+        viewModel.handleIntent(HomeIntent.CheckFirstLaunch(BuildConfig.VERSION_NAME))
 
         setContent {
             val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -223,7 +222,7 @@ class MainActivity : ComponentActivity() {
                             }
                             is HomeSideEffect.ShowError ->
                                 Log.e("MainActivity", "Error: ${effect.message}")
-                            is HomeSideEffect.NavigateToHomeSettings -> {
+                            is HomeSideEffect.SetDefaultHomeApp -> {
                                 try {
                                     val intent = Intent(Settings.ACTION_HOME_SETTINGS)
                                     if (intent.resolveActivity(packageManager) != null) {
