@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -463,7 +464,77 @@ private fun ImageSettingsContent(
                                 contentAlignment = Alignment.Center,
                                 modifier = Modifier.fillMaxSize(),
                             ) {
-                                if (cellImage?.idleImageUri != null) {
+                                val hasIdle = cellImage?.idleImageUri != null
+                                val hasExpanded = cellImage?.expandedImageUri != null
+
+                                if (hasIdle && hasExpanded) {
+                                    Row(modifier = Modifier.fillMaxSize()) {
+                                        Box(
+                                            modifier = Modifier.weight(1f).fillMaxHeight(),
+                                            contentAlignment = Alignment.Center,
+                                        ) {
+                                            AsyncImage(
+                                                model = ImageRequest.Builder(context)
+                                                    .data(cellImage.idleImageUri)
+                                                    .crossfade(300)
+                                                    .build(),
+                                                contentDescription = null,
+                                                contentScale = ContentScale.Crop,
+                                                modifier = Modifier.fillMaxSize(),
+                                            )
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .background(Color.Black.copy(alpha = 0.3f)),
+                                            )
+                                            Text(
+                                                text = stringResource(R.string.settings_idle_label),
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = Color.White,
+                                                modifier = Modifier
+                                                    .align(Alignment.TopCenter)
+                                                    .padding(top = 4.dp)
+                                                    .background(
+                                                        color = accentPrimary.copy(alpha = 0.8f),
+                                                        shape = RoundedCornerShape(4.dp)
+                                                    )
+                                                    .padding(horizontal = 6.dp, vertical = 2.dp),
+                                            )
+                                        }
+                                        Box(
+                                            modifier = Modifier.weight(1f).fillMaxHeight(),
+                                            contentAlignment = Alignment.Center,
+                                        ) {
+                                            AsyncImage(
+                                                model = ImageRequest.Builder(context)
+                                                    .data(cellImage.expandedImageUri)
+                                                    .crossfade(300)
+                                                    .build(),
+                                                contentDescription = null,
+                                                contentScale = ContentScale.Crop,
+                                                modifier = Modifier.fillMaxSize(),
+                                            )
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .background(Color.Black.copy(alpha = 0.3f)),
+                                            )
+                                            Text(
+                                                text = stringResource(R.string.settings_expanded_label),
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = Color.White,
+                                                modifier = Modifier
+                                                    .align(Alignment.TopCenter)
+                                                    .padding(top = 4.dp)
+                                                    .background(
+                                                        color = StreamLauncherTheme.colors.accentSecondary.copy(alpha = 0.8f),
+                                                        shape = RoundedCornerShape(4.dp)
+                                                    )
+                                                    .padding(horizontal = 6.dp, vertical = 2.dp),
+                                            )
+                                        }
+                                    }
+                                } else if (hasIdle) {
                                     AsyncImage(
                                         model = ImageRequest.Builder(context)
                                             .data(cellImage.idleImageUri)
@@ -477,6 +548,47 @@ private fun ImageSettingsContent(
                                         modifier = Modifier
                                             .fillMaxSize()
                                             .background(Color.Black.copy(alpha = 0.3f)),
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.settings_idle_label),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color.White,
+                                        modifier = Modifier
+                                            .align(Alignment.TopCenter)
+                                            .padding(top = 4.dp)
+                                            .background(
+                                                color = accentPrimary.copy(alpha = 0.8f),
+                                                shape = RoundedCornerShape(4.dp)
+                                            )
+                                            .padding(horizontal = 6.dp, vertical = 2.dp),
+                                    )
+                                } else if (hasExpanded) {
+                                    AsyncImage(
+                                        model = ImageRequest.Builder(context)
+                                            .data(cellImage.expandedImageUri)
+                                            .crossfade(300)
+                                            .build(),
+                                        contentDescription = null,
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.fillMaxSize(),
+                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(Color.Black.copy(alpha = 0.3f)),
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.settings_expanded_label),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color.White,
+                                        modifier = Modifier
+                                            .align(Alignment.TopCenter)
+                                            .padding(top = 4.dp)
+                                            .background(
+                                                color = StreamLauncherTheme.colors.accentSecondary.copy(alpha = 0.8f),
+                                                shape = RoundedCornerShape(4.dp)
+                                            )
+                                            .padding(horizontal = 6.dp, vertical = 2.dp),
                                     )
                                 }
                                 Text(

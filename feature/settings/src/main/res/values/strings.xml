@@ -11,6 +11,8 @@
     <string name="settings_color_selected">선택됨</string>
     <string name="settings_idle_image">축소 이미지</string>
     <string name="settings_expanded_image">확장 이미지</string>
+    <string name="settings_idle_label">축소</string>
+    <string name="settings_expanded_label">확장</string>
     <string name="settings_feed_title">피드 설정</string>
     <string name="settings_chzzk_channel_id">치지직 채널 ID</string>
     <string name="settings_youtube_channel_id">YouTube 채널 ID</string>
