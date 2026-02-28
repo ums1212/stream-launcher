@@ -17,9 +17,7 @@
     <string name="settings_chzzk_channel_id">치지직 채널 ID</string>
     <string name="settings_youtube_channel_id">YouTube 채널 ID</string>
     <string name="settings_youtube_placeholder">\@handle 또는 채널 ID</string>
-    <string name="settings_rss_url">RSS 피드 URL</string>
     <string name="settings_no_whitespace">공백을 포함할 수 없습니다</string>
-    <string name="settings_invalid_url">올바른 URL 형식이 아닙니다</string>
     <string name="settings_save">저장</string>
     <string name="settings_app_drawer_title">앱 서랍 설정</string>
     <string name="settings_columns">가로 앱 개수 (열)</string>

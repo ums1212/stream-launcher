@@ -5,7 +5,6 @@ data class LauncherSettings(
     val gridCellImages: Map<GridCell, GridCellImage> = GridCell.entries.associateWith { GridCellImage(it) },
     val cellAssignments: Map<GridCell, List<String>> = emptyMap(),
     val chzzkChannelId: String = "",
-    val rssUrl: String = "",
     val youtubeChannelId: String = "",
     val wallpaperImage: String? = null,
     val appDrawerGridColumns: Int = 4,

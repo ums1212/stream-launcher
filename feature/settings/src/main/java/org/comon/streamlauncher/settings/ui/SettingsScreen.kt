@@ -647,13 +647,7 @@ private fun FeedSettingsContent(
 
     var chzzkChannelId by remember(state.chzzkChannelId) { mutableStateOf(state.chzzkChannelId) }
     var youtubeChannelId by remember(state.youtubeChannelId) { mutableStateOf(state.youtubeChannelId) }
-    var rssUrl by remember(state.rssUrl) { mutableStateOf(state.rssUrl) }
 
-    val rssUrlError by remember {
-        derivedStateOf {
-            rssUrl.isNotBlank() && !rssUrl.trim().startsWith("http")
-        }
-    }
     val chzzkError by remember {
         derivedStateOf {
             chzzkChannelId.any { it.isWhitespace() }
@@ -665,7 +659,7 @@ private fun FeedSettingsContent(
         }
     }
     val isSaveEnabled by remember {
-        derivedStateOf { !rssUrlError && !chzzkError && !youtubeError }
+        derivedStateOf { !chzzkError && !youtubeError }
     }
 
     Column(
@@ -705,18 +699,6 @@ private fun FeedSettingsContent(
             singleLine = true,
         )
 
-        OutlinedTextField(
-            value = rssUrl,
-            onValueChange = { rssUrl = it },
-            label = { Text(stringResource(R.string.settings_rss_url)) },
-            isError = rssUrlError,
-            supportingText = if (rssUrlError) {
-                { Text(stringResource(R.string.settings_invalid_url)) }
-            } else null,
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-        )
-
         Button(
             onClick = {
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -724,7 +706,6 @@ private fun FeedSettingsContent(
                     SettingsIntent.SaveFeedSettings(
                         chzzkChannelId = chzzkChannelId.trim(),
                         youtubeChannelId = youtubeChannelId.trim(),
-                        rssUrl = rssUrl.trim(),
                     ),
                 )
             },

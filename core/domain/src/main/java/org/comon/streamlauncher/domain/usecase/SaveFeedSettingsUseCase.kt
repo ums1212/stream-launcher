@@ -9,10 +9,8 @@ class SaveFeedSettingsUseCase @Inject constructor(
     suspend operator fun invoke(
         chzzkChannelId: String,
         youtubeChannelId: String,
-        rssUrl: String,
     ) {
         settingsRepository.setChzzkChannelId(chzzkChannelId)
         settingsRepository.setYoutubeChannelId(youtubeChannelId)
-        settingsRepository.setRssUrl(rssUrl)
     }
 }

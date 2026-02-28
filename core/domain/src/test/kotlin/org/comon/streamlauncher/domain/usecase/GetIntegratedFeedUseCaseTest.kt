@@ -27,14 +27,14 @@ class GetIntegratedFeedUseCaseTest {
     @Test
     fun `invoke - 통합 피드 성공 반환`() = runTest {
         val items = listOf(
-            FeedItem.NoticeItem("공지1", 200L, "link1", "source1"),
             FeedItem.VideoItem("영상1", 100L, "thumb1", "vid1"),
+            FeedItem.VideoItem("영상2", 200L, "thumb2", "vid2"),
         )
         every {
-            feedRepository.getIntegratedFeed("https://rss.url", "UCchannelId")
+            feedRepository.getIntegratedFeed("UCchannelId")
         } returns flowOf(Result.success(items))
 
-        useCase("https://rss.url", "UCchannelId").test {
+        useCase("UCchannelId").test {
             val result = awaitItem()
             assertTrue(result.isSuccess)
             assertEquals(2, result.getOrNull()?.size)
@@ -45,9 +45,9 @@ class GetIntegratedFeedUseCaseTest {
     @Test
     fun `invoke - 에러 시 Result failure 반환`() = runTest {
         val error = RuntimeException("피드 오류")
-        every { feedRepository.getIntegratedFeed("", "") } returns flowOf(Result.failure(error))
+        every { feedRepository.getIntegratedFeed("") } returns flowOf(Result.failure(error))
 
-        useCase("", "").test {
+        useCase("").test {
             val result = awaitItem()
             assertTrue(result.isFailure)
             awaitComplete()
@@ -57,10 +57,10 @@ class GetIntegratedFeedUseCaseTest {
     @Test
     fun `invoke - feedRepository의 getIntegratedFeed 정확한 파라미터로 호출됨`() = runTest {
         every {
-            feedRepository.getIntegratedFeed("rssUrl", "ytId")
+            feedRepository.getIntegratedFeed("ytId")
         } returns flowOf(Result.success(emptyList()))
 
-        useCase("rssUrl", "ytId").test { awaitItem(); awaitComplete() }
-        verify { feedRepository.getIntegratedFeed("rssUrl", "ytId") }
+        useCase("ytId").test { awaitItem(); awaitComplete() }
+        verify { feedRepository.getIntegratedFeed("ytId") }
     }
 }

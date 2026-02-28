@@ -9,8 +9,7 @@ class GetIntegratedFeedUseCase @Inject constructor(
     private val feedRepository: FeedRepository,
 ) {
     operator fun invoke(
-        rssUrl: String,
         youtubeChannelId: String,
     ): Flow<Result<List<FeedItem>>> =
-        feedRepository.getIntegratedFeed(rssUrl, youtubeChannelId)
+        feedRepository.getIntegratedFeed(youtubeChannelId)
 }

@@ -13,7 +13,6 @@ interface SettingsRepository {
     suspend fun setCellAssignment(cell: GridCell, packageNames: List<String>)
     suspend fun setChzzkChannelId(id: String)
     suspend fun setYoutubeChannelId(id: String)
-    suspend fun setRssUrl(url: String)
     suspend fun setWallpaperImage(uri: String?)
     suspend fun setAppDrawerSettings(columns: Int, rows: Int, iconSizeRatio: Float)
     suspend fun getLastShownNoticeVersion(): String?

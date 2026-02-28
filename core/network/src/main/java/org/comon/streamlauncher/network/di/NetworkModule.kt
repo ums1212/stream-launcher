@@ -11,9 +11,7 @@ import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import org.comon.streamlauncher.network.BuildConfig
 import org.comon.streamlauncher.network.api.ChzzkService
-import org.comon.streamlauncher.network.api.RssFeedApi
 import org.comon.streamlauncher.network.api.YouTubeService
-import org.comon.streamlauncher.network.converter.XmlConverterFactory
 import retrofit2.Retrofit
 import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
@@ -43,17 +41,6 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    @XmlRetrofit
-    fun provideXmlRetrofit(client: OkHttpClient): Retrofit {
-        return Retrofit.Builder()
-            .baseUrl("https://placeholder.invalid/")
-            .client(client)
-            .addConverterFactory(XmlConverterFactory.create())
-            .build()
-    }
-
-    @Provides
-    @Singleton
     @JsonRetrofit
     fun provideJsonRetrofit(client: OkHttpClient): Retrofit {
         val json = Json { ignoreUnknownKeys = true }
@@ -63,12 +50,6 @@ object NetworkModule {
             .client(client)
             .addConverterFactory(json.asConverterFactory(contentType))
             .build()
-    }
-
-    @Provides
-    @Singleton
-    fun provideRssFeedApi(@XmlRetrofit retrofit: Retrofit): RssFeedApi {
-        return retrofit.create(RssFeedApi::class.java)
     }
 
     @Provides

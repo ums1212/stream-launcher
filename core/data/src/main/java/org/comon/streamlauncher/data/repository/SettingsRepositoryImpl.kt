@@ -42,7 +42,6 @@ class SettingsRepositoryImpl @Inject constructor(
     private val cellAssignmentsKey = stringPreferencesKey("cell_assignments")
     private val chzzkChannelIdKey = stringPreferencesKey("chzzk_channel_id")
     private val youtubeChannelIdKey = stringPreferencesKey("youtube_channel_id")
-    private val rssUrlKey = stringPreferencesKey("rss_url")
     private val wallpaperImageKey = stringPreferencesKey("launcher_background_image")
     private val appDrawerGridColumnsKey = intPreferencesKey("app_drawer_grid_columns")
     private val appDrawerGridRowsKey = intPreferencesKey("app_drawer_grid_rows")
@@ -58,7 +57,6 @@ class SettingsRepositoryImpl @Inject constructor(
             val cellAssignments = parseCellAssignments(assignmentsJson)
             val chzzkChannelId = prefs[chzzkChannelIdKey] ?: ""
             val youtubeChannelId = prefs[youtubeChannelIdKey] ?: ""
-            val rssUrl = prefs[rssUrlKey] ?: ""
             val wallpaperImage = prefs[wallpaperImageKey]
             val appDrawerGridColumns = prefs[appDrawerGridColumnsKey] ?: 4
             val appDrawerGridRows = prefs[appDrawerGridRowsKey] ?: 6
@@ -69,7 +67,6 @@ class SettingsRepositoryImpl @Inject constructor(
                 cellAssignments = cellAssignments,
                 chzzkChannelId = chzzkChannelId,
                 youtubeChannelId = youtubeChannelId,
-                rssUrl = rssUrl,
                 wallpaperImage = wallpaperImage,
                 appDrawerGridColumns = appDrawerGridColumns,
                 appDrawerGridRows = appDrawerGridRows,
@@ -112,12 +109,6 @@ class SettingsRepositoryImpl @Inject constructor(
     override suspend fun setYoutubeChannelId(id: String) {
         dataStore.edit { prefs ->
             prefs[youtubeChannelIdKey] = id
-        }
-    }
-
-    override suspend fun setRssUrl(url: String) {
-        dataStore.edit { prefs ->
-            prefs[rssUrlKey] = url
         }
     }
 

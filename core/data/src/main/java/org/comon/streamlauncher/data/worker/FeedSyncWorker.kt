@@ -23,12 +23,12 @@ class FeedSyncWorker @AssistedInject constructor(
 
     override suspend fun doWork(): Result {
         val settings = settingsRepository.getSettings().first()
-        if (settings.rssUrl.isEmpty() && settings.youtubeChannelId.isEmpty()) {
+        if (settings.youtubeChannelId.isEmpty()) {
             Log.d(TAG, "No feed sources configured, skipping sync")
             return Result.success()
         }
         return try {
-            feedRepository.getIntegratedFeed(settings.rssUrl, settings.youtubeChannelId)
+            feedRepository.getIntegratedFeed(settings.youtubeChannelId)
                 .first()
                 .fold(
                     onSuccess = {

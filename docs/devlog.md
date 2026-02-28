@@ -2,6 +2,36 @@
 
 ---
 
+## [2026-02-28] refactor(domain/data/ui): RSS 피드 연동 기능 완전 제거
+
+### 목표
+
+프로젝트에서 더 이상 사용하지 않기로 결정된 RSS 관련 기능(피드 표출, 설정, 저장, 백그라운드 동기화)과 코드를 모든 계층(Domain, Data, Network, UI)에서 완전히 제거하여 코드베이스를 경량화하고 레거시를 정리한다.
+
+### 변경 사항
+
+| # | 계층 | 파일 | 변경 내용 |
+|---|------|------|----------|
+| 1 | `Network` | `RssFeedApi.kt`, `RssFeedResponse.kt` | 파일 삭제 (RSS 전용 Retrofit 인터페이스 및 DTO 모델 제거) |
+| 2 | `Network` | `NetworkQualifiers.kt`, `NetworkModule.kt` | `@XmlRetrofit` 한정자 및 `XmlConverterFactory`를 사용하는 Retrofit XML 파서 주입 코드 완전 삭제 (의존성 정리) |
+| 3 | `Domain` | `FeedItem.kt` | `sealed interface`에서 RSS 전용 데이터 클래스인 `NoticeItem` 제거 |
+| 4 | `Domain` | `LauncherSettings.kt`, `SettingsRepository.kt` | 설정 모델에서 `rssUrl` 변수 제거 및 RssUrl 갱신 함수 시그니처 제거 |
+| 5 | `Domain` | `GetIntegratedFeedUseCase`, `SaveFeedSettingsUseCase` 등 | 파라미터에서 `rssUrl` 제거 및 내부 연결 로직 삭제 |
+| 6 | `Data` | `FeedRepositoryImpl.kt` | `RssFeedApi` 의존성 제거, `fetchRssItems()` 메서드 삭제, 피드 통합 로직에서 파싱 및 결합부 덜어냄 |
+| 7 | `Data` | `SettingsRepositoryImpl.kt` | DataStore 관리 키에서 `rssUrlKey` 제거 및 초기화/저장 로직 삭제 |
+| 8 | `Data` | `worker/FeedSyncWorker.kt` | 백그라운드 동기화 조건에서 `rssUrl.isEmpty()` 검사 로직 제외 |
+| 9 | `Feature(Settings)` | `SettingsContract`, `SettingsViewModel`, `SettingsScreen` | State와 Intent에서 `rssUrl` 파라미터 제외, 설정 화면의 RSS 입력 OutlinedTextField 및 에러 상태 징후 로직 제거 |
+| 10| `Feature(Launcher)` | `FeedContract`, `FeedViewModel`, `FeedScreen` | 피드 새로고침 조건에서 RSS 파라미터 배제, UI의 `NoticeItemRow` 컴포넌트 렌더링부 삭제 (문법 오류 수정 포함) |
+| 11| `Tests` | 전 계층 테스트 코드 | `FeedRepositoryImplTest` (기능 상실로 전면 삭제), `FeedItemTest`, `SettingsViewModelTest`, `FeedViewModelTest` 등에서 RSS/NoticeItem 관련 mock 셋업과 분기, Assert 구문 일관 제거 |
+
+### 설계 결정 및 근거
+
+-   **사용성(Product) 전략:** 앱의 핵심 가치가 라이브 플랫폼(YouTube, 치지직) 통합 알림으로 집중됨에 맞춰, 구형 정적 텍스트 기반인 RSS 지원 기능을 의도적으로 제외(Sunset).
+-   **XML 파서 및 관련 클래스 일소:** Retrofit 사용 시 JSON 데이터와 XML 데이터를 직렬화하기 위해 두 가지 `ConverterFactory`를 운용하고 한정자로 분리해 썼음. RSS가 제거됨에 따라 이들 팩토리와 네트워크 설정 부수 코드를 지워 메모리 풋프린트를 줄이고 빌드 속도 및 앱 사이즈 최적화.
+-   **단일 진실 공급원(SSOT) 재정립:** 설정 화면부터 백그라운드 워커에 이르는 거대한 파이프라인에서 RSS라는 축을 하나 빼냄으로써 `youtubeChannelId`, `chzzkChannelId` 2방향 통합으로 구조 최적화.
+
+---
+
 ## [2026-02-28] refactor(settings): feature:settings 모듈 분리 — God ViewModel 해소
 
 ### 목표

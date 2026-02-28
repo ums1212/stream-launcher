@@ -40,7 +40,6 @@ class SettingsViewModel @Inject constructor(
                         cellAssignments = settings.cellAssignments,
                         chzzkChannelId = settings.chzzkChannelId,
                         youtubeChannelId = settings.youtubeChannelId,
-                        rssUrl = settings.rssUrl,
                         appDrawerGridColumns = settings.appDrawerGridColumns,
                         appDrawerGridRows = settings.appDrawerGridRows,
                         appDrawerIconSizeRatio = settings.appDrawerIconSizeRatio,
@@ -58,7 +57,6 @@ class SettingsViewModel @Inject constructor(
             is SettingsIntent.SaveFeedSettings -> saveFeedSettings(
                 intent.chzzkChannelId,
                 intent.youtubeChannelId,
-                intent.rssUrl,
             )
             is SettingsIntent.SaveAppDrawerSettings -> saveAppDrawerSettings(
                 intent.columns,
@@ -101,16 +99,15 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    private fun saveFeedSettings(chzzkChannelId: String, youtubeChannelId: String, rssUrl: String) {
+    private fun saveFeedSettings(chzzkChannelId: String, youtubeChannelId: String) {
         updateState {
             copy(
                 chzzkChannelId = chzzkChannelId,
                 youtubeChannelId = youtubeChannelId,
-                rssUrl = rssUrl,
             )
         }
         viewModelScope.launch {
-            saveFeedSettingsUseCase(chzzkChannelId, youtubeChannelId, rssUrl)
+            saveFeedSettingsUseCase(chzzkChannelId, youtubeChannelId)
         }
     }
 

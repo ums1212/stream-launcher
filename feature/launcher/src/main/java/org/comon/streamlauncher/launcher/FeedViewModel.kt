@@ -33,13 +33,11 @@ class FeedViewModel @Inject constructor(
             getLauncherSettingsUseCase().collect { settings ->
                 val prev = currentState
                 val isChanged = prev.chzzkChannelId != settings.chzzkChannelId ||
-                        prev.youtubeChannelId != settings.youtubeChannelId ||
-                        prev.rssUrl != settings.rssUrl
+                        prev.youtubeChannelId != settings.youtubeChannelId
 
                 updateState {
                     copy(
                         chzzkChannelId = settings.chzzkChannelId,
-                        rssUrl = settings.rssUrl,
                         youtubeChannelId = settings.youtubeChannelId,
                     )
                 }
@@ -67,7 +65,6 @@ class FeedViewModel @Inject constructor(
             updateState { copy(isLoading = true, errorMessage = null) }
 
             val channelId = currentState.chzzkChannelId
-            val rssUrl = currentState.rssUrl
             val youtubeChannelId = currentState.youtubeChannelId
 
             val liveJob = launch {
@@ -88,8 +85,13 @@ class FeedViewModel @Inject constructor(
             }
 
             val feedJob = launch {
+                if (youtubeChannelId.isEmpty()) {
+                    updateState { copy(feedItems = emptyList(), isLoading = false) }
+                    lastRefreshMillis = System.currentTimeMillis()
+                    return@launch
+                }
                 try {
-                    getIntegratedFeedUseCase(rssUrl, youtubeChannelId).collect { result ->
+                    getIntegratedFeedUseCase(youtubeChannelId).collect { result ->
                         result.fold(
                             onSuccess = { items ->
                                 updateState { copy(feedItems = items, isLoading = false) }
@@ -150,7 +152,6 @@ class FeedViewModel @Inject constructor(
 
     private fun openFeedItemUrl(item: FeedItem) {
         val url = when (item) {
-            is FeedItem.NoticeItem -> item.link
             is FeedItem.VideoItem -> item.videoLink
         }
         if (url.isNotEmpty()) {

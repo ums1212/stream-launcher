@@ -190,12 +190,8 @@ private fun FeedContent(
                         state.feedItems,
                         key = { "${it.javaClass.name}_${it.dateMillis}_${it.title}" },
                     ) { item ->
-                        when (item) {
-                            is FeedItem.NoticeItem -> NoticeItemRow(
-                                item = item,
-                                onClick = { onIntent(FeedIntent.ClickFeedItem(item)) },
-                            )
-                            is FeedItem.VideoItem -> VideoItemRow(
+                        if (item is FeedItem.VideoItem) {
+                            VideoItemRow(
                                 item = item,
                                 onClick = { onIntent(FeedIntent.ClickFeedItem(item)) },
                             )
@@ -359,45 +355,6 @@ private fun LiveStatusCard(
                 Text(
                     text = stringResource(R.string.feed_not_broadcasting),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun NoticeItemRow(
-    item: FeedItem.NoticeItem,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(8.dp),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
-    ) {
-        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-            Text(
-                text = item.title,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Row {
-                Text(
-                    text = item.source,
-                    fontSize = 11.sp,
-                    color = StreamLauncherTheme.colors.accentPrimary,
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = formatDate(item.dateMillis),
-                    fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }

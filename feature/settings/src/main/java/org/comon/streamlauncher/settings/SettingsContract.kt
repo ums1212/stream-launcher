@@ -15,7 +15,6 @@ data class SettingsState(
     val cellAssignments: Map<GridCell, List<String>> = emptyMap(),
     val chzzkChannelId: String = "",
     val youtubeChannelId: String = "",
-    val rssUrl: String = "",
     val appDrawerGridColumns: Int = 4,
     val appDrawerGridRows: Int = 6,
     val appDrawerIconSizeRatio: Float = 1.0f,
@@ -29,7 +28,6 @@ sealed interface SettingsIntent : UiIntent {
     data class SaveFeedSettings(
         val chzzkChannelId: String,
         val youtubeChannelId: String,
-        val rssUrl: String,
     ) : SettingsIntent
     data class SaveAppDrawerSettings(val columns: Int, val rows: Int, val iconSizeRatio: Float) : SettingsIntent
     data object ShowNotice : SettingsIntent
