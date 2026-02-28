@@ -2,6 +2,42 @@
 
 ---
 
+## [2026-02-28] feat(settings): 런처 설정 프리셋 기능 전체 구현 및 시스템 배경화면 권한 연동
+
+### 목표
+
+현재 런처의 5가지 핵심 설정(홈 이미지, 피드, 앱 서랍, 배경화면, 테마 컬러)을 사용자가 원하는 항목만 취합하여 여러 개의 "프리셋"으로 저장하고 손쉽게 전환할 수 있도록 한다. 초기 기획 단계를 거쳐 Room DB를 핵심 저장 매체로 채택하고, UI 구현 및 시스템 배경화면 권한 이슈까지 모두 대응하여 완성도를 높인다.
+
+### 변경 사항
+
+| # | 계층 | 파일 | 변경 내용 |
+|---|------|------|----------|
+| 1 | `Data` | `PresetEntity.kt`, `PresetDao.kt`, `PresetDatabase.kt` | DataStore 대신 Room DB를 사용하도록 결정하고, 확장성을 고려한 프리셋 엔티티 및 Dao 쿼리 설계. 앱 구동 시 내부 DB 인스턴스 빌드 로직 추가 |
+| 2 | `Data/DI` | `RoomDatabaseModule.kt`, `RepositoryModule.kt` | Hilt를 통해 `PresetDao` 및 `PresetRepositoryImpl`의 의존성이 도메인 계층에 원활히 주입되도록 모듈 셋업 |
+| 3 | `Domain` | `GetPresetsUseCase`, `SavePresetUseCase` 등 | 파라미터 5개 항목(선택 여부 포함)을 받아 프리셋을 저장, 로드, 삭제하는 UseCase 3종 구현 |
+| 4 | `Data` | `WallpaperHelperImpl.kt` | 현재 적용된 시스템 바탕화면의 Bitmap Drawable을 추출하여 내부 저장소 Cache 디렉토리에 PNG로 백업하고, 프리셋 로드 시 해당 PNG를 다시 시스템 배경으로 덮어씌우는 하드웨어 연동 로직 구현 |
+| 5 | `Manifest` | `AndroidManifest.xml` | 바탕화면 추출을 위한 `READ_EXTERNAL_STORAGE` (Max SDK 32) 및 `READ_MEDIA_IMAGES` (API 33+) 권한 명시 추가 |
+| 6 | `UI` | `PresetSettingsContent.kt` | 설정 화면 하위에 프리셋 리스트 페이지 구현. 현재 설정을 프리셋으로 추가하는 버튼 및 항목 체크박스 다이얼로그 구성. `rememberLauncherForActivityResult`를 활용해 시스템 파일 권한 런타임 요청 파이프라인 구축 |
+| 7 | `UI` | `PresetSettingsContent.kt` | 프리셋 리스트의 SwipeToDismiss(스와이프 삭제) 구현. 하단 시스템 네비게이션 바와 리스트가 겹치지 않도록 `windowInsetsPadding(WindowInsets.navigationBars)` 여백 적용 |
+| 8 | `UI` | `PresetSettingsContent.kt` | 권한 2회 이상 거부로 시스템 팝업이 막힌 경우(`shouldShowRequestPermissionRationale`)를 대비한 권한 필요 안내 커스텀 다이얼로그(Rationale) 및 자체 설정 화면 포워딩 UI 구성 |
+| 9 | `Resources`| `strings.xml` | 프리셋 관련 다국어 레이블(항목 이름, 다이얼로그 타이틀, 권한 안내 메시지 등) 리소스 대거 추가 |
+
+### 버그 수정 이력
+
+| 버그 | 원인 | 해결 |
+|------|------|------|
+| 스와이프 삭제 취소 시 항목이 옆으로 멈춰버림 | `confirmValueChange`에서 알러트 창을 띄우고 상태 전이를 일시정지시키려 했으나, Jetpack Compose Material 3의 `SwipeToDismissBoxState` 렌더링 사이클 특성상 `false`를 즉시 반환하지 않으면 멈춰버림 | 상태 람다에서 즉시 `false`를 반환하여 카드는 제자리로 튕겨 돌아가게 하고, 삭제 예정 상태(presetToDelete)만 별도 State로 빼내어 Alert Dialog를 띄우도록 구조 100% 분리 |
+| 스와이프 도중 절반 지점에서 삭제 배경 및 휴지통 노출됨 | 색상 표시의 분기 기준이 `targetValue`(목적지)로 되어있어 스와이프 도중에 값이 바뀌어버림 | 기준을 `targetValue`가 아닌 사용자가 현재 손을 움직이는 방향인 `dismissDirection`으로 수정하여 스와이프를 시작하는 즉시 배경색과 휴지통이 드러나도록 고침 |
+| 시스템 배경화면(Wallpaper)이 프리셋으로 저장 안 됨 | Android 11 이상부터는 다른 앱이 세팅한 바탕화면 원본을 읽기 위해 외부 저장소 읽기 권한이 반드시 필요하나 manifest에 누락됨 | `AndroidManifest`에 권한을 추가하고, 앱 화면 내에서 동의를 구하는 팝업 로직을 전면 구현. 권한 거절 시 배경화면 옵션을 제외하고 잔여 4가지만 저장되도록 융통성 처리 방어 코드 작성 |
+
+### 설계 결정 및 근거
+
+- **DataStore 대신 Room DB 채택:** 로컬 설정 저장은 기존에 DataStore를 썼지만, 프리셋은 사용자가 임의의 개수를 무한정 쌓아두거나 개별 요소만 지울 수 있어야 하며, 훗날 프리셋 코드를 주고받는 '프리셋 마켓' 기획 확장을 고려할 때 관계형 DB인 Room을 쓰는 것이 장기적으로 훨씬 유리하다고 판단하여 도메인 채택.
+- **바탕화면 Bitmap 추출 저장 방식:** 안드로이드 시스템상 Live Wallpaper(움직이는 배경) 등은 파일 형태 캐싱이 불가능함. 추후 공유 기능을 고려할 때 이미지 파일 자체를 빼내어 복사본을 들고 다니는 쪽이 독립성 유지에 유리하므로, 현재 설정된 배경화면을 PNG 파일로 인코딩(`compress`)하여 캐시 영역에 물리적으로 떨어뜨리는 강고한 아키텍처 적용.
+- **Rationale Dialog 분기 처리:** 안드로이드 팝업 스팸 어뷰징 방지 정책상 사용자가 2번 거절하면 팝업 호툴 코드가 먹히지 않으므로, 이 경우 말없이 저장이 취소되는 답답함을 없애기 위해 사용자를 직접 앱 권한 시스템 세팅 창(`ACTION_APPLICATION_DETAILS_SETTINGS`)으로 보내버리는 UX 도입.
+
+---
+
 ## [2026-02-28] refactor(domain/data/ui): RSS 피드 연동 기능 완전 제거
 
 ### 목표

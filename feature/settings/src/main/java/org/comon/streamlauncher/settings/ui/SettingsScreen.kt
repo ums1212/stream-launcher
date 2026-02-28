@@ -42,6 +42,7 @@ import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.RssFeed
+import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material.icons.rounded.Wallpaper
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -108,6 +109,7 @@ fun SettingsScreen(
             SettingsTab.IMAGE -> ImageSettingsContent(state = state, onIntent = onIntent)
             SettingsTab.FEED -> FeedSettingsContent(state = state, onIntent = onIntent)
             SettingsTab.APP_DRAWER -> AppDrawerSettingsContent(state = state, onIntent = onIntent)
+            SettingsTab.PRESET -> PresetSettingsContent(state = state, onIntent = onIntent)
         }
     }
 }
@@ -209,13 +211,19 @@ private fun MainSettingsContent(onIntent: (SettingsIntent) -> Unit) {
                 },
                 modifier = Modifier.weight(1f),
             )
-            Spacer(modifier = Modifier.weight(1f))
+            GlassSettingsTile(
+                label = stringResource(R.string.settings_preset),
+                icon = Icons.Rounded.Save,
+                accentColor = lerp(accentPrimary, accentSecondary, 0.4f),
+                onClick = { onIntent(SettingsIntent.ChangeTab(SettingsTab.PRESET)) },
+                modifier = Modifier.weight(1f),
+            )
         }
     }
 }
 
 @Composable
-private fun GlassSettingsTile(
+fun GlassSettingsTile(
     label: String,
     icon: ImageVector,
     accentColor: Color,

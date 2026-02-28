@@ -20,6 +20,14 @@ abstract class RepositoryModule {
     @Singleton
     abstract fun bindAppRepository(impl: AppRepositoryImpl): AppRepository
 
+    @Binds
+    @Singleton
+    abstract fun bindPresetRepository(impl: org.comon.streamlauncher.data.repository.PresetRepositoryImpl): org.comon.streamlauncher.domain.repository.PresetRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindWallpaperHelper(impl: org.comon.streamlauncher.data.util.WallpaperHelperImpl): org.comon.streamlauncher.domain.util.WallpaperHelper
+
     companion object {
         @Provides
         @Singleton

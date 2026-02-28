@@ -2,6 +2,7 @@ package org.comon.streamlauncher.settings
 
 import org.comon.streamlauncher.domain.model.GridCell
 import org.comon.streamlauncher.domain.model.GridCellImage
+import org.comon.streamlauncher.domain.model.preset.Preset
 import org.comon.streamlauncher.settings.model.ImageType
 import org.comon.streamlauncher.settings.model.SettingsTab
 import org.comon.streamlauncher.ui.UiIntent
@@ -19,6 +20,7 @@ data class SettingsState(
     val appDrawerGridRows: Int = 6,
     val appDrawerIconSizeRatio: Float = 1.0f,
     val showNoticeDialog: Boolean = false,
+    val presets: List<Preset> = emptyList(),
 ) : UiState
 
 sealed interface SettingsIntent : UiIntent {
@@ -33,6 +35,23 @@ sealed interface SettingsIntent : UiIntent {
     data object ShowNotice : SettingsIntent
     data object DismissNotice : SettingsIntent
     data object ResetTab : SettingsIntent
+    data class SavePreset(
+        val name: String,
+        val saveHome: Boolean,
+        val saveFeed: Boolean,
+        val saveDrawer: Boolean,
+        val saveWallpaper: Boolean,
+        val saveTheme: Boolean
+    ) : SettingsIntent
+    data class LoadPreset(
+        val preset: Preset,
+        val loadHome: Boolean,
+        val loadFeed: Boolean,
+        val loadDrawer: Boolean,
+        val loadWallpaper: Boolean,
+        val loadTheme: Boolean
+    ) : SettingsIntent
+    data class DeletePreset(val preset: Preset) : SettingsIntent
 }
 
 sealed interface SettingsSideEffect : UiSideEffect

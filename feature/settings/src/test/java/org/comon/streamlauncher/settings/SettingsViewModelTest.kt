@@ -11,12 +11,15 @@ import kotlinx.coroutines.test.setMain
 import org.comon.streamlauncher.domain.model.GridCell
 import org.comon.streamlauncher.domain.model.LauncherSettings
 import org.comon.streamlauncher.domain.usecase.CheckNoticeUseCase
+import org.comon.streamlauncher.domain.usecase.DeletePresetUseCase
 import org.comon.streamlauncher.domain.usecase.DismissNoticeUseCase
+import org.comon.streamlauncher.domain.usecase.GetAllPresetsUseCase
 import org.comon.streamlauncher.domain.usecase.GetLauncherSettingsUseCase
 import org.comon.streamlauncher.domain.usecase.SaveAppDrawerSettingsUseCase
 import org.comon.streamlauncher.domain.usecase.SaveColorPresetUseCase
 import org.comon.streamlauncher.domain.usecase.SaveFeedSettingsUseCase
 import org.comon.streamlauncher.domain.usecase.SaveGridCellImageUseCase
+import org.comon.streamlauncher.domain.usecase.SavePresetUseCase
 import org.comon.streamlauncher.settings.model.ImageType
 import org.comon.streamlauncher.settings.model.SettingsTab
 import org.junit.After
@@ -38,6 +41,10 @@ class SettingsViewModelTest {
     private lateinit var saveAppDrawerSettingsUseCase: SaveAppDrawerSettingsUseCase
     private lateinit var checkNoticeUseCase: CheckNoticeUseCase
     private lateinit var dismissNoticeUseCase: DismissNoticeUseCase
+    private lateinit var getAllPresetsUseCase: GetAllPresetsUseCase
+    private lateinit var savePresetUseCase: SavePresetUseCase
+    private lateinit var deletePresetUseCase: DeletePresetUseCase
+    private lateinit var wallpaperHelper: org.comon.streamlauncher.domain.util.WallpaperHelper
     private lateinit var viewModel: SettingsViewModel
 
     @Before
@@ -53,6 +60,12 @@ class SettingsViewModelTest {
         saveAppDrawerSettingsUseCase = mockk(relaxed = true)
         checkNoticeUseCase = mockk(relaxed = true)
         dismissNoticeUseCase = mockk(relaxed = true)
+
+        getAllPresetsUseCase = mockk()
+        every { getAllPresetsUseCase() } returns flowOf(emptyList())
+        savePresetUseCase = mockk(relaxed = true)
+        deletePresetUseCase = mockk(relaxed = true)
+        wallpaperHelper = mockk(relaxed = true)
 
         viewModel = makeViewModel()
     }
@@ -70,6 +83,10 @@ class SettingsViewModelTest {
         appDrawerSettingsUseCase: SaveAppDrawerSettingsUseCase = saveAppDrawerSettingsUseCase,
         checkNotice: CheckNoticeUseCase = checkNoticeUseCase,
         dismissNotice: DismissNoticeUseCase = dismissNoticeUseCase,
+        getAllPresets: GetAllPresetsUseCase = getAllPresetsUseCase,
+        savePreset: SavePresetUseCase = savePresetUseCase,
+        deletePreset: DeletePresetUseCase = deletePresetUseCase,
+        wallpaperUtil: org.comon.streamlauncher.domain.util.WallpaperHelper = wallpaperHelper,
     ): SettingsViewModel = SettingsViewModel(
         settingsUseCase,
         colorSaveUseCase,
@@ -78,6 +95,10 @@ class SettingsViewModelTest {
         appDrawerSettingsUseCase,
         checkNotice,
         dismissNotice,
+        getAllPresets,
+        savePreset,
+        deletePreset,
+        wallpaperUtil,
     )
 
     // 1. ChangeAccentColor → colorPresetIndex 상태 업데이트
@@ -177,8 +198,7 @@ class SettingsViewModelTest {
         viewModel.handleIntent(
             SettingsIntent.SaveFeedSettings(
                 chzzkChannelId = "chzzk123",
-                youtubeChannelId = "yt456",
-                rssUrl = "https://example.com/rss",
+                youtubeChannelId = "yt456"
             ),
         )
         testDispatcher.scheduler.advanceUntilIdle()
@@ -186,9 +206,8 @@ class SettingsViewModelTest {
         val state = viewModel.uiState.value
         assertEquals("chzzk123", state.chzzkChannelId)
         assertEquals("yt456", state.youtubeChannelId)
-        assertEquals("https://example.com/rss", state.rssUrl)
 
-        coVerify { saveFeedSettingsUseCase("chzzk123", "yt456", "https://example.com/rss") }
+        coVerify { saveFeedSettingsUseCase("chzzk123", "yt456") }
     }
 
     // 9. ResetTab → currentTab = MAIN
