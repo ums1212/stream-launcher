@@ -2,6 +2,58 @@
 
 ---
 
+## [2026-02-28] refactor(settings): feature:settings 모듈 분리 — God ViewModel 해소
+
+### 목표
+
+`feature:launcher`의 `HomeViewModel`이 런처 로직과 설정 로직을 모두 담당하는 "God ViewModel" 상태를 해소한다.
+설정 관련 코드를 `feature:settings`로 분리하여 단일 책임 원칙을 달성하고,
+두 모듈이 `core:domain`을 통해서만 간접 통신하는 클린 아키텍처 구조로 리팩토링한다.
+
+### 변경 사항
+
+| # | 파일 | 변경 내용 |
+|---|------|----------|
+| 1 | `feature/settings/build.gradle.kts` | Compose/Hilt/KSP 플러그인 + `:core:domain`, `:core:ui` 의존성 추가 |
+| 2 | `app/build.gradle.kts` | `implementation(project(":feature:settings"))` 추가 |
+| 3 | `feature/settings/.../model/SettingsTab.kt` | `launcher.model` → `settings.model` 패키지로 이동 |
+| 4 | `feature/settings/.../model/ImageType.kt` | `launcher.model` → `settings.model` 패키지로 이동 |
+| 5 | `feature/settings/.../SettingsContract.kt` | `SettingsState` / `SettingsIntent` / `SettingsSideEffect` 신규 생성 |
+| 6 | `feature/settings/.../SettingsViewModel.kt` | `@HiltViewModel`; 설정 관련 UseCase 7개 주입; `checkNotice(version)` 공개 메서드; settings Flow collect (init) |
+| 7 | `feature/settings/.../ui/SettingsScreen.kt` | `HomeState/HomeIntent` → `SettingsState/SettingsIntent`로 교체, R import 변경 |
+| 8 | `feature/settings/.../ui/NoticeDialog.kt` | 패키지·R import 변경 |
+| 9 | `feature/settings/src/main/res/values/strings.xml` | settings_* / notice_* 문자열 신규 리소스 파일로 분리 |
+| 10 | `feature/settings/.../SettingsViewModelTest.kt` | 신규 13개 테스트: ChangeAccentColor, SetGridImage, SaveFeedSettings, SaveAppDrawerSettings, ChangeTab, ResetTab, ShowNotice, DismissNotice, checkNotice |
+| 11 | `feature/launcher/.../HomeContract.kt` | `currentSettingsTab`, `colorPresetIndex`, `chzzkChannelId`, `youtubeChannelId`, `rssUrl`, `showNoticeDialog` 제거; `ChangeSettingsTab`, `ChangeAccentColor`, `SetGridImage`, `SaveFeedSettings`, `SaveAppDrawerSettings`, `ShowNotice`, `DismissNotice` Intent 제거 |
+| 12 | `feature/launcher/.../HomeViewModel.kt` | 설정 관련 UseCase 6개 제거; `checkFirstLaunch`에서 notice 로직 분리; `resetHome`에서 `currentSettingsTab` 초기화 제거; `changeAccentColor`, `setGridImage`, `saveFeedSettings`, `saveAppDrawerSettings`, `dismissNotice` 메서드 제거 |
+| 13 | `feature/launcher/.../HomeViewModelTest.kt` | 설정 관련 mock 6개 + 테스트 7개 제거 (25개 잔존) |
+| 14 | `app/.../MainActivity.kt` | `settingsViewModel: SettingsViewModel` 추가; `settingsState` 수집; `SettingsScreen`·`NoticeDialog`·`colorPresetIndex` → settingsViewModel 연결; `onCreate`에 `settingsViewModel.checkNotice()` 추가; `onNewIntent`에 `SettingsIntent.ResetTab` 추가 |
+| 15 | `feature/launcher/.../ui/SettingsScreen.kt` | 삭제 (feature:settings로 이동) |
+| 16 | `feature/launcher/.../ui/NoticeDialog.kt` | 삭제 (feature:settings로 이동) |
+| 17 | `feature/launcher/.../model/SettingsTab.kt` | 삭제 (feature:settings로 이동) |
+| 18 | `feature/launcher/.../model/ImageType.kt` | 삭제 (feature:settings로 이동) |
+| 19 | `feature/launcher/src/main/res/values/strings.xml` | settings_* / notice_* 문자열 삭제 (feed_* / home_* 유지) |
+
+### 검증 결과
+
+- `assembleDebug` BUILD SUCCESSFUL
+- 전체 단위 테스트 BUILD SUCCESSFUL (실패 0건)
+  - `SettingsViewModelTest`: 13개 신규 테스트 전부 통과
+  - `HomeViewModelTest`: 25개 잔존 테스트 전부 통과 (regression 없음)
+
+### 설계 결정 및 근거
+
+**단방향 의존 구조 유지**
+`feature:settings`는 `core:domain`과 `core:ui`에만 의존하며, `feature:launcher`에 의존하지 않는다. 반대 방향 의존도 없다. 두 모듈은 `core:domain`의 UseCase/Repository를 통해서만 데이터를 공유하는 클린 아키텍처 원칙을 따른다.
+
+**HomeState에 파생 설정 필드 유지 (`gridCellImages`, `cellAssignments`, `appDrawerGrid*`)**
+`HomeScreen`과 `AppDrawerScreen`이 직접 소비하는 필드들은 `HomeState`에 잔류시켰다. `HomeViewModel`은 `GetLauncherSettingsUseCase`를 통해 읽기 전용으로만 유지하므로 중복 쓰기 없이 단일 진실 공급원(DataStore)이 보장된다.
+
+**`SettingsViewModel.checkNotice()` 공개 메서드**
+공지 확인은 앱 시작 시점에 `MainActivity.onCreate`에서 호출하는 일회성 동작이므로, Intent 방식보다 단순 메서드 호출이 더 명료하다고 판단했다.
+
+---
+
 ## [2026-02-28] feat(launcher): 홈 그리드 셀 앱 아이콘 드래그 이동 기능 고도화
 
 ### 목표

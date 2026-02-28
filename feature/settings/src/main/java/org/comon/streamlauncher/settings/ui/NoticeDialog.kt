@@ -1,4 +1,4 @@
-package org.comon.streamlauncher.launcher.ui
+package org.comon.streamlauncher.settings.ui
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,7 +22,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import org.comon.streamlauncher.launcher.R
+import org.comon.streamlauncher.settings.R
 import org.comon.streamlauncher.ui.theme.StreamLauncherTheme
 
 @Composable

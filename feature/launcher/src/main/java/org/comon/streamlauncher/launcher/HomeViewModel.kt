@@ -10,21 +10,12 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
 import org.comon.streamlauncher.domain.model.AppEntity
 import org.comon.streamlauncher.domain.model.GridCell
-import org.comon.streamlauncher.domain.model.GridCellImage
 import org.comon.streamlauncher.domain.usecase.GetInstalledAppsUseCase
 import org.comon.streamlauncher.domain.usecase.GetLauncherSettingsUseCase
-import org.comon.streamlauncher.domain.usecase.SaveAppDrawerSettingsUseCase
 import org.comon.streamlauncher.domain.usecase.SaveCellAssignmentUseCase
-import org.comon.streamlauncher.domain.usecase.SaveColorPresetUseCase
-import org.comon.streamlauncher.domain.usecase.SaveFeedSettingsUseCase
-import org.comon.streamlauncher.domain.usecase.SaveGridCellImageUseCase
 import org.comon.streamlauncher.domain.usecase.CheckFirstLaunchUseCase
-import org.comon.streamlauncher.domain.usecase.CheckNoticeUseCase
-import org.comon.streamlauncher.domain.usecase.DismissNoticeUseCase
 import org.comon.streamlauncher.domain.usecase.SetFirstLaunchUseCase
 import org.comon.streamlauncher.domain.util.ChosungMatcher
-import org.comon.streamlauncher.launcher.model.ImageType
-import org.comon.streamlauncher.launcher.model.SettingsTab
 import org.comon.streamlauncher.ui.BaseViewModel
 import javax.inject.Inject
 
@@ -33,18 +24,10 @@ import javax.inject.Inject
 class HomeViewModel @Inject constructor(
     private val getInstalledAppsUseCase: GetInstalledAppsUseCase,
     private val getLauncherSettingsUseCase: GetLauncherSettingsUseCase,
-    private val saveColorPresetUseCase: SaveColorPresetUseCase,
-    private val saveGridCellImageUseCase: SaveGridCellImageUseCase,
     private val saveCellAssignmentUseCase: SaveCellAssignmentUseCase,
-    private val saveFeedSettingsUseCase: SaveFeedSettingsUseCase,
-    private val saveAppDrawerSettingsUseCase: SaveAppDrawerSettingsUseCase,
     private val checkFirstLaunchUseCase: CheckFirstLaunchUseCase,
     private val setFirstLaunchUseCase: SetFirstLaunchUseCase,
-    private val checkNoticeUseCase: CheckNoticeUseCase,
-    private val dismissNoticeUseCase: DismissNoticeUseCase,
 ) : BaseViewModel<HomeState, HomeIntent, HomeSideEffect>(HomeState()) {
-
-    private var currentNoticeVersion: String = ""
 
     private var loadJob: Job? = null
     private val _searchQuery = MutableStateFlow("")
@@ -55,12 +38,8 @@ class HomeViewModel @Inject constructor(
             getLauncherSettingsUseCase().collect { settings ->
                 updateState {
                     copy(
-                        colorPresetIndex = settings.colorPresetIndex,
                         gridCellImages = settings.gridCellImages,
                         cellAssignments = settings.cellAssignments,
-                        chzzkChannelId = settings.chzzkChannelId,
-                        youtubeChannelId = settings.youtubeChannelId,
-                        rssUrl = settings.rssUrl,
                         appDrawerGridColumns = settings.appDrawerGridColumns,
                         appDrawerGridRows = settings.appDrawerGridRows,
                         appDrawerIconSizeRatio = settings.appDrawerIconSizeRatio,
@@ -83,44 +62,26 @@ class HomeViewModel @Inject constructor(
         when (intent) {
             is HomeIntent.LoadApps -> loadApps()
             is HomeIntent.ResetHome -> resetHome()
-            is HomeIntent.CheckFirstLaunch -> checkFirstLaunch(intent.version)
+            is HomeIntent.CheckFirstLaunch -> checkFirstLaunch()
             is HomeIntent.ClickGrid -> toggleCell(intent.cell)
             is HomeIntent.ClickApp -> {
                 sendEffect(HomeSideEffect.NavigateToApp(intent.app.packageName))
                 resetHome()
             }
             is HomeIntent.Search -> search(intent.query)
-            is HomeIntent.ChangeSettingsTab -> updateState { copy(currentSettingsTab = intent.tab) }
-            is HomeIntent.ChangeAccentColor -> changeAccentColor(intent.presetIndex)
-            is HomeIntent.SetGridImage -> setGridImage(intent.cell, intent.type, intent.uri)
             is HomeIntent.AssignAppToCell -> assignAppToCell(intent.app, intent.cell)
             is HomeIntent.UnassignApp -> unassignApp(intent.app)
-            is HomeIntent.SaveFeedSettings -> saveFeedSettings(intent.chzzkChannelId, intent.youtubeChannelId, intent.rssUrl)
-            is HomeIntent.SaveAppDrawerSettings -> saveAppDrawerSettings(intent.columns, intent.rows, intent.iconSizeRatio)
             is HomeIntent.SetEditingCell -> updateState { copy(editingCell = intent.cell) }
             is HomeIntent.MoveAppInCell -> moveAppInCell(intent.cell, intent.fromIndex, intent.toIndex)
             is HomeIntent.MoveAppBetweenCells -> moveAppBetweenCells(intent.app, intent.fromCell, intent.toCell, intent.toIndex)
-            is HomeIntent.ShowNotice -> updateState { copy(showNoticeDialog = true) }
-            is HomeIntent.DismissNotice -> dismissNotice()
         }
     }
 
-    private fun dismissNotice() {
-        updateState { copy(showNoticeDialog = false) }
-        viewModelScope.launch {
-            dismissNoticeUseCase(currentNoticeVersion)
-        }
-    }
-
-    private fun checkFirstLaunch(version: String) {
-        currentNoticeVersion = version
+    private fun checkFirstLaunch() {
         viewModelScope.launch {
             if (checkFirstLaunchUseCase()) {
                 sendEffect(HomeSideEffect.SetDefaultHomeApp)
                 setFirstLaunchUseCase()
-            }
-            if (checkNoticeUseCase(version)) {
-                updateState { copy(showNoticeDialog = true) }
             }
         }
     }
@@ -170,29 +131,7 @@ class HomeViewModel @Inject constructor(
                 editingCell = null,
                 searchQuery = "",
                 filteredApps = allApps,
-                currentSettingsTab = SettingsTab.MAIN,
             )
-        }
-    }
-
-    private fun changeAccentColor(presetIndex: Int) {
-        updateState { copy(colorPresetIndex = presetIndex) }
-        viewModelScope.launch {
-            saveColorPresetUseCase(presetIndex)
-        }
-    }
-
-    private fun setGridImage(cell: GridCell, type: ImageType, uri: String) {
-        val currentImages = currentState.gridCellImages.toMutableMap()
-        val existing = currentImages[cell] ?: GridCellImage(cell)
-        val updated = when (type) {
-            ImageType.IDLE -> existing.copy(idleImageUri = uri)
-            ImageType.EXPANDED -> existing.copy(expandedImageUri = uri)
-        }
-        currentImages[cell] = updated
-        updateState { copy(gridCellImages = currentImages) }
-        viewModelScope.launch {
-            saveGridCellImageUseCase(cell, updated.idleImageUri, updated.expandedImageUri)
         }
     }
 
@@ -249,32 +188,6 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun saveFeedSettings(chzzkChannelId: String, youtubeChannelId: String, rssUrl: String) {
-        updateState {
-            copy(
-                chzzkChannelId = chzzkChannelId,
-                youtubeChannelId = youtubeChannelId,
-                rssUrl = rssUrl,
-            )
-        }
-        viewModelScope.launch {
-            saveFeedSettingsUseCase(chzzkChannelId, youtubeChannelId, rssUrl)
-        }
-    }
-
-    private fun saveAppDrawerSettings(columns: Int, rows: Int, iconSizeRatio: Float) {
-        updateState {
-            copy(
-                appDrawerGridColumns = columns,
-                appDrawerGridRows = rows,
-                appDrawerIconSizeRatio = iconSizeRatio,
-            )
-        }
-        viewModelScope.launch {
-            saveAppDrawerSettingsUseCase(columns, rows, iconSizeRatio)
-        }
-    }
-
     private fun moveAppBetweenCells(app: AppEntity, fromCell: GridCell, toCell: GridCell, toIndex: Int = -1) {
         val pkg = app.packageName
         val newAssignments = currentState.cellAssignments.toMutableMap()
@@ -310,12 +223,12 @@ class HomeViewModel @Inject constructor(
     private fun moveAppInCell(cell: GridCell, fromIndex: Int, toIndex: Int) {
         val newAssignments = currentState.cellAssignments.toMutableMap()
         val currentList = newAssignments[cell]?.toMutableList() ?: return
-        
+
         if (fromIndex in currentList.indices && toIndex in currentList.indices) {
             val item = currentList.removeAt(fromIndex)
             currentList.add(toIndex, item)
             newAssignments[cell] = currentList
-            
+
             updateState {
                 copy(
                     cellAssignments = newAssignments,
@@ -327,7 +240,6 @@ class HomeViewModel @Inject constructor(
             }
         }
     }
-
 
     private fun filterApps(apps: List<AppEntity>, query: String): List<AppEntity> {
         if (query.isEmpty()) return apps

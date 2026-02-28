@@ -16,15 +16,8 @@ import org.comon.streamlauncher.domain.model.LauncherSettings
 import org.comon.streamlauncher.domain.usecase.GetInstalledAppsUseCase
 import org.comon.streamlauncher.domain.usecase.GetLauncherSettingsUseCase
 import org.comon.streamlauncher.domain.usecase.SaveCellAssignmentUseCase
-import org.comon.streamlauncher.domain.usecase.SaveColorPresetUseCase
-import org.comon.streamlauncher.domain.usecase.SaveFeedSettingsUseCase
-import org.comon.streamlauncher.domain.usecase.SaveAppDrawerSettingsUseCase
-import org.comon.streamlauncher.domain.usecase.SaveGridCellImageUseCase
 import org.comon.streamlauncher.domain.usecase.CheckFirstLaunchUseCase
-import org.comon.streamlauncher.domain.usecase.CheckNoticeUseCase
-import org.comon.streamlauncher.domain.usecase.DismissNoticeUseCase
 import org.comon.streamlauncher.domain.usecase.SetFirstLaunchUseCase
-import org.comon.streamlauncher.launcher.model.ImageType
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -49,15 +42,9 @@ class HomeViewModelTest {
 
     private lateinit var useCase: GetInstalledAppsUseCase
     private lateinit var getLauncherSettingsUseCase: GetLauncherSettingsUseCase
-    private lateinit var saveColorPresetUseCase: SaveColorPresetUseCase
-    private lateinit var saveGridCellImageUseCase: SaveGridCellImageUseCase
     private lateinit var saveCellAssignmentUseCase: SaveCellAssignmentUseCase
-    private lateinit var saveFeedSettingsUseCase: SaveFeedSettingsUseCase
-    private lateinit var saveAppDrawerSettingsUseCase: SaveAppDrawerSettingsUseCase
     private lateinit var checkFirstLaunchUseCase: CheckFirstLaunchUseCase
     private lateinit var setFirstLaunchUseCase: SetFirstLaunchUseCase
-    private lateinit var checkNoticeUseCase: CheckNoticeUseCase
-    private lateinit var dismissNoticeUseCase: DismissNoticeUseCase
     private lateinit var viewModel: HomeViewModel
 
     @Before
@@ -69,15 +56,9 @@ class HomeViewModelTest {
         getLauncherSettingsUseCase = mockk()
         every { getLauncherSettingsUseCase() } returns flowOf(LauncherSettings())
 
-        saveColorPresetUseCase = mockk(relaxed = true)
-        saveGridCellImageUseCase = mockk(relaxed = true)
         saveCellAssignmentUseCase = mockk(relaxed = true)
-        saveFeedSettingsUseCase = mockk(relaxed = true)
-        saveAppDrawerSettingsUseCase = mockk(relaxed = true)
         checkFirstLaunchUseCase = mockk(relaxed = true)
         setFirstLaunchUseCase = mockk(relaxed = true)
-        checkNoticeUseCase = mockk(relaxed = true)
-        dismissNoticeUseCase = mockk(relaxed = true)
 
         viewModel = makeViewModel()
     }
@@ -91,27 +72,15 @@ class HomeViewModelTest {
     private fun makeViewModel(
         appsUseCase: GetInstalledAppsUseCase = useCase,
         settingsUseCase: GetLauncherSettingsUseCase = getLauncherSettingsUseCase,
-        colorSaveUseCase: SaveColorPresetUseCase = saveColorPresetUseCase,
-        imageSaveUseCase: SaveGridCellImageUseCase = saveGridCellImageUseCase,
         cellAssignmentUseCase: SaveCellAssignmentUseCase = saveCellAssignmentUseCase,
-        feedSettingsUseCase: SaveFeedSettingsUseCase = saveFeedSettingsUseCase,
-        appDrawerSettingsUseCase: SaveAppDrawerSettingsUseCase = saveAppDrawerSettingsUseCase,
         checkFirstLaunch: CheckFirstLaunchUseCase = checkFirstLaunchUseCase,
         setFirstLaunch: SetFirstLaunchUseCase = setFirstLaunchUseCase,
-        checkNotice: CheckNoticeUseCase = checkNoticeUseCase,
-        dismissNotice: DismissNoticeUseCase = dismissNoticeUseCase,
     ): HomeViewModel = HomeViewModel(
         appsUseCase,
         settingsUseCase,
-        colorSaveUseCase,
-        imageSaveUseCase,
         cellAssignmentUseCase,
-        feedSettingsUseCase,
-        appDrawerSettingsUseCase,
         checkFirstLaunch,
         setFirstLaunch,
-        checkNotice,
-        dismissNotice,
     )
 
     // 1. 초기 상태 확인
@@ -385,80 +354,7 @@ class HomeViewModelTest {
         }
     }
 
-    // 19. ChangeAccentColor → colorPresetIndex 상태 업데이트
-    @Test
-    fun `ChangeAccentColor 처리 시 colorPresetIndex 상태가 업데이트됨`() = runTest {
-        testDispatcher.scheduler.advanceUntilIdle()
-
-        viewModel.handleIntent(HomeIntent.ChangeAccentColor(3))
-        testDispatcher.scheduler.advanceUntilIdle()
-
-        assertEquals(3, viewModel.uiState.value.colorPresetIndex)
-    }
-
-    // 20. ChangeAccentColor → saveColorPresetUseCase 호출
-    @Test
-    fun `ChangeAccentColor 처리 시 saveColorPresetUseCase가 호출됨`() = runTest {
-        testDispatcher.scheduler.advanceUntilIdle()
-
-        viewModel.handleIntent(HomeIntent.ChangeAccentColor(5))
-        testDispatcher.scheduler.advanceUntilIdle()
-
-        coVerify { saveColorPresetUseCase(5) }
-    }
-
-    // 21. SetGridImage IDLE → gridCellImages 상태 업데이트
-    @Test
-    fun `SetGridImage IDLE 처리 시 해당 셀의 idleImageUri가 업데이트됨`() = runTest {
-        testDispatcher.scheduler.advanceUntilIdle()
-
-        val testUri = "content://media/external/images/1"
-        viewModel.handleIntent(HomeIntent.SetGridImage(GridCell.TOP_LEFT, ImageType.IDLE, testUri))
-        testDispatcher.scheduler.advanceUntilIdle()
-
-        val cellImage = viewModel.uiState.value.gridCellImages[GridCell.TOP_LEFT]
-        assertEquals(testUri, cellImage?.idleImageUri)
-    }
-
-    // 22. SetGridImage EXPANDED → gridCellImages 상태 업데이트
-    @Test
-    fun `SetGridImage EXPANDED 처리 시 해당 셀의 expandedImageUri가 업데이트됨`() = runTest {
-        testDispatcher.scheduler.advanceUntilIdle()
-
-        val testUri = "content://media/external/images/2"
-        viewModel.handleIntent(HomeIntent.SetGridImage(GridCell.BOTTOM_RIGHT, ImageType.EXPANDED, testUri))
-        testDispatcher.scheduler.advanceUntilIdle()
-
-        val cellImage = viewModel.uiState.value.gridCellImages[GridCell.BOTTOM_RIGHT]
-        assertEquals(testUri, cellImage?.expandedImageUri)
-    }
-
-    // 23. SetGridImage → saveGridCellImageUseCase 호출
-    @Test
-    fun `SetGridImage 처리 시 saveGridCellImageUseCase가 호출됨`() = runTest {
-        testDispatcher.scheduler.advanceUntilIdle()
-
-        val testUri = "content://media/external/images/3"
-        viewModel.handleIntent(HomeIntent.SetGridImage(GridCell.TOP_RIGHT, ImageType.IDLE, testUri))
-        testDispatcher.scheduler.advanceUntilIdle()
-
-        coVerify { saveGridCellImageUseCase(GridCell.TOP_RIGHT, testUri, null) }
-    }
-
-    // 24. 초기 설정 로드 → colorPresetIndex 복원
-    @Test
-    fun `초기 설정 로드 시 colorPresetIndex가 저장된 값으로 복원됨`() = runTest {
-        val savedSettings = LauncherSettings(colorPresetIndex = 4)
-        val settingsUseCase: GetLauncherSettingsUseCase = mockk()
-        every { settingsUseCase() } returns flowOf(savedSettings)
-
-        val restoredVm = makeViewModel(settingsUseCase = settingsUseCase)
-        testDispatcher.scheduler.advanceUntilIdle()
-
-        assertEquals(4, restoredVm.uiState.value.colorPresetIndex)
-    }
-
-    // 25. AssignAppToCell → cellAssignments 상태 업데이트
+    // 19. AssignAppToCell → cellAssignments 상태 업데이트
     @Test
     fun `AssignAppToCell 처리 시 해당 셀의 cellAssignments에 packageName이 추가됨`() = runTest {
         testDispatcher.scheduler.advanceUntilIdle()
@@ -471,7 +367,7 @@ class HomeViewModelTest {
         assertTrue(assignments[GridCell.TOP_LEFT]?.contains(targetApp.packageName) == true)
     }
 
-    // 26. AssignAppToCell → 다른 셀에서 제거됨
+    // 20. AssignAppToCell → 다른 셀에서 제거됨
     @Test
     fun `AssignAppToCell 처리 시 다른 셀에서 해당 앱이 제거됨`() = runTest {
         testDispatcher.scheduler.advanceUntilIdle()
@@ -491,7 +387,7 @@ class HomeViewModelTest {
         assertTrue(assignments[GridCell.TOP_RIGHT]?.contains(targetApp.packageName) != true)
     }
 
-    // 27. AssignAppToCell → pinnedPackages에 포함됨
+    // 21. AssignAppToCell → pinnedPackages에 포함됨
     @Test
     fun `AssignAppToCell 처리 후 pinnedPackages에 해당 앱이 포함됨`() = runTest {
         testDispatcher.scheduler.advanceUntilIdle()
@@ -503,7 +399,7 @@ class HomeViewModelTest {
         assertTrue(viewModel.uiState.value.pinnedPackages.contains(targetApp.packageName))
     }
 
-    // 28. UnassignApp → cellAssignments에서 제거
+    // 22. UnassignApp → cellAssignments에서 제거
     @Test
     fun `UnassignApp 처리 시 모든 셀에서 해당 앱이 제거됨`() = runTest {
         testDispatcher.scheduler.advanceUntilIdle()
@@ -519,7 +415,7 @@ class HomeViewModelTest {
         assertFalse(viewModel.uiState.value.pinnedPackages.contains(targetApp.packageName))
     }
 
-    // 29. distributeApps — 할당된 앱만 셀에 배치, 미할당 앱은 제외
+    // 23. distributeApps — 할당된 앱만 셀에 배치, 미할당 앱은 제외
     @Test
     fun `distributeApps - 할당된 앱만 해당 셀에 배치되고 미할당 앱은 어떤 셀에도 없음`() {
         val apps = (1..4).map { i ->
@@ -536,7 +432,7 @@ class HomeViewModelTest {
         assertEquals(1, totalAppsInCells)
     }
 
-    // 30. AssignAppToCell → saveCellAssignmentUseCase 호출됨
+    // 24. AssignAppToCell → saveCellAssignmentUseCase 호출됨
     @Test
     fun `AssignAppToCell 처리 시 saveCellAssignmentUseCase가 호출됨`() = runTest {
         testDispatcher.scheduler.advanceUntilIdle()
@@ -548,7 +444,7 @@ class HomeViewModelTest {
         coVerify { saveCellAssignmentUseCase(GridCell.TOP_LEFT, any()) }
     }
 
-    // 31. AssignAppToCell → 셀당 최대 6개 제한
+    // 25. AssignAppToCell → 셀당 최대 6개 제한
     @Test
     fun `AssignAppToCell 처리 시 셀에 이미 6개 앱이 있으면 7번째 앱이 추가되지 않음`() = runTest {
         testDispatcher.scheduler.advanceUntilIdle()
@@ -576,21 +472,5 @@ class HomeViewModelTest {
         val assignmentsAfter = vm.uiState.value.cellAssignments[GridCell.TOP_LEFT]
         assertEquals(HomeViewModel.MAX_APPS_PER_CELL, assignmentsAfter?.size)
         assertFalse(assignmentsAfter?.contains(overflowApp.packageName) == true)
-    }
-
-    // 32. SaveAppDrawerSettings → state 업데이트 및 유스케이스 호출
-    @Test
-    fun `SaveAppDrawerSettings 처리 시 설정 상태가 업데이트되고 유스케이스가 호출됨`() = runTest {
-        testDispatcher.scheduler.advanceUntilIdle()
-
-        viewModel.handleIntent(HomeIntent.SaveAppDrawerSettings(5, 7, 1.2f))
-        testDispatcher.scheduler.advanceUntilIdle()
-
-        val state = viewModel.uiState.value
-        assertEquals(5, state.appDrawerGridColumns)
-        assertEquals(7, state.appDrawerGridRows)
-        assertEquals(1.2f, state.appDrawerIconSizeRatio, 0.0f)
-        
-        coVerify { saveAppDrawerSettingsUseCase(5, 7, 1.2f) }
     }
 }

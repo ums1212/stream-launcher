@@ -1,5 +1,5 @@
 plugins {
-    alias(libs.plugins.android.application)
+    alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.hilt.android)
@@ -7,17 +7,14 @@ plugins {
 }
 
 android {
-    namespace = "org.comon.streamlauncher"
+    namespace = "org.comon.streamlauncher.settings"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "org.comon.streamlauncher"
         minSdk = 28
-        targetSdk = 36
-        versionCode = 2
-        versionName = "0.0.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        consumerProguardFiles("consumer-rules.pro")
     }
 
     buildTypes {
@@ -35,7 +32,6 @@ android {
     }
     buildFeatures {
         compose = true
-        buildConfig = true
     }
 }
 
@@ -47,35 +43,22 @@ kotlin {
 
 dependencies {
     implementation(project(":core:domain"))
-    implementation(project(":core:data"))
     implementation(project(":core:ui"))
-    implementation(project(":core:network"))
-    implementation(project(":feature:launcher"))
-    implementation(project(":feature:apps-drawer"))
-    implementation(project(":feature:widget"))
-    implementation(project(":feature:settings"))
 
     implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.lifecycle.runtime.ktx)
-    implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
     implementation(libs.androidx.compose.foundation)
-    implementation(libs.androidx.navigation.compose)
-    implementation("androidx.compose.material:material-icons-extended")
-
+    implementation(libs.kotlinx.coroutines.android)
     implementation(libs.coil.compose)
+    implementation("androidx.compose.material:material-icons-extended")
 
     implementation(libs.hilt.android)
     implementation(libs.hilt.navigation.compose)
-    implementation(libs.androidx.lifecycle.runtime.compose)
     ksp(libs.hilt.android.compiler)
-
-    implementation(libs.androidx.work.runtime.ktx)
-    implementation(libs.hilt.work)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
@@ -88,5 +71,4 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
-    debugImplementation(libs.leakcanary.android)
 }

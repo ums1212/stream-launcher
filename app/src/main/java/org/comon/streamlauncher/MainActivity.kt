@@ -40,9 +40,11 @@ import org.comon.streamlauncher.launcher.HomeSideEffect
 import org.comon.streamlauncher.launcher.HomeViewModel
 import org.comon.streamlauncher.launcher.ui.FeedScreen
 import org.comon.streamlauncher.launcher.ui.HomeScreen
-import org.comon.streamlauncher.launcher.ui.NoticeDialog
-import org.comon.streamlauncher.launcher.ui.SettingsScreen
 import org.comon.streamlauncher.navigation.CrossPagerNavigation
+import org.comon.streamlauncher.settings.SettingsIntent
+import org.comon.streamlauncher.settings.SettingsViewModel
+import org.comon.streamlauncher.settings.ui.NoticeDialog
+import org.comon.streamlauncher.settings.ui.SettingsScreen
 import org.comon.streamlauncher.ui.dragdrop.DragDropState
 import org.comon.streamlauncher.ui.dragdrop.LocalDragDropState
 import org.comon.streamlauncher.ui.theme.StreamLauncherTheme
@@ -56,6 +58,7 @@ class MainActivity : ComponentActivity() {
     private val viewModel: HomeViewModel by viewModels()
     private val widgetViewModel: WidgetViewModel by viewModels()
     private val feedViewModel: FeedViewModel by viewModels()
+    private val settingsViewModel: SettingsViewModel by viewModels()
     private var resetTrigger by mutableIntStateOf(0)
 
     private lateinit var appWidgetHost: AppWidgetHost
@@ -190,12 +193,14 @@ class MainActivity : ComponentActivity() {
         appWidgetHost = AppWidgetHost(this, HOST_ID)
         appWidgetManager = AppWidgetManager.getInstance(this)
 
-        viewModel.handleIntent(HomeIntent.CheckFirstLaunch(BuildConfig.VERSION_NAME))
+        viewModel.handleIntent(HomeIntent.CheckFirstLaunch)
+        settingsViewModel.checkNotice(BuildConfig.VERSION_NAME)
 
         setContent {
             val uiState by viewModel.uiState.collectAsStateWithLifecycle()
             val feedState by feedViewModel.uiState.collectAsStateWithLifecycle()
-            val preset = ColorPresets.getByIndex(uiState.colorPresetIndex)
+            val settingsState by settingsViewModel.uiState.collectAsStateWithLifecycle()
+            val preset = ColorPresets.getByIndex(settingsState.colorPresetIndex)
             val dragDropState = remember { DragDropState() }
             StreamLauncherTheme(
                 accentPrimaryOverride = Color(preset.accentPrimaryArgb),
@@ -265,8 +270,8 @@ class MainActivity : ComponentActivity() {
                     },
                     settingsContent = {
                         SettingsScreen(
-                            state = uiState,
-                            onIntent = viewModel::handleIntent,
+                            state = settingsState,
+                            onIntent = settingsViewModel::handleIntent,
                         )
                     },
                     appDrawerContent = {
@@ -299,11 +304,11 @@ class MainActivity : ComponentActivity() {
                     HomeScreen(state = uiState, onIntent = viewModel::handleIntent)
                 }
 
-                if (uiState.showNoticeDialog) {
+                if (settingsState.showNoticeDialog) {
                     NoticeDialog(
-                        noticeText = androidx.compose.ui.res.stringResource(org.comon.streamlauncher.launcher.R.string.notice_body),
+                        noticeText = androidx.compose.ui.res.stringResource(org.comon.streamlauncher.settings.R.string.notice_body),
                         version = BuildConfig.VERSION_NAME,
-                        onDismiss = { viewModel.handleIntent(HomeIntent.DismissNotice) },
+                        onDismiss = { settingsViewModel.handleIntent(SettingsIntent.DismissNotice) },
                     )
                 }
             } // CompositionLocalProvider
@@ -347,6 +352,7 @@ class MainActivity : ComponentActivity() {
         ) {
             resetTrigger++
             viewModel.handleIntent(HomeIntent.ResetHome)
+            settingsViewModel.handleIntent(SettingsIntent.ResetTab)
         }
     }
 

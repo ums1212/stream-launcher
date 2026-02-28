@@ -1,4 +1,4 @@
-package org.comon.streamlauncher.launcher.ui
+package org.comon.streamlauncher.settings.ui
 
 import android.content.ActivityNotFoundException
 import android.content.Intent
@@ -80,28 +80,28 @@ import coil.request.ImageRequest
 import kotlin.math.roundToInt
 import org.comon.streamlauncher.domain.model.ColorPresets
 import org.comon.streamlauncher.domain.model.GridCell
-import org.comon.streamlauncher.launcher.HomeIntent
-import org.comon.streamlauncher.launcher.HomeState
-import org.comon.streamlauncher.launcher.R
-import org.comon.streamlauncher.launcher.model.ImageType
-import org.comon.streamlauncher.launcher.model.SettingsTab
+import org.comon.streamlauncher.settings.R
+import org.comon.streamlauncher.settings.SettingsIntent
+import org.comon.streamlauncher.settings.SettingsState
+import org.comon.streamlauncher.settings.model.ImageType
+import org.comon.streamlauncher.settings.model.SettingsTab
 import org.comon.streamlauncher.ui.theme.StreamLauncherTheme
 
 @Composable
 fun SettingsScreen(
-    state: HomeState,
-    onIntent: (HomeIntent) -> Unit,
+    state: SettingsState,
+    onIntent: (SettingsIntent) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    BackHandler(enabled = state.currentSettingsTab != SettingsTab.MAIN) {
-        onIntent(HomeIntent.ChangeSettingsTab(SettingsTab.MAIN))
+    BackHandler(enabled = state.currentTab != SettingsTab.MAIN) {
+        onIntent(SettingsIntent.ChangeTab(SettingsTab.MAIN))
     }
 
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier.fillMaxSize(),
     ) {
-        when (state.currentSettingsTab) {
+        when (state.currentTab) {
             SettingsTab.MAIN -> MainSettingsContent(onIntent = onIntent)
             SettingsTab.COLOR -> ColorSettingsContent(state = state, onIntent = onIntent)
             SettingsTab.IMAGE -> ImageSettingsContent(state = state, onIntent = onIntent)
@@ -112,7 +112,7 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun MainSettingsContent(onIntent: (HomeIntent) -> Unit) {
+private fun MainSettingsContent(onIntent: (SettingsIntent) -> Unit) {
     val context = LocalContext.current
     val accentPrimary = StreamLauncherTheme.colors.accentPrimary
     val accentSecondary = StreamLauncherTheme.colors.accentSecondary
@@ -131,14 +131,14 @@ private fun MainSettingsContent(onIntent: (HomeIntent) -> Unit) {
                 label = stringResource(R.string.settings_theme_color),
                 icon = Icons.Rounded.Palette,
                 accentColor = accentPrimary,
-                onClick = { onIntent(HomeIntent.ChangeSettingsTab(SettingsTab.COLOR)) },
+                onClick = { onIntent(SettingsIntent.ChangeTab(SettingsTab.COLOR)) },
                 modifier = Modifier.weight(1f),
             )
             GlassSettingsTile(
                 label = stringResource(R.string.settings_home_image),
                 icon = Icons.Rounded.Image,
                 accentColor = lerp(accentPrimary, accentSecondary, 0.17f),
-                onClick = { onIntent(HomeIntent.ChangeSettingsTab(SettingsTab.IMAGE)) },
+                onClick = { onIntent(SettingsIntent.ChangeTab(SettingsTab.IMAGE)) },
                 modifier = Modifier.weight(1f),
             )
         }
@@ -150,14 +150,14 @@ private fun MainSettingsContent(onIntent: (HomeIntent) -> Unit) {
                 label = stringResource(R.string.settings_app_drawer),
                 icon = Icons.Rounded.GridView,
                 accentColor = lerp(accentPrimary, accentSecondary, 0.33f),
-                onClick = { onIntent(HomeIntent.ChangeSettingsTab(SettingsTab.APP_DRAWER)) },
+                onClick = { onIntent(SettingsIntent.ChangeTab(SettingsTab.APP_DRAWER)) },
                 modifier = Modifier.weight(1f),
             )
             GlassSettingsTile(
                 label = stringResource(R.string.settings_feed),
                 icon = Icons.Rounded.RssFeed,
                 accentColor = lerp(accentPrimary, accentSecondary, 0.5f),
-                onClick = { onIntent(HomeIntent.ChangeSettingsTab(SettingsTab.FEED)) },
+                onClick = { onIntent(SettingsIntent.ChangeTab(SettingsTab.FEED)) },
                 modifier = Modifier.weight(1f),
             )
         }
@@ -169,7 +169,7 @@ private fun MainSettingsContent(onIntent: (HomeIntent) -> Unit) {
                 label = stringResource(R.string.settings_notice),
                 icon = Icons.Rounded.Campaign,
                 accentColor = lerp(accentPrimary, accentSecondary, 0.67f),
-                onClick = { onIntent(HomeIntent.ShowNotice) },
+                onClick = { onIntent(SettingsIntent.ShowNotice) },
                 modifier = Modifier.weight(1f),
             )
             GlassSettingsTile(
@@ -312,8 +312,8 @@ private fun SettingsPageHeader(
 
 @Composable
 private fun ColorSettingsContent(
-    state: HomeState,
-    onIntent: (HomeIntent) -> Unit,
+    state: SettingsState,
+    onIntent: (SettingsIntent) -> Unit,
 ) {
     val haptic = LocalHapticFeedback.current
     val accentPrimary = StreamLauncherTheme.colors.accentPrimary
@@ -358,7 +358,7 @@ private fun ColorSettingsContent(
                         )
                         .clickable {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onIntent(HomeIntent.ChangeAccentColor(preset.index))
+                            onIntent(SettingsIntent.ChangeAccentColor(preset.index))
                         },
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -384,8 +384,8 @@ private fun ColorSettingsContent(
 
 @Composable
 private fun ImageSettingsContent(
-    state: HomeState,
-    onIntent: (HomeIntent) -> Unit,
+    state: SettingsState,
+    onIntent: (SettingsIntent) -> Unit,
 ) {
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
@@ -402,7 +402,7 @@ private fun ImageSettingsContent(
             uri,
             Intent.FLAG_GRANT_READ_URI_PERMISSION,
         )
-        onIntent(HomeIntent.SetGridImage(selectedCell, ImageType.IDLE, uri.toString()))
+        onIntent(SettingsIntent.SetGridImage(selectedCell, ImageType.IDLE, uri.toString()))
     }
 
     val expandedImageLauncher = rememberLauncherForActivityResult(
@@ -413,7 +413,7 @@ private fun ImageSettingsContent(
             uri,
             Intent.FLAG_GRANT_READ_URI_PERMISSION,
         )
-        onIntent(HomeIntent.SetGridImage(selectedCell, ImageType.EXPANDED, uri.toString()))
+        onIntent(SettingsIntent.SetGridImage(selectedCell, ImageType.EXPANDED, uri.toString()))
     }
 
     Column(
@@ -527,8 +527,8 @@ private fun ImageSettingsContent(
 
 @Composable
 private fun FeedSettingsContent(
-    state: HomeState,
-    onIntent: (HomeIntent) -> Unit,
+    state: SettingsState,
+    onIntent: (SettingsIntent) -> Unit,
 ) {
     val haptic = LocalHapticFeedback.current
     val accentPrimary = StreamLauncherTheme.colors.accentPrimary
@@ -609,7 +609,7 @@ private fun FeedSettingsContent(
             onClick = {
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 onIntent(
-                    HomeIntent.SaveFeedSettings(
+                    SettingsIntent.SaveFeedSettings(
                         chzzkChannelId = chzzkChannelId.trim(),
                         youtubeChannelId = youtubeChannelId.trim(),
                         rssUrl = rssUrl.trim(),
@@ -627,8 +627,8 @@ private fun FeedSettingsContent(
 
 @Composable
 private fun AppDrawerSettingsContent(
-    state: HomeState,
-    onIntent: (HomeIntent) -> Unit,
+    state: SettingsState,
+    onIntent: (SettingsIntent) -> Unit,
 ) {
     val haptic = LocalHapticFeedback.current
     val accentPrimary = StreamLauncherTheme.colors.accentPrimary
@@ -722,7 +722,7 @@ private fun AppDrawerSettingsContent(
             Button(
                 onClick = {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onIntent(HomeIntent.SaveAppDrawerSettings(columns, rows, iconSizeRatio))
+                    onIntent(SettingsIntent.SaveAppDrawerSettings(columns, rows, iconSizeRatio))
                 },
                 enabled = hasChanges,
                 modifier = Modifier.weight(1f),

@@ -1,31 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- SettingsScreen -->
-    <string name="settings_theme_color">테마 컬러</string>
-    <string name="settings_home_image">홈 이미지</string>
-    <string name="settings_app_drawer">앱 서랍</string>
-    <string name="settings_feed">피드 설정</string>
-    <string name="settings_wallpaper">배경화면</string>
-    <string name="settings_default_home">기본 홈 앱</string>
-    <string name="settings_wallpaper_error">배경화면 설정 창을 열 수 없습니다</string>
-    <string name="settings_color_selected">선택됨</string>
-    <string name="settings_idle_image">축소 이미지</string>
-    <string name="settings_expanded_image">확장 이미지</string>
-    <string name="settings_feed_title">피드 설정</string>
-    <string name="settings_chzzk_channel_id">치지직 채널 ID</string>
-    <string name="settings_youtube_channel_id">YouTube 채널 ID</string>
-    <string name="settings_youtube_placeholder">\@handle 또는 채널 ID</string>
-    <string name="settings_rss_url">RSS 피드 URL</string>
-    <string name="settings_no_whitespace">공백을 포함할 수 없습니다</string>
-    <string name="settings_invalid_url">올바른 URL 형식이 아닙니다</string>
-    <string name="settings_save">저장</string>
-    <string name="settings_app_drawer_title">앱 서랍 설정</string>
-    <string name="settings_columns">가로 앱 개수 (열)</string>
-    <string name="settings_rows">세로 앱 개수 (행)</string>
-    <string name="settings_icon_size_ratio">아이콘 크기 배율</string>
-    <string name="settings_icon_clip_warning">디바이스 해상도에 따라 아이콘이 잘릴 수 있습니다.</string>
-    <string name="settings_reset">초기화</string>
-
     <!-- FeedScreen -->
     <string name="feed_title">피드</string>
     <string name="feed_refresh">새로고침</string>
@@ -42,11 +16,4 @@
 
     <!-- HomeScreen -->
     <string name="home_remove_app">앱 삭제</string>
-
-    <!-- NoticeDialog -->
-    <string name="settings_notice">공지사항</string>
-    <string name="notice_title">공지사항</string>
-    <string name="notice_dismiss">확인</string>
-    <string name="notice_version">v%1$s</string>
-    <string name="notice_body">스트림런처를 설치해 주셔서 감사합니다!\n\n이번 버전 변경사항:\n- 앱 설치 후 최초 실행 시 공지사항 다이얼로그가 표시됩니다.\n- 버전이 업데이트될 때마다 공지사항이 다시 표시됩니다.\n- 설정 화면에서 공지사항을 다시 확인할 수 있습니다.</string>
 </resources>
