@@ -99,6 +99,7 @@ class HomeViewModel @Inject constructor(
             is HomeIntent.SaveAppDrawerSettings -> saveAppDrawerSettings(intent.columns, intent.rows, intent.iconSizeRatio)
             is HomeIntent.SetEditingCell -> updateState { copy(editingCell = intent.cell) }
             is HomeIntent.MoveAppInCell -> moveAppInCell(intent.cell, intent.fromIndex, intent.toIndex)
+            is HomeIntent.MoveAppBetweenCells -> moveAppBetweenCells(intent.app, intent.fromCell, intent.toCell, intent.toIndex)
             is HomeIntent.ShowNotice -> updateState { copy(showNoticeDialog = true) }
             is HomeIntent.DismissNotice -> dismissNotice()
         }
@@ -271,6 +272,38 @@ class HomeViewModel @Inject constructor(
         }
         viewModelScope.launch {
             saveAppDrawerSettingsUseCase(columns, rows, iconSizeRatio)
+        }
+    }
+
+    private fun moveAppBetweenCells(app: AppEntity, fromCell: GridCell, toCell: GridCell, toIndex: Int = -1) {
+        val pkg = app.packageName
+        val newAssignments = currentState.cellAssignments.toMutableMap()
+
+        val fromList = newAssignments[fromCell]?.toMutableList() ?: mutableListOf()
+        fromList.remove(pkg)
+        newAssignments[fromCell] = fromList
+
+        val toList = newAssignments[toCell]?.toMutableList() ?: mutableListOf()
+        if (toList.size < MAX_APPS_PER_CELL && !toList.contains(pkg)) {
+            // toIndex가 유효하면 해당 위치에 삽입(끼어들기), 아니면 끝에 추가
+            if (toIndex in 0..toList.size) {
+                toList.add(toIndex, pkg)
+            } else {
+                toList.add(pkg)
+            }
+        }
+        newAssignments[toCell] = toList
+
+        updateState {
+            copy(
+                cellAssignments = newAssignments,
+                appsInCells = distributeApps(allApps, newAssignments),
+                expandedCell = toCell,
+            )
+        }
+        viewModelScope.launch {
+            saveCellAssignmentUseCase(fromCell, newAssignments[fromCell] ?: emptyList())
+            saveCellAssignmentUseCase(toCell, newAssignments[toCell] ?: emptyList())
         }
     }
 

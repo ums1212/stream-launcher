@@ -8,10 +8,10 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.draggable
-import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -48,6 +48,7 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
@@ -80,7 +81,9 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
 ) {
     val dragDropState = LocalDragDropState.current
-    // 드래그 중일 때는 hoveredCell을 expandedCell로 임시 사용
+    // 드래그 중에는 hoveredCell(대상 셀)을 확장하여 시각적 피드백 제공.
+    // 소스 셀이 수축해도 GridCellContent 내부에서 GridAppItem을 트리에 유지하여
+    // pointerInput coroutine이 dispose되지 않도록 별도 처리함.
     val expandedCell = if (dragDropState.isDragging) {
         dragDropState.hoveredCell
     } else {
@@ -284,7 +287,11 @@ private fun RowScope.GridCellContent(
             }
             .border(width = borderWidth, color = borderColor, shape = shape),
     ) {
-        if (isExpanded) {
+        // 드래그 소스 셀은 isExpanded=false여도 GridAppItem을 트리에 유지해야
+        // pointerInput coroutine이 dispose되지 않아 드래그가 계속된다.
+        // contentAlpha가 0이 되어 시각적으로는 보이지 않지만 레이아웃은 살아있음.
+        val isDragSource = dragDropState.isDragging && dragDropState.dragSourceCell == cell
+        if (isExpanded || isDragSource) {
             Box(modifier = Modifier.fillMaxSize()) {
                 // 확장 이미지 배경
                 val expandedUri = gridCellImage?.expandedImageUri
@@ -338,6 +345,7 @@ private fun RowScope.GridCellContent(
                                         GridAppItem(
                                             app = app,
                                             cell = cell,
+                                            appIndex = index,
                                             isPinned = app.packageName in pinnedPackages,
                                             isEditing = editingCell == cell,
                                             onIntent = onIntent,
@@ -377,19 +385,34 @@ private fun RowScope.GridCellContent(
 private fun GridAppItem(
     app: AppEntity,
     cell: GridCell,
+    appIndex: Int,
     isPinned: Boolean,
     isEditing: Boolean,
     onIntent: (HomeIntent) -> Unit,
 ) {
     val haptic = LocalHapticFeedback.current
     val dragDropState = LocalDragDropState.current
-    
-    // 흔들림 애니메이션 효과 (편집 모드 시)
-    var isWiggling by remember { mutableStateOf(false)}
+    var itemRootOffset by remember { mutableStateOf(Offset.Zero) }
+    // 편집 모드 탭 소비용 (indication 없이 이벤트만 막음)
+    val noOpInteractionSource = remember { MutableInteractionSource() }
+
+    // 슬롯 bounds 등록 (드래그 중 정밀 슬롯 감지용)
+    DisposableEffect(cell, appIndex) {
+        onDispose { dragDropState.unregisterSlotBounds(cell, appIndex) }
+    }
+
+    // 흔들림 애니메이션 효과 (편집 모드 시, 드래그 중에는 정지)
+    val isDragged = dragDropState.isDragging && dragDropState.draggedApp == app
+    var isWiggling by remember { mutableStateOf(false) }
     val rotation by animateFloatAsState(
-        targetValue = if (isWiggling) 2f else if (isEditing) -2f else 0f,
-        animationSpec = if (isEditing) tween(100) else spring(),
-        label = "wiggle"
+        targetValue = when {
+            isDragged -> 0f
+            isWiggling -> 2f
+            isEditing -> -2f
+            else -> 0f
+        },
+        animationSpec = if (isEditing && !isDragged) tween(100) else spring(),
+        label = "wiggle",
     )
 
     LaunchedEffect(isEditing) {
@@ -407,46 +430,99 @@ private fun GridAppItem(
 
     Box(
         modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.Center,
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
                 .fillMaxSize()
-                .graphicsLayer {
-                    rotationZ = rotation
+                .graphicsLayer { rotationZ = rotation }
+                .onGloballyPositioned { coords ->
+                    val pos = coords.positionInRoot()
+                    itemRootOffset = pos
+                    val size = coords.size
+                    dragDropState.registerSlotBounds(
+                        cell, appIndex,
+                        Rect(pos.x, pos.y, pos.x + size.width, pos.y + size.height),
+                    )
                 }
-                .combinedClickable(
-                    onClick = {
-                        if (isEditing) return@combinedClickable
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        onIntent(HomeIntent.ClickApp(app))
-                    },
-                    onLongClick = {
-                        if (isPinned && dragDropState.draggedApp == null) {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            if (!isEditing) {
-                                onIntent(HomeIntent.SetEditingCell(cell))
+                // 편집 모드가 아닐 때: 탭(앱 실행) + 길게 누름(편집 모드 진입)
+                .then(
+                    if (!isEditing) {
+                        Modifier.combinedClickable(
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                onIntent(HomeIntent.ClickApp(app))
+                            },
+                            onLongClick = {
+                                if (isPinned && !dragDropState.isDragging) {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    onIntent(HomeIntent.SetEditingCell(cell))
+                                }
+                            },
+                        )
+                    } else {
+                        // 편집 모드에서 다시 길게 누르면 드래그 시작.
+                        // pointerInput이 롱프레스+드래그를 먼저 처리하고,
+                        // 단순 탭은 clickable이 소비하여 부모 Surface로 전파를 차단.
+                        Modifier
+                            .pointerInput(app, cell, appIndex) {
+                                detectDragGestures(
+                                    onDragStart = { localOffset ->
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        val rootPos = itemRootOffset + localOffset
+                                        dragDropState.startDrag(app, rootPos, cell, appIndex)
+                                    },
+                                    onDrag = { change, _ ->
+                                        change.consume()
+                                        dragDropState.updateDrag(itemRootOffset + change.position)
+                                    },
+                                    onDragEnd = {
+                                        val result = dragDropState.endDrag()
+                                        if (result != null) {
+                                            val src = result.sourceCell
+                                            when {
+                                                // 같은 셀 내 슬롯 변경
+                                                src != null && src == result.targetCell -> {
+                                                    val toSlot = result.targetSlotIndex
+                                                    if (toSlot >= 0 && toSlot != result.sourceIndex) {
+                                                        onIntent(
+                                                            HomeIntent.MoveAppInCell(
+                                                                src,
+                                                                result.sourceIndex,
+                                                                toSlot,
+                                                            ),
+                                                        )
+                                                    }
+                                                }
+                                                // 다른 셀로 이동
+                                                src != null -> {
+                                                    onIntent(
+                                                        HomeIntent.MoveAppBetweenCells(
+                                                            result.app,
+                                                            src,
+                                                            result.targetCell,
+                                                            result.targetSlotIndex,
+                                                        ),
+                                                    )
+                                                }
+                                                else -> Unit
+                                            }
+                                        }
+                                        onIntent(HomeIntent.SetEditingCell(null))
+                                    },
+                                    onDragCancel = {
+                                        dragDropState.cancelDrag()
+                                        onIntent(HomeIntent.SetEditingCell(null))
+                                    },
+                                )
                             }
-                        } else null
+                            // 탭 이벤트를 소비하여 부모 Surface.onClick 전파 차단
+                            .clickable(
+                                indication = null,
+                                interactionSource = noOpInteractionSource,
+                            ) { /* 탭 소비만, 동작 없음 */ }
                     },
-                )
-                .draggable(
-                    state = rememberDraggableState { delta ->
-                        // 간단한 드래그 구현 (수평/수직 제스처 등 고도화 필요하지만 예시로)
-                        // DragDropState를 엮을 수도 있음
-                    },
-                    orientation = Orientation.Vertical,
-                    onDragStarted = {
-                        if (isEditing) {
-                            dragDropState.startDrag(app, Offset.Zero)
-                        }
-                    },
-                    onDragStopped = {
-                        if (isEditing && dragDropState.isDragging) {
-                            dragDropState.endDrag()
-                        }
-                    }
                 ),
         ) {
             AppIcon(
@@ -463,7 +539,8 @@ private fun GridAppItem(
             )
         }
 
-        if (isEditing) {
+        // 편집 모드이고 드래그 중이 아닐 때만 X 버튼 표시
+        if (isEditing && !dragDropState.isDragging) {
             IconButton(
                 onClick = { onIntent(HomeIntent.UnassignApp(app)) },
                 modifier = Modifier
@@ -472,20 +549,20 @@ private fun GridAppItem(
                     .size(24.dp)
                     .background(
                         MaterialTheme.colorScheme.errorContainer,
-                        CircleShape
+                        CircleShape,
                     )
                     .border(
                         1.dp,
                         MaterialTheme.colorScheme.onErrorContainer,
-                        CircleShape
+                        CircleShape,
                     )
-                    .zIndex(2f)
+                    .zIndex(2f),
             ) {
                 Icon(
                     imageVector = Icons.Default.Close,
                     contentDescription = stringResource(R.string.home_remove_app),
                     tint = MaterialTheme.colorScheme.onErrorContainer,
-                    modifier = Modifier.size(16.dp)
+                    modifier = Modifier.size(16.dp),
                 )
             }
         }

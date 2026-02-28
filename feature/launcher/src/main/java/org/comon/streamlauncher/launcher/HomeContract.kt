@@ -51,6 +51,7 @@ sealed interface HomeIntent : UiIntent {
     ) : HomeIntent
     data class SetEditingCell(val cell: GridCell?) : HomeIntent
     data class MoveAppInCell(val cell: GridCell, val fromIndex: Int, val toIndex: Int) : HomeIntent
+    data class MoveAppBetweenCells(val app: AppEntity, val fromCell: GridCell, val toCell: GridCell, val toIndex: Int = -1) : HomeIntent
     data class SaveAppDrawerSettings(val columns: Int, val rows: Int, val iconSizeRatio: Float) : HomeIntent
     data object ShowNotice : HomeIntent
     data object DismissNotice : HomeIntent

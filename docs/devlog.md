@@ -2,6 +2,51 @@
 
 ---
 
+## [2026-02-28] feat(launcher): 홈 그리드 셀 앱 아이콘 드래그 이동 기능 고도화
+
+### 목표
+
+홈 화면 그리드 셀에 배치된 앱 아이콘을 드래그로 재배치할 수 있도록 구현한다.
+- 편집 모드 진입 후 드래그로 셀 내 순서 변경 및 다른 셀로 이동
+- 드래그 중 대상 셀 확장 시각 피드백 유지 + 드래그 취소 버그 해결
+- 드롭 위치 감지로 끼어들기 배치 지원
+
+### 변경 사항
+
+| # | 파일 | 변경 내용 |
+|---|------|----------|
+| 1 | `core/ui/.../DragDropState.kt` | `DragResult` data class 도입 (targetCell, targetSlotIndex, sourceCell, sourceIndex); `dragSourceCell`, `dragSourceIndex`, `hoveredSlotIndex` 상태 추가; `startDrag`에 sourceCell/sourceIndex 파라미터 추가; `registerSlotBounds` / `unregisterSlotBounds` 추가; `updateDrag`에서 슬롯 인덱스 실시간 추적 |
+| 2 | `HomeContract.kt` | `MoveAppBetweenCells(app, fromCell, toCell, toIndex=-1)` Intent 추가 |
+| 3 | `HomeViewModel.kt` | `moveAppBetweenCells` 함수 추가 — fromCell 제거 후 toCell에 toIndex 위치 삽입(끼어들기), DataStore 저장 |
+| 4 | `HomeScreen.kt` | `GridAppItem`에 `appIndex` 파라미터 추가; `draggable` 제거 → 편집 모드 여부에 따라 `combinedClickable`(비편집) / `detectDragGestures`(편집) 분기; `onGloballyPositioned`에서 슬롯 bounds 등록; 드래그 완료 시 동/이셀 판단 후 Intent 발행; `expandedCell` 계산 — 그리드 드래그 시 `hoveredCell` 복원 + `isDragSource` 조건으로 소스 셀 `GridAppItem` 트리 유지 |
+| 5 | `AppDrawerScreen.kt` | `endDrag()` 반환 타입 `DragResult?` 대응 (`result.first/second` → `result.app/targetCell`) |
+
+### 버그 수정 이력
+
+| 버그 | 원인 | 해결 |
+|------|------|------|
+| 편집 모드에서 앱 아이콘 탭 시 그리드 셀이 눌림 | 편집 모드 `pointerInput`이 탭 이벤트를 소비하지 않아 부모 `Surface.onClick`으로 전파 | `clickable(indication=null)` 추가로 탭 이벤트 조용히 소비 |
+| 다른 셀로 드래그 시 드래그 모드가 즉시 취소됨 | `hoveredCell` 변경 → 소스 셀 `isExpanded=false` → `GridAppItem` Dispose → `pointerInput` coroutine 취소 | `expandedCell`을 드래그 중 `hoveredCell`로 유지하되, `GridCellContent`에서 `isDragSource=true`이면 앱 목록 컴포저블을 트리에 강제 유지 (`contentAlpha=0`으로 시각적으로만 숨김) |
+| 드래그 중 흔들림 애니메이션 지속 | `rotation` 계산에 드래그 상태 미반영 | `isDragged(draggedApp==app)` 조건을 `when` 최우선으로 추가해 드래그 중 `rotation=0f` 고정 |
+
+### 검증 결과
+
+- `assembleDebug` BUILD SUCCESSFUL
+- 전체 단위 테스트 BUILD SUCCESSFUL (실패 0건)
+
+### 설계 결정 및 근거
+
+**`detectDragGesturesAfterLongPress` → `detectDragGestures` 교체**
+편집 모드는 이미 길게 누름으로 진입하므로, 드래그 시작에 롱프레스가 두 번 필요한 UX는 과도하다. 편집 모드 진입 후에는 즉시 드래그가 가능한 `detectDragGestures`가 더 자연스럽다.
+
+**소스 셀 `isDragSource` 조건으로 트리 유지**
+드래그 중 소스 셀을 `expandedCell`로 고정하는 방법도 있으나, 이 경우 대상 셀의 확장 피드백이 없어 UX가 저하된다. 대신 소스 셀의 `GridAppItem`을 트리에만 유지하고 `contentAlpha=0`으로 숨기는 방식을 선택해, 드래그 취소 방지와 시각적 피드백을 동시에 확보했다.
+
+**`toIndex` 끼어들기 삽입**
+드롭 시 슬롯 위 앱 인덱스(`hoveredSlotIndex`)를 `MoveAppBetweenCells.toIndex`로 전달해 `toList.add(toIndex, pkg)`로 삽입. `toIndex=-1`(빈 공간 드롭)이면 끝에 추가하여 기존 동작과 하위 호환을 유지한다.
+
+---
+
 ## [2026-02-25] 월페이퍼 색상 대응 — 시스템바 동적 스타일 & 위젯 화면 가시성 개선
 
 ### 목표

@@ -267,7 +267,7 @@ private fun AppDrawerGridItem(
                     onDragEnd = {
                         val result = dragDropState.endDrag()
                         if (result != null) {
-                            onAppAssigned(result.first, result.second)
+                            onAppAssigned(result.app, result.targetCell)
                         }
                     },
                     onDragCancel = {
