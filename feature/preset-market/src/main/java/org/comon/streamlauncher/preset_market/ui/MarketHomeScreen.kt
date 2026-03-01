@@ -7,6 +7,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -37,8 +38,11 @@ fun MarketHomeScreen(
     val recentPresets = viewModel.recentPresetsPaging.collectAsLazyPagingItems()
     var searchQuery by remember { mutableStateOf("") }
     var showSignIn by remember { mutableStateOf(false) }
+    var showSignOutDialog by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+
+    val signInSuccessMessage = stringResource(R.string.preset_market_sign_in_success)
 
     LaunchedEffect(Unit) {
         viewModel.effect.collect { effect ->
@@ -47,8 +51,32 @@ fun MarketHomeScreen(
                 is PresetMarketSideEffect.NavigateToSearch -> onNavigateToSearch(effect.query)
                 is PresetMarketSideEffect.ShowError -> snackbarHostState.showSnackbar(effect.message)
                 is PresetMarketSideEffect.RequireSignIn -> showSignIn = true
+                is PresetMarketSideEffect.SignInSuccess -> snackbarHostState.showSnackbar(signInSuccessMessage)
             }
         }
+    }
+
+    if (showSignOutDialog) {
+        AlertDialog(
+            onDismissRequest = { showSignOutDialog = false },
+            title = { Text(stringResource(R.string.preset_market_logout)) },
+            text = { Text(stringResource(R.string.preset_market_logout_confirm)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showSignOutDialog = false
+                        viewModel.handleIntent(PresetMarketIntent.SignOut)
+                    }
+                ) {
+                    Text(stringResource(R.string.preset_market_logout))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSignOutDialog = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            },
+        )
     }
 
     if (showSignIn) {
@@ -78,12 +106,12 @@ fun MarketHomeScreen(
                 },
                 actions = {
                     if (state.currentUser != null) {
-                        IconButton(onClick = { viewModel.handleIntent(PresetMarketIntent.SignOut) }) {
+                        IconButton(onClick = { showSignOutDialog = true }) {
                             Icon(Icons.Default.AccountCircle, contentDescription = stringResource(R.string.preset_market_logout))
                         }
                     } else {
                         IconButton(onClick = { showSignIn = true }) {
-                            Icon(Icons.Default.AccountCircle, contentDescription = stringResource(R.string.preset_market_login))
+                            Icon(Icons.Default.Person, contentDescription = stringResource(R.string.preset_market_login))
                         }
                     }
                 },

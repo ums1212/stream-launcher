@@ -1,5 +1,36 @@
 # StreamLauncher 개발 로그
 
+## [2026-03-02] feat(preset-market): 로그아웃 확인 다이얼로그 및 로그인 상태 아이콘 구분 추가
+
+### 목표
+
+프리셋 마켓 화면에서 실수로 로그아웃되는 것을 방지하기 위해 로그아웃 전 확인 다이얼로그를 추가하고, 로그인/비로그인 상태를 아이콘으로 시각적으로 구분한다. 또한 로그인 성공 시 스낵바 피드백을 제공한다.
+
+### 변경 사항
+
+| # | 계층 | 파일 | 변경 내용 |
+|---|------|------|----------|
+| 1 | `Feature(PresetMarket)` | `ui/MarketHomeScreen.kt` | `showSignOutDialog` 상태 추가; 로그인 상태 아이콘 클릭 시 즉시 로그아웃 → `AlertDialog` 표시로 변경 |
+| 2 | `Feature(PresetMarket)` | `ui/MarketHomeScreen.kt` | 로그아웃 확인 `AlertDialog` 추가: 제목 "로그아웃", 내용 "로그아웃 하시겠습니까?", 버튼 "로그아웃" / "취소" |
+| 3 | `Feature(PresetMarket)` | `ui/MarketHomeScreen.kt` | 비로그인 아이콘 `AccountCircle` → `Person`으로 변경해 로그인/비로그인 상태 시각적 구분 |
+| 4 | `Feature(PresetMarket)` | `ui/MarketHomeScreen.kt` | `SignInSuccess` 사이드 이펙트 수신 시 "로그인 성공" 스낵바 표시; `stringResource`를 `LaunchedEffect` 외부에서 사전 캐싱 |
+| 5 | `Feature(PresetMarket)` | `PresetMarketContract.kt` | `PresetMarketSideEffect`에 `SignInSuccess` 추가 |
+| 6 | `Feature(PresetMarket)` | `PresetMarketViewModel.kt` | `signIn()` 성공 핸들러에서 `SignInSuccess` side effect 전송 추가 |
+| 7 | `Feature(PresetMarket)` | `res/values/strings.xml` | `preset_market_logout_confirm` ("로그아웃 하시겠습니까?"), `preset_market_sign_in_success` ("로그인 성공") 추가 |
+
+### 검증 결과
+
+- 코드 리뷰 수준 검증 (빌드 미실행)
+
+### 설계 결정 및 근거
+
+- **로그아웃 확인 다이얼로그를 UI 레이어 로컬 상태로 처리**: 로그아웃 확인은 순수 UI 관심사이므로 ViewModel에 intent를 추가하지 않고 `showSignOutDialog` 로컬 상태로 관리. 실제 로그아웃 실행(`SignOut` intent)은 다이얼로그 확인 버튼에서만 발생.
+- **아이콘 구분 — `AccountCircle` vs `Person`**: 로그인 상태는 채워진 원형 프로필(`AccountCircle`)로 "계정이 연결됨"을 표현, 비로그인 상태는 윤곽선 형태의 단순 사람 아이콘(`Person`)으로 "미연결"을 표현. material-icons-extended 의존성 없이 기본 아이콘 세트에서 조달.
+- **`stringResource`를 `LaunchedEffect` 외부에서 캐싱**: Compose의 `stringResource`는 컴포저블 컨텍스트에서만 호출 가능하므로, 코루틴 내부(LaunchedEffect)에서 직접 호출 불가. 변수로 미리 읽어 코루틴 클로저에서 참조하는 표준 패턴 적용.
+- **`SignInSuccess` 전용 side effect 추가**: 기존 `ShowError`(Snackbar)를 공유 메시지로 재사용하는 것보다 의도를 명확히 하고, 향후 로그인 성공 시 추가 처리(예: 화면 갱신, 환영 메시지 변경)로 확장하기 쉽도록 별도 side effect로 분리.
+
+---
+
 ## [2026-03-02] fix(settings/preset-market): 프리셋 UI 버그 수정 및 개수 제한 경고 추가
 
 ### 목표

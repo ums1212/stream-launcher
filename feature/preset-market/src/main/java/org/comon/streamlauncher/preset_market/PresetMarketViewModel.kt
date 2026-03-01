@@ -77,6 +77,7 @@ class PresetMarketViewModel @Inject constructor(
             signInWithGoogleUseCase(idToken)
                 .onSuccess { user ->
                     updateState { copy(currentUser = user) }
+                    sendEffect(PresetMarketSideEffect.SignInSuccess)
                 }
                 .onFailure { e ->
                     sendEffect(PresetMarketSideEffect.ShowError(e.message ?: "로그인 실패"))

@@ -32,4 +32,5 @@ sealed interface PresetMarketSideEffect : UiSideEffect {
     data class NavigateToSearch(val query: String) : PresetMarketSideEffect
     data class ShowError(val message: String) : PresetMarketSideEffect
     data object RequireSignIn : PresetMarketSideEffect
+    data object SignInSuccess : PresetMarketSideEffect
 }
