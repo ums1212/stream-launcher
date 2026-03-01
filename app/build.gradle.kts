@@ -4,6 +4,8 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.hilt.android)
     alias(libs.plugins.ksp)
+    id("com.google.gms.google-services")
+    id("com.google.firebase.crashlytics")
 }
 
 android {
@@ -89,4 +91,8 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
     debugImplementation(libs.leakcanary.android)
+
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.analytics)
+    implementation(libs.firebase.crashlytics)
 }
