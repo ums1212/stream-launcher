@@ -44,6 +44,7 @@ import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.RssFeed
 import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material.icons.rounded.Wallpaper
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -54,6 +55,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -402,6 +404,7 @@ private fun ImageSettingsContent(
     val cellShape = RoundedCornerShape(8.dp)
 
     var selectedCell by remember { mutableStateOf(GridCell.TOP_LEFT) }
+    var showResetDialog by remember { mutableStateOf(false) }
 
     val idleImageLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
@@ -642,6 +645,41 @@ private fun ImageSettingsContent(
                 Text(text = stringResource(R.string.settings_expanded_image))
             }
         }
+
+        OutlinedButton(
+            onClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                showResetDialog = true
+            },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(text = stringResource(R.string.settings_image_reset))
+        }
+    }
+
+    if (showResetDialog) {
+        AlertDialog(
+            onDismissRequest = { showResetDialog = false },
+            text = {
+                Text(text = stringResource(R.string.settings_image_reset_dialog_message))
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onIntent(SettingsIntent.ResetAllGridImages)
+                        showResetDialog = false
+                    },
+                ) {
+                    Text(text = stringResource(R.string.preset_confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showResetDialog = false }) {
+                    Text(text = stringResource(R.string.cancel))
+                }
+            },
+        )
     }
 }
 

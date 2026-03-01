@@ -2,6 +2,35 @@
 
 ---
 
+## [2026-03-01] feat(settings): 이미지 설정 초기화 버튼 및 확인 다이얼로그 추가
+
+### 목표
+
+홈 이미지 설정 화면(`ImageSettingsContent`)에서 선택된 모든 그리드 셀 이미지를 한 번에 초기화할 수 있는 버튼과, 실수 방지를 위한 확인 다이얼로그를 구현한다.
+
+### 변경 사항
+
+| # | 계층 | 파일 | 변경 내용 |
+|---|------|------|----------|
+| 1 | `Feature(Settings)` | `SettingsContract.kt` | `ResetAllGridImages` data object intent 추가 |
+| 2 | `ViewModel` | `SettingsViewModel.kt` | `handleIntent`에 `ResetAllGridImages` 분기 추가; `resetAllGridImages()` 함수 구현 — 4개 GridCell 전체 이미지 URI를 null로 초기화하고 DataStore에 영속화 |
+| 3 | `Resources` | `strings.xml` | `settings_image_reset`("이미지 초기화"), `settings_image_reset_dialog_message`("이미지 셋팅을 초기화하시겠습니까?") 문자열 추가 |
+| 4 | `UI` | `SettingsScreen.kt` | `AlertDialog`, `TextButton` import 추가; `showResetDialog` 상태 변수 추가; 이미지 선택 버튼 Row 하단에 전체 너비 `OutlinedButton`("이미지 초기화") 추가; `AlertDialog` 컴포저블 추가 — "확인" 클릭 시 `ResetAllGridImages` intent 발행 후 닫힘, "취소" 클릭 시 그대로 닫힘 |
+
+### 검증 결과
+
+- 파일 수정 완료, 컴파일 오류 없음 (import 누락 없음, sealed interface 패턴 준수)
+- 기존 이미지 선택/저장 흐름(`SetGridImage`) 영향 없음 — 독립적인 버튼 및 Intent로 추가됨
+
+### 설계 결정 및 근거
+
+- **`OutlinedButton` 사용:** 초기화는 이미지 선택보다 낮은 우선순위의 보조 액션이므로 Filled 버튼 대신 `OutlinedButton`으로 시각적 위계를 구분.
+- **다이얼로그를 Column 외부에 배치:** Compose에서 `AlertDialog`는 컨텐츠 계층 밖(`if (showResetDialog)` 조건부 렌더링)에 두는 것이 레이아웃 중첩 없이 올바르게 동작하며, 기존 `NoticeDialog` 패턴과 일치.
+- **기존 문자열 재사용(`preset_confirm`, `cancel`):** 새 문자열을 최소화하여 리소스 중복 방지.
+- **낙관적 업데이트 패턴 유지:** state를 즉시 반영한 뒤 코루틴으로 DataStore 영속화 — 기존 ViewModel 패턴 그대로 적용.
+
+---
+
 ## [2026-02-28] feat(settings): 런처 설정 프리셋 기능 전체 구현 및 시스템 배경화면 권한 연동
 
 ### 목표

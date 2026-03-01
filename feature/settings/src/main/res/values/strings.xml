@@ -11,6 +11,8 @@
     <string name="settings_color_selected">선택됨</string>
     <string name="settings_idle_image">축소 이미지</string>
     <string name="settings_expanded_image">확장 이미지</string>
+    <string name="settings_image_reset">이미지 초기화</string>
+    <string name="settings_image_reset_dialog_message">이미지 셋팅을 초기화하시겠습니까?</string>
     <string name="settings_idle_label">축소</string>
     <string name="settings_expanded_label">확장</string>
     <string name="settings_feed_title">피드 설정</string>

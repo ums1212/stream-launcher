@@ -82,6 +82,7 @@ class SettingsViewModel @Inject constructor(
             is SettingsIntent.SavePreset -> savePreset(intent)
             is SettingsIntent.LoadPreset -> loadPreset(intent)
             is SettingsIntent.DeletePreset -> deletePreset(intent.preset)
+            is SettingsIntent.ResetAllGridImages -> resetAllGridImages()
         }
     }
 
@@ -211,6 +212,16 @@ class SettingsViewModel @Inject constructor(
                 preset.wallpaperUri?.let { uri -> 
                     wallpaperHelper.setWallpaperFromPreset(uri)
                 }
+            }
+        }
+    }
+
+    private fun resetAllGridImages() {
+        val emptyImages = GridCell.entries.associateWith { GridCellImage(it) }
+        updateState { copy(gridCellImages = emptyImages) }
+        viewModelScope.launch {
+            GridCell.entries.forEach { cell ->
+                saveGridCellImageUseCase(cell, null, null)
             }
         }
     }

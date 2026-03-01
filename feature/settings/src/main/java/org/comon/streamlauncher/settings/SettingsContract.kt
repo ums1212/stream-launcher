@@ -52,6 +52,7 @@ sealed interface SettingsIntent : UiIntent {
         val loadTheme: Boolean
     ) : SettingsIntent
     data class DeletePreset(val preset: Preset) : SettingsIntent
+    data object ResetAllGridImages : SettingsIntent
 }
 
 sealed interface SettingsSideEffect : UiSideEffect
