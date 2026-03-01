@@ -2,6 +2,43 @@
 
 ---
 
+## [2026-03-01] refactor(settings): 네비게이션 구조를 NavHost 기반으로 리팩토링
+
+### 목표
+
+`SettingsScreen` 내부의 `when(currentTab)` 분기로 서브화면을 전환하던 방식을 제거하고, 최상위 `NavHost`에 `launcher` / `settings_detail/{menu}` 두 destination을 분리함으로써 런처 Pager와 설정 상세 화면을 독립된 화면으로 관리한다. 설정 상세 화면은 공통 Scaffold(`SettingsDetailScreen`)에서 메뉴에 따라 content만 교체하는 방식을 채택한다.
+
+### 변경 사항
+
+| # | 계층 | 파일 | 변경 내용 |
+|---|------|------|----------|
+| 1 | `Feature(Settings)` | `navigation/SettingsRoute.kt` (신규) | `SettingsRoute` object(라우트 상수 + `detail()` 헬퍼) 및 `SettingsMenu` enum(`COLOR`, `IMAGE`, `FEED`, `APP_DRAWER`, `PRESET`) 정의 |
+| 2 | `Feature(Settings)` | `build.gradle.kts` | `androidx.navigation.compose` 의존성 추가 |
+| 3 | `Feature(Settings)` | `SettingsContract.kt` | `SettingsState`에서 `currentTab` 필드 제거; `SettingsIntent.ChangeTab` 제거; `SettingsSideEffect.NavigateToMain` data object 추가 |
+| 4 | `Feature(Settings)` | `SettingsViewModel.kt` | `ChangeTab` 핸들러 제거; `ResetTab` → `sendEffect(NavigateToMain)` 으로 변경; `SettingsTab` import 제거 |
+| 5 | `Feature(Settings)` | `SettingsScreen.kt` | `state` 파라미터 제거; `onNavigate: (String) -> Unit` 파라미터 추가; `BackHandler` / `when(currentTab)` 제거 → `MainSettingsContent`만 렌더링; 네비게이션 타일 클릭 → `onNavigate(SettingsRoute.detail(...))` 위임; 서브 컴포저블 `private` → `internal`; `SettingsPageHeader` 함수 삭제; 각 서브 컴포저블에서 헤더 코드 제거 |
+| 6 | `Feature(Settings)` | `ui/SettingsDetailScreen.kt` (신규) | 공통 Scaffold 래퍼: `glassEffect(glassSurface)` 배경, `TopAppBar`(뒤로가기 + 메뉴 타이틀), `SettingsMenu`에 따라 content 교체 |
+| 7 | `Feature(Settings)` | `model/SettingsTab.kt` | 파일 삭제 |
+| 8 | `App` | `MainActivity.kt` | `rememberNavController()` 추가; 기존 `CrossPagerNavigation` 블록을 `NavHost` > `composable(LAUNCHER)` 으로 래핑; `composable(DETAIL)` destination 추가(슬라이드 전환 애니메이션); `settingsViewModel.effect` collect에 `NavigateToMain` → `popBackStack(LAUNCHER)` 핸들러 추가; `SettingsScreen`에 `onNavigate = { navController.navigate(it) }` 전달 |
+| 9 | `Feature(Settings)` | `SettingsViewModelTest.kt` | `ChangeTab` / `SettingsTab` 관련 테스트 1개 제거; `ResetTab` 테스트 → `NavigateToMain` side effect 발행 검증으로 교체(Turbine `effect.test {}` 패턴) |
+
+### 검증 결과
+
+- `assembleDebug` BUILD SUCCESSFUL
+- 전체 unit test BUILD SUCCESSFUL (실패 0건)
+- (수동) 설정 메인 타일 클릭 → 슬라이드 전환으로 상세 화면 진입 확인
+- (수동) 뒤로가기 → 런처(설정 Pager 위치) 복귀 확인
+- (수동) HOME 버튼 → `NavigateToMain` side effect → `popBackStack` → 런처 홈 복귀 확인
+
+### 설계 결정 및 근거
+
+- **공통 Scaffold 방식 채택 (방식 B):** 각 서브화면을 개별 NavGraph destination으로 분리하는 대신 `SettingsDetailScreen` 하나에서 `when(menu)` content 교체 방식을 선택. destination 수를 최소화하면서도 TopAppBar·배경 등 공통 UI를 한 곳에서 관리할 수 있어 유지보수에 유리.
+- **`SettingsPageHeader` 완전 삭제:** Scaffold의 `TopAppBar`가 이미 메뉴별 타이틀을 표시하므로 각 서브 컴포저블 내부의 `SettingsPageHeader`는 중복 렌더링. `showHeader` 조건 분기를 거치지 않고 함수 자체를 제거해 불필요한 코드를 원천 차단.
+- **`SettingsDetailScreen`을 `public`으로 노출:** 멀티모듈 구조에서 `internal`은 같은 Gradle 모듈 내에서만 접근 가능하므로 `app` 모듈의 `MainActivity`에서 호출하려면 `public` 필요.
+- **`glassEffect(overlayColor = glassSurface)` 적용:** `SettingsScreen`이 렌더링되는 `UpPage`와 동일한 `glassSurface` 색상을 사용해 시각적 일관성 유지.
+
+---
+
 ## [2026-03-01] feat(settings): 이미지 설정 초기화 버튼 및 확인 다이얼로그 추가
 
 ### 목표

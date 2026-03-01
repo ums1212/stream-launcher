@@ -19,6 +19,8 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -26,11 +28,14 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color
 import androidx.core.graphics.ColorUtils
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import dagger.hilt.android.AndroidEntryPoint
-import androidx.compose.ui.graphics.Color
 import org.comon.streamlauncher.apps_drawer.ui.AppDrawerScreen
 import org.comon.streamlauncher.domain.model.ColorPresets
 import org.comon.streamlauncher.launcher.FeedSideEffect
@@ -42,8 +47,12 @@ import org.comon.streamlauncher.launcher.ui.FeedScreen
 import org.comon.streamlauncher.launcher.ui.HomeScreen
 import org.comon.streamlauncher.navigation.CrossPagerNavigation
 import org.comon.streamlauncher.settings.SettingsIntent
+import org.comon.streamlauncher.settings.SettingsSideEffect
 import org.comon.streamlauncher.settings.SettingsViewModel
+import org.comon.streamlauncher.settings.navigation.SettingsMenu
+import org.comon.streamlauncher.settings.navigation.SettingsRoute
 import org.comon.streamlauncher.settings.ui.NoticeDialog
+import org.comon.streamlauncher.settings.ui.SettingsDetailScreen
 import org.comon.streamlauncher.settings.ui.SettingsScreen
 import org.comon.streamlauncher.ui.dragdrop.DragDropState
 import org.comon.streamlauncher.ui.dragdrop.LocalDragDropState
@@ -202,6 +211,8 @@ class MainActivity : ComponentActivity() {
             val settingsState by settingsViewModel.uiState.collectAsStateWithLifecycle()
             val preset = ColorPresets.getByIndex(settingsState.colorPresetIndex)
             val dragDropState = remember { DragDropState() }
+            val navController = rememberNavController()
+
             StreamLauncherTheme(
                 accentPrimaryOverride = Color(preset.accentPrimaryArgb),
                 accentSecondaryOverride = Color(preset.accentSecondaryArgb),
@@ -259,49 +270,83 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                CrossPagerNavigation(
-                    resetTrigger = resetTrigger,
-                    feedContent = { isVisible ->
-                        FeedScreen(
-                            state = feedState,
-                            isVisible = isVisible,
-                            onIntent = feedViewModel::handleIntent,
-                        )
-                    },
-                    settingsContent = {
-                        SettingsScreen(
+                LaunchedEffect(Unit) {
+                    settingsViewModel.effect.collect { effect ->
+                        when (effect) {
+                            is SettingsSideEffect.NavigateToMain ->
+                                navController.popBackStack(SettingsRoute.LAUNCHER, false)
+                        }
+                    }
+                }
+
+                NavHost(
+                    navController = navController,
+                    startDestination = SettingsRoute.LAUNCHER,
+                ) {
+                    composable(route = SettingsRoute.LAUNCHER) {
+                        CrossPagerNavigation(
+                            resetTrigger = resetTrigger,
+                            feedContent = { isVisible ->
+                                FeedScreen(
+                                    state = feedState,
+                                    isVisible = isVisible,
+                                    onIntent = feedViewModel::handleIntent,
+                                )
+                            },
+                            settingsContent = {
+                                SettingsScreen(
+                                    onIntent = settingsViewModel::handleIntent,
+                                    onNavigate = { navController.navigate(it) },
+                                )
+                            },
+                            appDrawerContent = {
+                                AppDrawerScreen(
+                                    searchQuery = uiState.searchQuery,
+                                    filteredApps = uiState.filteredApps,
+                                    onSearch = { viewModel.handleIntent(HomeIntent.Search(it)) },
+                                    onAppClick = { viewModel.handleIntent(HomeIntent.ClickApp(it)) },
+                                    onAppAssigned = { app, cell ->
+                                        viewModel.handleIntent(HomeIntent.AssignAppToCell(app, cell))
+                                    },
+                                    columns = uiState.appDrawerGridColumns,
+                                    rows = uiState.appDrawerGridRows,
+                                    iconSizeRatio = uiState.appDrawerIconSizeRatio,
+                                )
+                            },
+                            isWidgetEditMode = isWidgetEditMode,
+                            widgetContent = {
+                                WidgetScreen(
+                                    widgetSlots = widgetSlots,
+                                    appWidgetHost = appWidgetHost,
+                                    onAddWidgetClick = ::launchWidgetPicker,
+                                    onDeleteWidgetClick = ::deleteWidget,
+                                    isEditMode = isWidgetEditMode,
+                                    onEditModeChange = { widgetViewModel.setEditMode(it) }
+                                )
+                            },
+                            isHomeEditMode = uiState.editingCell != null,
+                        ) {
+                            HomeScreen(state = uiState, onIntent = viewModel::handleIntent)
+                        }
+                    }
+                    composable(
+                        route = SettingsRoute.DETAIL,
+                        enterTransition = { slideInHorizontally(initialOffsetX = { it }) },
+                        exitTransition = { slideOutHorizontally(targetOffsetX = { it }) },
+                        popEnterTransition = { slideInHorizontally(initialOffsetX = { -it }) },
+                        popExitTransition = { slideOutHorizontally(targetOffsetX = { it }) },
+                    ) { backStackEntry ->
+                        val menuStr = backStackEntry.arguments?.getString("menu")
+                            ?: return@composable
+                        val menu = runCatching { SettingsMenu.valueOf(menuStr) }.getOrNull()
+                            ?: return@composable
+                        SettingsDetailScreen(
+                            menu = menu,
                             state = settingsState,
                             onIntent = settingsViewModel::handleIntent,
+                            onBack = { navController.popBackStack() },
                         )
-                    },
-                    appDrawerContent = {
-                        AppDrawerScreen(
-                            searchQuery = uiState.searchQuery,
-                            filteredApps = uiState.filteredApps,
-                            onSearch = { viewModel.handleIntent(HomeIntent.Search(it)) },
-                            onAppClick = { viewModel.handleIntent(HomeIntent.ClickApp(it)) },
-                            onAppAssigned = { app, cell ->
-                                viewModel.handleIntent(HomeIntent.AssignAppToCell(app, cell))
-                            },
-                            columns = uiState.appDrawerGridColumns,
-                            rows = uiState.appDrawerGridRows,
-                            iconSizeRatio = uiState.appDrawerIconSizeRatio,
-                        )
-                    },
-                    isWidgetEditMode = isWidgetEditMode,
-                    widgetContent = {
-                        WidgetScreen(
-                            widgetSlots = widgetSlots,
-                            appWidgetHost = appWidgetHost,
-                            onAddWidgetClick = ::launchWidgetPicker,
-                            onDeleteWidgetClick = ::deleteWidget,
-                            isEditMode = isWidgetEditMode,
-                            onEditModeChange = { widgetViewModel.setEditMode(it) }
-                        )
-                    },
-                    isHomeEditMode = uiState.editingCell != null,
-                ) {
-                    HomeScreen(state = uiState, onIntent = viewModel::handleIntent)
+                    }
                 }
 
                 if (settingsState.showNoticeDialog) {

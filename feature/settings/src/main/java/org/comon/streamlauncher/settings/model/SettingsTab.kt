@@ -1,4 +1,0 @@
-package org.comon.streamlauncher.settings.model
-
-/** 설정 화면의 서브 탭 */
-enum class SettingsTab { MAIN, COLOR, IMAGE, FEED, APP_DRAWER, PRESET }

@@ -1,5 +1,6 @@
 package org.comon.streamlauncher.settings
 
+import app.cash.turbine.test
 import io.mockk.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -21,7 +22,6 @@ import org.comon.streamlauncher.domain.usecase.SaveFeedSettingsUseCase
 import org.comon.streamlauncher.domain.usecase.SaveGridCellImageUseCase
 import org.comon.streamlauncher.domain.usecase.SavePresetUseCase
 import org.comon.streamlauncher.settings.model.ImageType
-import org.comon.streamlauncher.settings.model.SettingsTab
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -210,19 +210,17 @@ class SettingsViewModelTest {
         coVerify { saveFeedSettingsUseCase("chzzk123", "yt456") }
     }
 
-    // 9. ResetTab → currentTab = MAIN
+    // 9. ResetTab → NavigateToMain side effect 발행
     @Test
-    fun `ResetTab 처리 시 currentTab이 MAIN으로 변경됨`() = runTest {
+    fun `ResetTab 처리 시 NavigateToMain side effect가 발행됨`() = runTest {
         testDispatcher.scheduler.advanceUntilIdle()
 
-        viewModel.handleIntent(SettingsIntent.ChangeTab(SettingsTab.COLOR))
-        testDispatcher.scheduler.advanceUntilIdle()
-        assertEquals(SettingsTab.COLOR, viewModel.uiState.value.currentTab)
+        viewModel.effect.test {
+            viewModel.handleIntent(SettingsIntent.ResetTab)
+            testDispatcher.scheduler.advanceUntilIdle()
 
-        viewModel.handleIntent(SettingsIntent.ResetTab)
-        testDispatcher.scheduler.advanceUntilIdle()
-
-        assertEquals(SettingsTab.MAIN, viewModel.uiState.value.currentTab)
+            assertEquals(SettingsSideEffect.NavigateToMain, awaitItem())
+        }
     }
 
     // 10. ShowNotice → showNoticeDialog = true

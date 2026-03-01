@@ -17,7 +17,6 @@ import org.comon.streamlauncher.domain.usecase.SaveFeedSettingsUseCase
 import org.comon.streamlauncher.domain.usecase.SaveGridCellImageUseCase
 import org.comon.streamlauncher.domain.usecase.SavePresetUseCase
 import org.comon.streamlauncher.settings.model.ImageType
-import org.comon.streamlauncher.settings.model.SettingsTab
 import org.comon.streamlauncher.ui.BaseViewModel
 import javax.inject.Inject
 
@@ -64,7 +63,6 @@ class SettingsViewModel @Inject constructor(
 
     override fun handleIntent(intent: SettingsIntent) {
         when (intent) {
-            is SettingsIntent.ChangeTab -> updateState { copy(currentTab = intent.tab) }
             is SettingsIntent.ChangeAccentColor -> changeAccentColor(intent.presetIndex)
             is SettingsIntent.SetGridImage -> setGridImage(intent.cell, intent.type, intent.uri)
             is SettingsIntent.SaveFeedSettings -> saveFeedSettings(
@@ -78,7 +76,7 @@ class SettingsViewModel @Inject constructor(
             )
             is SettingsIntent.ShowNotice -> updateState { copy(showNoticeDialog = true) }
             is SettingsIntent.DismissNotice -> dismissNotice()
-            is SettingsIntent.ResetTab -> updateState { copy(currentTab = SettingsTab.MAIN) }
+            is SettingsIntent.ResetTab -> sendEffect(SettingsSideEffect.NavigateToMain)
             is SettingsIntent.SavePreset -> savePreset(intent)
             is SettingsIntent.LoadPreset -> loadPreset(intent)
             is SettingsIntent.DeletePreset -> deletePreset(intent.preset)

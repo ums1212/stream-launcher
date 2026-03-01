@@ -4,7 +4,6 @@ import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.provider.Settings
 import android.widget.Toast
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -47,7 +46,6 @@ import androidx.compose.material.icons.rounded.Wallpaper
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -88,36 +86,29 @@ import org.comon.streamlauncher.settings.R
 import org.comon.streamlauncher.settings.SettingsIntent
 import org.comon.streamlauncher.settings.SettingsState
 import org.comon.streamlauncher.settings.model.ImageType
-import org.comon.streamlauncher.settings.model.SettingsTab
+import org.comon.streamlauncher.settings.navigation.SettingsMenu
+import org.comon.streamlauncher.settings.navigation.SettingsRoute
 import org.comon.streamlauncher.ui.theme.StreamLauncherTheme
 
 @Composable
 fun SettingsScreen(
-    state: SettingsState,
     onIntent: (SettingsIntent) -> Unit,
+    onNavigate: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    BackHandler(enabled = state.currentTab != SettingsTab.MAIN) {
-        onIntent(SettingsIntent.ChangeTab(SettingsTab.MAIN))
-    }
-
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier.fillMaxSize(),
     ) {
-        when (state.currentTab) {
-            SettingsTab.MAIN -> MainSettingsContent(onIntent = onIntent)
-            SettingsTab.COLOR -> ColorSettingsContent(state = state, onIntent = onIntent)
-            SettingsTab.IMAGE -> ImageSettingsContent(state = state, onIntent = onIntent)
-            SettingsTab.FEED -> FeedSettingsContent(state = state, onIntent = onIntent)
-            SettingsTab.APP_DRAWER -> AppDrawerSettingsContent(state = state, onIntent = onIntent)
-            SettingsTab.PRESET -> PresetSettingsContent(state = state, onIntent = onIntent)
-        }
+        MainSettingsContent(onNavigate = onNavigate, onIntent = onIntent)
     }
 }
 
 @Composable
-private fun MainSettingsContent(onIntent: (SettingsIntent) -> Unit) {
+private fun MainSettingsContent(
+    onNavigate: (String) -> Unit,
+    onIntent: (SettingsIntent) -> Unit,
+) {
     val context = LocalContext.current
     val accentPrimary = StreamLauncherTheme.colors.accentPrimary
     val accentSecondary = StreamLauncherTheme.colors.accentSecondary
@@ -136,14 +127,14 @@ private fun MainSettingsContent(onIntent: (SettingsIntent) -> Unit) {
                 label = stringResource(R.string.settings_theme_color),
                 icon = Icons.Rounded.Palette,
                 accentColor = accentPrimary,
-                onClick = { onIntent(SettingsIntent.ChangeTab(SettingsTab.COLOR)) },
+                onClick = { onNavigate(SettingsRoute.detail(SettingsMenu.COLOR.name)) },
                 modifier = Modifier.weight(1f),
             )
             GlassSettingsTile(
                 label = stringResource(R.string.settings_home_image),
                 icon = Icons.Rounded.Image,
                 accentColor = lerp(accentPrimary, accentSecondary, 0.17f),
-                onClick = { onIntent(SettingsIntent.ChangeTab(SettingsTab.IMAGE)) },
+                onClick = { onNavigate(SettingsRoute.detail(SettingsMenu.IMAGE.name)) },
                 modifier = Modifier.weight(1f),
             )
         }
@@ -155,14 +146,14 @@ private fun MainSettingsContent(onIntent: (SettingsIntent) -> Unit) {
                 label = stringResource(R.string.settings_app_drawer),
                 icon = Icons.Rounded.GridView,
                 accentColor = lerp(accentPrimary, accentSecondary, 0.33f),
-                onClick = { onIntent(SettingsIntent.ChangeTab(SettingsTab.APP_DRAWER)) },
+                onClick = { onNavigate(SettingsRoute.detail(SettingsMenu.APP_DRAWER.name)) },
                 modifier = Modifier.weight(1f),
             )
             GlassSettingsTile(
                 label = stringResource(R.string.settings_feed),
                 icon = Icons.Rounded.RssFeed,
                 accentColor = lerp(accentPrimary, accentSecondary, 0.5f),
-                onClick = { onIntent(SettingsIntent.ChangeTab(SettingsTab.FEED)) },
+                onClick = { onNavigate(SettingsRoute.detail(SettingsMenu.FEED.name)) },
                 modifier = Modifier.weight(1f),
             )
         }
@@ -217,7 +208,7 @@ private fun MainSettingsContent(onIntent: (SettingsIntent) -> Unit) {
                 label = stringResource(R.string.settings_preset),
                 icon = Icons.Rounded.Save,
                 accentColor = lerp(accentPrimary, accentSecondary, 0.4f),
-                onClick = { onIntent(SettingsIntent.ChangeTab(SettingsTab.PRESET)) },
+                onClick = { onNavigate(SettingsRoute.detail(SettingsMenu.PRESET.name)) },
                 modifier = Modifier.weight(1f),
             )
         }
@@ -288,41 +279,9 @@ fun GlassSettingsTile(
     }
 }
 
-@Composable
-private fun SettingsPageHeader(
-    title: String,
-    icon: ImageVector,
-) {
-    val accentPrimary = StreamLauncherTheme.colors.accentPrimary
-    val glassOnSurface = StreamLauncherTheme.colors.glassOnSurface
-
-    Column {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = accentPrimary,
-                modifier = Modifier.size(24.dp),
-            )
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleLarge,
-                color = glassOnSurface,
-            )
-        }
-        Spacer(modifier = Modifier.height(8.dp))
-        HorizontalDivider(
-            color = accentPrimary.copy(alpha = 0.4f),
-            thickness = 1.dp,
-        )
-    }
-}
 
 @Composable
-private fun ColorSettingsContent(
+internal fun ColorSettingsContent(
     state: SettingsState,
     onIntent: (SettingsIntent) -> Unit,
 ) {
@@ -335,10 +294,6 @@ private fun ColorSettingsContent(
             .fillMaxSize()
             .padding(16.dp),
     ) {
-        SettingsPageHeader(
-            title = stringResource(R.string.settings_theme_color),
-            icon = Icons.Rounded.Palette,
-        )
         Spacer(modifier = Modifier.height(16.dp))
         LazyVerticalGrid(
             columns = GridCells.Fixed(3),
@@ -394,7 +349,7 @@ private fun ColorSettingsContent(
 }
 
 @Composable
-private fun ImageSettingsContent(
+internal fun ImageSettingsContent(
     state: SettingsState,
     onIntent: (SettingsIntent) -> Unit,
 ) {
@@ -433,10 +388,6 @@ private fun ImageSettingsContent(
             .fillMaxSize()
             .padding(16.dp),
     ) {
-        SettingsPageHeader(
-            title = stringResource(R.string.settings_home_image),
-            icon = Icons.Rounded.Image,
-        )
         Spacer(modifier = Modifier.height(16.dp))
 
         // 2×2 미니 그리드 — 셀 선택
@@ -684,7 +635,7 @@ private fun ImageSettingsContent(
 }
 
 @Composable
-private fun FeedSettingsContent(
+internal fun FeedSettingsContent(
     state: SettingsState,
     onIntent: (SettingsIntent) -> Unit,
 ) {
@@ -715,10 +666,6 @@ private fun FeedSettingsContent(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        SettingsPageHeader(
-            title = stringResource(R.string.settings_feed_title),
-            icon = Icons.Rounded.RssFeed,
-        )
 
         OutlinedTextField(
             value = chzzkChannelId,
@@ -765,7 +712,7 @@ private fun FeedSettingsContent(
 }
 
 @Composable
-private fun AppDrawerSettingsContent(
+internal fun AppDrawerSettingsContent(
     state: SettingsState,
     onIntent: (SettingsIntent) -> Unit,
 ) {
@@ -791,10 +738,6 @@ private fun AppDrawerSettingsContent(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
-        SettingsPageHeader(
-            title = stringResource(R.string.settings_app_drawer_title),
-            icon = Icons.Rounded.GridView,
-        )
 
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
