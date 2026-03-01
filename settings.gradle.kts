@@ -11,6 +11,7 @@ pluginManagement {
         gradlePluginPortal()
     }
 }
+@Suppress("UnstableApiUsage")
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
@@ -29,3 +30,4 @@ include(":feature:apps-drawer")
 include(":feature:widget")
 include(":core:network")
 include(":feature:settings")
+include(":feature:preset-market")

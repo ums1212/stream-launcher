@@ -8,6 +8,8 @@ import org.comon.streamlauncher.ui.UiIntent
 import org.comon.streamlauncher.ui.UiSideEffect
 import org.comon.streamlauncher.ui.UiState
 
+
+
 data class SettingsState(
     val colorPresetIndex: Int = 0,
     val gridCellImages: Map<GridCell, GridCellImage> = GridCell.entries.associateWith { GridCellImage(it) },
@@ -19,6 +21,7 @@ data class SettingsState(
     val appDrawerIconSizeRatio: Float = 1.0f,
     val showNoticeDialog: Boolean = false,
     val presets: List<Preset> = emptyList(),
+    val isUploading: Boolean = false,
 ) : UiState
 
 sealed interface SettingsIntent : UiIntent {
@@ -38,7 +41,8 @@ sealed interface SettingsIntent : UiIntent {
         val saveFeed: Boolean,
         val saveDrawer: Boolean,
         val saveWallpaper: Boolean,
-        val saveTheme: Boolean
+        val saveTheme: Boolean,
+        val wallpaperUri: String? = null,
     ) : SettingsIntent
     data class LoadPreset(
         val preset: Preset,
@@ -50,8 +54,18 @@ sealed interface SettingsIntent : UiIntent {
     ) : SettingsIntent
     data class DeletePreset(val preset: Preset) : SettingsIntent
     data object ResetAllGridImages : SettingsIntent
+    data class SignInWithGoogle(val idToken: String) : SettingsIntent
+    data class UploadPreset(
+        val preset: Preset,
+        val description: String,
+        val tags: List<String>,
+        val previewUris: List<String>,
+    ) : SettingsIntent
 }
 
 sealed interface SettingsSideEffect : UiSideEffect {
     data object NavigateToMain : SettingsSideEffect
+    data object UploadSuccess : SettingsSideEffect
+    data class UploadError(val message: String) : SettingsSideEffect
+    data object RequireSignIn : SettingsSideEffect
 }

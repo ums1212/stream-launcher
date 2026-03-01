@@ -21,7 +21,6 @@ data class Preset(
     val hasFeedSettings: Boolean, // Whether feed settings are included in this preset
     val useFeed: Boolean,
     val youtubeChannelId: String,
-    val youtubeChannelName: String,
     val chzzkChannelId: String,
     
     // 3. App Drawer Settings

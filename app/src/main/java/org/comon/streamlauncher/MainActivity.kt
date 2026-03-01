@@ -21,13 +21,17 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
+import org.comon.streamlauncher.preset_market.ui.GoogleSignInHandler
 import androidx.compose.ui.graphics.Color
 import androidx.core.graphics.ColorUtils
 import androidx.lifecycle.Lifecycle
@@ -60,6 +64,11 @@ import org.comon.streamlauncher.ui.theme.StreamLauncherTheme
 import org.comon.streamlauncher.widget.WidgetViewModel
 import org.comon.streamlauncher.widget.ui.WidgetScreen
 import androidx.core.net.toUri
+import android.net.Uri as AndroidUri
+import org.comon.streamlauncher.preset_market.navigation.MarketRoute
+import org.comon.streamlauncher.preset_market.ui.MarketHomeScreen
+import org.comon.streamlauncher.preset_market.ui.MarketSearchResultScreen
+import org.comon.streamlauncher.preset_market.ui.PresetDetailScreen
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -270,11 +279,41 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
+                var showSettingsSignIn by remember { mutableStateOf(false) }
+                val settingsSnackbarHostState = remember { SnackbarHostState() }
+                val settingsScope = rememberCoroutineScope()
+
+                if (showSettingsSignIn) {
+                    GoogleSignInHandler(
+                        onSignInSuccess = { idToken ->
+                            settingsViewModel.handleIntent(
+                                SettingsIntent.SignInWithGoogle(idToken)
+                            )
+                        },
+                        onSignInFailure = { message ->
+                            settingsScope.launch {
+                                settingsSnackbarHostState.showSnackbar(message)
+                            }
+                        },
+                        onDismiss = { showSettingsSignIn = false },
+                    )
+                }
+
                 LaunchedEffect(Unit) {
                     settingsViewModel.effect.collect { effect ->
                         when (effect) {
                             is SettingsSideEffect.NavigateToMain ->
                                 navController.popBackStack(SettingsRoute.LAUNCHER, false)
+                            is SettingsSideEffect.UploadSuccess ->
+                                settingsScope.launch {
+                                    settingsSnackbarHostState.showSnackbar("프리셋이 마켓에 업로드되었습니다!")
+                                }
+                            is SettingsSideEffect.UploadError ->
+                                settingsScope.launch {
+                                    settingsSnackbarHostState.showSnackbar("업로드 실패: ${effect.message}")
+                                }
+                            is SettingsSideEffect.RequireSignIn ->
+                                showSettingsSignIn = true
                         }
                     }
                 }
@@ -344,6 +383,47 @@ class MainActivity : ComponentActivity() {
                             menu = menu,
                             state = settingsState,
                             onIntent = settingsViewModel::handleIntent,
+                            onBack = { navController.popBackStack() },
+                            onNavigateToMarket = { navController.navigate(MarketRoute.HOME) },
+                        )
+                    }
+                    composable(
+                        route = MarketRoute.HOME,
+                        enterTransition = { slideInHorizontally(initialOffsetX = { it }) },
+                        exitTransition = { slideOutHorizontally(targetOffsetX = { it }) },
+                        popEnterTransition = { slideInHorizontally(initialOffsetX = { -it }) },
+                        popExitTransition = { slideOutHorizontally(targetOffsetX = { it }) },
+                    ) {
+                        MarketHomeScreen(
+                            onNavigateToDetail = { navController.navigate(MarketRoute.detail(it)) },
+                            onNavigateToSearch = { navController.navigate(MarketRoute.search(it)) },
+                            onBack = { navController.popBackStack() },
+                        )
+                    }
+                    composable(
+                        route = MarketRoute.SEARCH,
+                        enterTransition = { slideInHorizontally(initialOffsetX = { it }) },
+                        exitTransition = { slideOutHorizontally(targetOffsetX = { it }) },
+                        popEnterTransition = { slideInHorizontally(initialOffsetX = { -it }) },
+                        popExitTransition = { slideOutHorizontally(targetOffsetX = { it }) },
+                    ) { backStackEntry ->
+                        val query = AndroidUri.decode(
+                            backStackEntry.arguments?.getString("query") ?: ""
+                        )
+                        MarketSearchResultScreen(
+                            initialQuery = query,
+                            onNavigateToDetail = { navController.navigate(MarketRoute.detail(it)) },
+                            onBack = { navController.popBackStack() },
+                        )
+                    }
+                    composable(
+                        route = MarketRoute.DETAIL,
+                        enterTransition = { slideInHorizontally(initialOffsetX = { it }) },
+                        exitTransition = { slideOutHorizontally(targetOffsetX = { it }) },
+                        popEnterTransition = { slideInHorizontally(initialOffsetX = { -it }) },
+                        popExitTransition = { slideOutHorizontally(targetOffsetX = { it }) },
+                    ) {
+                        PresetDetailScreen(
                             onBack = { navController.popBackStack() },
                         )
                     }

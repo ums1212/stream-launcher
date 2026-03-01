@@ -30,6 +30,7 @@ fun SettingsDetailScreen(
     state: SettingsState,
     onIntent: (SettingsIntent) -> Unit,
     onBack: () -> Unit,
+    onNavigateToMarket: () -> Unit = {},
 ) {
     val title = stringResource(
         when (menu) {
@@ -82,7 +83,11 @@ fun SettingsDetailScreen(
                 SettingsMenu.IMAGE -> ImageSettingsContent(state = state, onIntent = onIntent)
                 SettingsMenu.FEED -> FeedSettingsContent(state = state, onIntent = onIntent)
                 SettingsMenu.APP_DRAWER -> AppDrawerSettingsContent(state = state, onIntent = onIntent)
-                SettingsMenu.PRESET -> PresetSettingsContent(state = state, onIntent = onIntent)
+                SettingsMenu.PRESET -> PresetSettingsContent(
+                    state = state,
+                    onIntent = onIntent,
+                    onNavigateToMarket = onNavigateToMarket,
+                )
             }
         }
     }

@@ -14,6 +14,7 @@ import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
+import com.google.android.gms.ads.MobileAds
 import dagger.hilt.android.HiltAndroidApp
 import org.comon.streamlauncher.data.worker.FeedSyncWorker
 import org.comon.streamlauncher.ui.component.AppIconFetcher
@@ -32,6 +33,7 @@ class StreamLauncherApplication : Application(), ImageLoaderFactory, Configurati
 
     override fun onCreate() {
         super.onCreate()
+        MobileAds.initialize(this)
         scheduleFeedSync()
     }
 

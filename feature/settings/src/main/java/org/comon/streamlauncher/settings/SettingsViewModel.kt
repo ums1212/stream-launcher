@@ -6,16 +6,21 @@ import kotlinx.coroutines.launch
 import org.comon.streamlauncher.domain.model.GridCell
 import org.comon.streamlauncher.domain.model.GridCellImage
 import org.comon.streamlauncher.domain.model.preset.Preset
+import org.comon.streamlauncher.domain.model.preset.MarketPreset
 import org.comon.streamlauncher.domain.usecase.CheckNoticeUseCase
 import org.comon.streamlauncher.domain.usecase.DeletePresetUseCase
 import org.comon.streamlauncher.domain.usecase.DismissNoticeUseCase
 import org.comon.streamlauncher.domain.usecase.GetAllPresetsUseCase
+import org.comon.streamlauncher.domain.model.preset.MarketUser
+import org.comon.streamlauncher.domain.usecase.ObserveAuthStateUseCase
 import org.comon.streamlauncher.domain.usecase.GetLauncherSettingsUseCase
 import org.comon.streamlauncher.domain.usecase.SaveAppDrawerSettingsUseCase
 import org.comon.streamlauncher.domain.usecase.SaveColorPresetUseCase
 import org.comon.streamlauncher.domain.usecase.SaveFeedSettingsUseCase
 import org.comon.streamlauncher.domain.usecase.SaveGridCellImageUseCase
 import org.comon.streamlauncher.domain.usecase.SavePresetUseCase
+import org.comon.streamlauncher.domain.usecase.SignInWithGoogleUseCase
+import org.comon.streamlauncher.domain.usecase.UploadPresetToMarketUseCase
 import org.comon.streamlauncher.settings.model.ImageType
 import org.comon.streamlauncher.ui.BaseViewModel
 import javax.inject.Inject
@@ -33,9 +38,14 @@ class SettingsViewModel @Inject constructor(
     private val savePresetUseCase: SavePresetUseCase,
     private val deletePresetUseCase: DeletePresetUseCase,
     private val wallpaperHelper: org.comon.streamlauncher.domain.util.WallpaperHelper,
+    private val uploadPresetToMarketUseCase: UploadPresetToMarketUseCase,
+    private val signInWithGoogleUseCase: SignInWithGoogleUseCase,
+    private val observeAuthStateUseCase: ObserveAuthStateUseCase,
 ) : BaseViewModel<SettingsState, SettingsIntent, SettingsSideEffect>(SettingsState()) {
 
     private var currentNoticeVersion: String = ""
+    private var pendingUploadIntent: SettingsIntent.UploadPreset? = null
+    private var cachedMarketUser: MarketUser? = null
 
     init {
         viewModelScope.launch {
@@ -57,6 +67,11 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             getAllPresetsUseCase().collect { presets ->
                 updateState { copy(presets = presets) }
+            }
+        }
+        viewModelScope.launch {
+            observeAuthStateUseCase().collect { user ->
+                cachedMarketUser = user
             }
         }
     }
@@ -81,6 +96,16 @@ class SettingsViewModel @Inject constructor(
             is SettingsIntent.LoadPreset -> loadPreset(intent)
             is SettingsIntent.DeletePreset -> deletePreset(intent.preset)
             is SettingsIntent.ResetAllGridImages -> resetAllGridImages()
+            is SettingsIntent.SignInWithGoogle -> signInAndRetryUpload(intent.idToken)
+            is SettingsIntent.UploadPreset -> uploadPreset(intent)
+        }
+    }
+
+    private fun signInAndRetryUpload(idToken: String) {
+        viewModelScope.launch {
+            signInWithGoogleUseCase(idToken)
+                .onSuccess { pendingUploadIntent?.let { handleIntent(it) } }
+                .onFailure { e -> sendEffect(SettingsSideEffect.UploadError(e.message ?: "로그인 실패")) }
         }
     }
 
@@ -149,9 +174,9 @@ class SettingsViewModel @Inject constructor(
     private fun savePreset(intent: SettingsIntent.SavePreset) {
         viewModelScope.launch {
             val state = currentState
-            // For wallpaper, try to save it if requested
-            val wallpaperPath = if (intent.saveWallpaper) {
-                wallpaperHelper.saveCurrentWallpaperForPreset(System.currentTimeMillis())
+            // 사용자가 선택한 URI를 내부 저장소로 복사
+            val wallpaperPath = if (intent.saveWallpaper && intent.wallpaperUri != null) {
+                wallpaperHelper.copyWallpaperFromUri(intent.wallpaperUri, System.currentTimeMillis())
             } else null
 
             val preset = Preset(
@@ -171,7 +196,6 @@ class SettingsViewModel @Inject constructor(
                 hasFeedSettings = intent.saveFeed,
                 useFeed = true, // Default to true if feed settings saved
                 youtubeChannelId = if (intent.saveFeed) state.youtubeChannelId else "",
-                youtubeChannelName = "", 
                 chzzkChannelId = if (intent.saveFeed) state.chzzkChannelId else "",
                 hasAppDrawerSettings = intent.saveDrawer,
                 appDrawerColumns = if (intent.saveDrawer) state.appDrawerGridColumns else 4,
@@ -228,6 +252,58 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             deletePresetUseCase(preset)
             preset.wallpaperUri?.let { wallpaperHelper.deletePresetWallpaper(it) }
+        }
+    }
+
+    private fun uploadPreset(intent: SettingsIntent.UploadPreset) {
+        if (cachedMarketUser == null) {
+            pendingUploadIntent = intent
+            sendEffect(SettingsSideEffect.RequireSignIn)
+            return
+        }
+        pendingUploadIntent = null
+        viewModelScope.launch {
+            updateState { copy(isUploading = true) }
+            val authorUser = cachedMarketUser
+            val p = intent.preset
+            val marketPreset = MarketPreset(
+                authorUid = authorUser?.uid ?: "",
+                authorDisplayName = authorUser?.displayName ?: "",
+                name = p.name,
+                description = intent.description,
+                tags = intent.tags,
+                hasTopLeftImage = p.hasTopLeftImage,
+                hasTopRightImage = p.hasTopRightImage,
+                hasBottomLeftImage = p.hasBottomLeftImage,
+                hasBottomRightImage = p.hasBottomRightImage,
+                // 로컬 URI → UseCase 내부에서 Storage 업로드 후 URL로 교체됨
+                topLeftIdleUrl      = p.topLeftIdleUri,
+                topLeftExpandedUrl  = p.topLeftExpandedUri,
+                topRightIdleUrl     = p.topRightIdleUri,
+                topRightExpandedUrl = p.topRightExpandedUri,
+                bottomLeftIdleUrl      = p.bottomLeftIdleUri,
+                bottomLeftExpandedUrl  = p.bottomLeftExpandedUri,
+                bottomRightIdleUrl     = p.bottomRightIdleUri,
+                bottomRightExpandedUrl = p.bottomRightExpandedUri,
+                hasFeedSettings = p.hasFeedSettings,
+                useFeed = p.useFeed,
+                youtubeChannelId = p.youtubeChannelId,
+
+                chzzkChannelId = p.chzzkChannelId,
+                hasAppDrawerSettings = p.hasAppDrawerSettings,
+                appDrawerColumns = p.appDrawerColumns,
+                appDrawerRows = p.appDrawerRows,
+                appDrawerIconSizeRatio = p.appDrawerIconSizeRatio,
+                hasWallpaperSettings = p.hasWallpaperSettings,
+                wallpaperUrl = p.wallpaperUri,
+                enableParallax = p.enableParallax,
+                hasThemeSettings = p.hasThemeSettings,
+                themeColorHex = p.themeColorHex,
+            )
+            uploadPresetToMarketUseCase(marketPreset, intent.previewUris)
+                .onSuccess { sendEffect(SettingsSideEffect.UploadSuccess) }
+                .onFailure { e -> sendEffect(SettingsSideEffect.UploadError(e.message ?: "업로드 실패")) }
+            updateState { copy(isUploading = false) }
         }
     }
 }

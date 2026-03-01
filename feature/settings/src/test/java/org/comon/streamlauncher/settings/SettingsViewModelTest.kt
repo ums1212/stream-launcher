@@ -21,6 +21,9 @@ import org.comon.streamlauncher.domain.usecase.SaveColorPresetUseCase
 import org.comon.streamlauncher.domain.usecase.SaveFeedSettingsUseCase
 import org.comon.streamlauncher.domain.usecase.SaveGridCellImageUseCase
 import org.comon.streamlauncher.domain.usecase.SavePresetUseCase
+import org.comon.streamlauncher.domain.usecase.ObserveAuthStateUseCase
+import org.comon.streamlauncher.domain.usecase.SignInWithGoogleUseCase
+import org.comon.streamlauncher.domain.usecase.UploadPresetToMarketUseCase
 import org.comon.streamlauncher.settings.model.ImageType
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -45,6 +48,9 @@ class SettingsViewModelTest {
     private lateinit var savePresetUseCase: SavePresetUseCase
     private lateinit var deletePresetUseCase: DeletePresetUseCase
     private lateinit var wallpaperHelper: org.comon.streamlauncher.domain.util.WallpaperHelper
+    private lateinit var uploadPresetToMarketUseCase: UploadPresetToMarketUseCase
+    private lateinit var signInWithGoogleUseCase: SignInWithGoogleUseCase
+    private lateinit var observeAuthStateUseCase: ObserveAuthStateUseCase
     private lateinit var viewModel: SettingsViewModel
 
     @Before
@@ -66,6 +72,10 @@ class SettingsViewModelTest {
         savePresetUseCase = mockk(relaxed = true)
         deletePresetUseCase = mockk(relaxed = true)
         wallpaperHelper = mockk(relaxed = true)
+        uploadPresetToMarketUseCase = mockk(relaxed = true)
+        signInWithGoogleUseCase = mockk(relaxed = true)
+        observeAuthStateUseCase = mockk()
+        every { observeAuthStateUseCase() } returns flowOf(null)
 
         viewModel = makeViewModel()
     }
@@ -87,6 +97,9 @@ class SettingsViewModelTest {
         savePreset: SavePresetUseCase = savePresetUseCase,
         deletePreset: DeletePresetUseCase = deletePresetUseCase,
         wallpaperUtil: org.comon.streamlauncher.domain.util.WallpaperHelper = wallpaperHelper,
+        uploadToMarket: UploadPresetToMarketUseCase = uploadPresetToMarketUseCase,
+        signInWithGoogle: SignInWithGoogleUseCase = signInWithGoogleUseCase,
+        observeAuthState: ObserveAuthStateUseCase = observeAuthStateUseCase,
     ): SettingsViewModel = SettingsViewModel(
         settingsUseCase,
         colorSaveUseCase,
@@ -99,6 +112,9 @@ class SettingsViewModelTest {
         savePreset,
         deletePreset,
         wallpaperUtil,
+        uploadToMarket,
+        signInWithGoogle,
+        observeAuthState,
     )
 
     // 1. ChangeAccentColor → colorPresetIndex 상태 업데이트

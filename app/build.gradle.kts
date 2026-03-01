@@ -56,6 +56,7 @@ dependencies {
     implementation(project(":feature:apps-drawer"))
     implementation(project(":feature:widget"))
     implementation(project(":feature:settings"))
+    implementation(project(":feature:preset-market"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -67,7 +68,7 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.navigation.compose)
-    implementation("androidx.compose.material:material-icons-extended")
+    implementation(libs.androidx.material.icons.extended)
 
     implementation(libs.coil.compose)
 
@@ -95,4 +96,6 @@ dependencies {
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.analytics)
     implementation(libs.firebase.crashlytics)
+
+    implementation(libs.play.services.ads)
 }

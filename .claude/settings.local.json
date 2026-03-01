@@ -27,7 +27,13 @@
       "Bash(cd:*)",
       "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew :feature:launcher:assembleDebug:*)",
       "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew :feature:launcher:compileDebugKotlin:*)",
-      "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew :feature:settings:assembleDebug:*)"
+      "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew :feature:settings:assembleDebug:*)",
+      "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew :feature:preset-market:assembleDebug:*)",
+      "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew :feature:settings:compileDebugUnitTestKotlin:*)",
+      "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew :feature:settings:compileDebugKotlin:*)",
+      "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew :feature:settings:test:*)",
+      "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew :feature:preset-market:compileDebugKotlin:*)",
+      "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew :core:domain:compileDebugKotlin:*)"
     ]
   }
 }

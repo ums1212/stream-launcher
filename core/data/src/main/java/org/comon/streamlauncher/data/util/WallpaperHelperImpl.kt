@@ -3,16 +3,14 @@ package org.comon.streamlauncher.data.util
 import android.annotation.SuppressLint
 import android.app.WallpaperManager
 import android.content.Context
-import android.graphics.Bitmap
-import android.graphics.drawable.BitmapDrawable
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.comon.streamlauncher.domain.util.WallpaperHelper
 import java.io.File
-import java.io.FileOutputStream
 import javax.inject.Inject
 import javax.inject.Singleton
+import androidx.core.net.toUri
 
 @Singleton
 class WallpaperHelperImpl @Inject constructor(
@@ -22,22 +20,19 @@ class WallpaperHelperImpl @Inject constructor(
         if (!exists()) mkdirs()
     }
 
-    @SuppressLint("MissingPermission")
-    override suspend fun saveCurrentWallpaperForPreset(presetId: Long): String? = withContext(Dispatchers.IO) {
+    // 사용자가 갤러리에서 선택한 이미지 URI를 앱 내부 저장소로 복사 후 경로 반환
+    override suspend fun copyWallpaperFromUri(sourceUri: String, presetId: Long): String? = withContext(Dispatchers.IO) {
         try {
-            val wallpaperManager = WallpaperManager.getInstance(context)
-            val drawable = wallpaperManager.drawable
-            if (drawable is BitmapDrawable) {
-                val file = File(presetDir, "wallpaper_$presetId.png")
-                FileOutputStream(file).use { out ->
-                    drawable.bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
-                }
-                return@withContext file.absolutePath
-            }
+            val destFile = File(presetDir, "wallpaper_$presetId.webp")
+            val uri = sourceUri.toUri()
+            val bytes = ImageCompressor.compressToWebP(context, uri, maxWidth = 2160, quality = 85)
+            if (bytes.isEmpty()) return@withContext null
+            destFile.writeBytes(bytes)
+            destFile.absolutePath
         } catch (e: Exception) {
             e.printStackTrace()
+            null
         }
-        null
     }
 
     @SuppressLint("MissingPermission")
@@ -46,7 +41,6 @@ class WallpaperHelperImpl @Inject constructor(
             val file = File(filePath)
             if (file.exists()) {
                 val wallpaperManager = WallpaperManager.getInstance(context)
-                // Use input stream directly
                 file.inputStream().use { stream ->
                     wallpaperManager.setStream(stream)
                 }

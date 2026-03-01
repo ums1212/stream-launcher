@@ -60,6 +60,12 @@ dependencies {
     implementation(libs.room.ktx)
     ksp(libs.room.compiler)
 
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.firestore)
+    implementation(libs.firebase.storage)
+    implementation(libs.firebase.auth)
+    implementation(libs.paging.runtime)
+
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.turbine)

@@ -1,5 +1,126 @@
 # StreamLauncher 개발 로그
 
+## [2026-03-01] fix(preset-market): 월페이퍼 업로드·클린 아키텍처·UI 오버플로우 수정
+
+### 목표
+
+프리셋 마켓 업로드 후 Firestore에 `wallpaperUrl: null`이 저장되는 버그를 해결하고, ViewModel이 Repository를 직접 참조하는 클린 아키텍처 위반을 수정한다. 추가로 상세 화면의 "포함된 설정" 칩 목록이 가로 오버플로우로 잘리는 레이아웃 버그도 수정한다.
+
+### 변경 사항
+
+| # | 계층 | 파일 | 변경 내용 |
+|---|------|------|----------|
+| 1 | `Domain` | `usecase/ObserveAuthStateUseCase.kt` (신규) | `repository.authStateChanges(): Flow<MarketUser?>` 를 캡슐화; ViewModel의 직접 Repository 의존 제거 |
+| 2 | `Domain` | `usecase/SignOutUseCase.kt` (신규) | `repository.signOut()` 캡슐화 |
+| 3 | `Domain` | `util/WallpaperHelper.kt` (수정) | `saveCurrentWallpaperForPreset(Long)` → `copyWallpaperFromUri(sourceUri: String, presetId: Long): String?` 로 교체; WallpaperManager API 의존 완전 제거 |
+| 4 | `Data` | `util/WallpaperHelperImpl.kt` (수정) | WallpaperManager 기반 캡처 로직 제거; `copyWallpaperFromUri()` 구현 — 사용자가 선택한 `content://` URI를 `ImageCompressor.compressToWebP(context, uri)` 로 WebP 압축 후 내부 저장소 저장 |
+| 5 | `Data` | `util/ImageCompressor.kt` (수정) | `compressToWebP(File, maxWidth, quality): ByteArray` 오버로드 추가 — `BitmapFactory.decodeFile()` 사용(ContentResolver 우회); 공통 `encodeToWebP(Bitmap, ...)` private 헬퍼 추출 |
+| 6 | `Data` | `repository/MarketPresetRepositoryImpl.kt` (수정) | `uploadImage()`: 절대경로(`/`로 시작) → `compressToWebP(File)`, content:// URI → `compressToWebP(context, Uri)` 분기 처리 |
+| 7 | `Data` | `local/room/AppDatabase.kt` (수정) | DB 버전 1→2; `MIGRATION_1_2` 추가 — `youtubeChannelName` 컬럼 제거를 위한 create-copy-drop-rename 패턴(SQLite 3.35 미만 DROP COLUMN 미지원) |
+| 8 | `Data` | `di/DatabaseModule.kt` (수정) | `.addMigrations(AppDatabase.MIGRATION_1_2)` 추가 |
+| 9 | `Data` | `local/room/preset/PresetEntity.kt` (수정) | `youtubeChannelName` 컬럼 제거; `toDomain()`·`toEntity()` 매퍼 반영 |
+| 10 | `Data` | `remote/firestore/MarketPresetDto.kt` (수정) | `youtubeChannelName` 필드 제거; `toDomain()`·`toDto()` 매퍼 반영 |
+| 11 | `Data` | `usecase/DownloadMarketPresetUseCase.kt` (수정) | `youtubeChannelName` 매핑 라인 제거 |
+| 12 | `Domain` | `model/preset/Preset.kt` (수정) | `youtubeChannelName` 필드 제거 |
+| 13 | `Domain` | `model/preset/MarketPreset.kt` (수정) | `youtubeChannelName` 필드 제거 |
+| 14 | `Feature(Settings)` | `SettingsContract.kt` (수정) | `SavePreset`에 `wallpaperUri: String? = null` 파라미터 추가 |
+| 15 | `Feature(Settings)` | `SettingsViewModel.kt` (수정) | `MarketPresetRepository` 직접 의존 제거 → `ObserveAuthStateUseCase` 주입; `savePreset()`: `copyWallpaperFromUri(intent.wallpaperUri, ...)` 사용 |
+| 16 | `Feature(PresetMarket)` | `PresetMarketViewModel.kt` (수정) | `MarketPresetRepository` 직접 의존 제거 → `ObserveAuthStateUseCase` + `SignOutUseCase` 주입 |
+| 17 | `Feature(Settings)` | `ui/PresetSettingsContent.kt` (수정) | `SavePresetDialog`: `PickVisualMedia` 갤러리 피커 추가(월페이퍼 체크 시 "이미지 선택" 버튼 표시, 선택됨 ✓ 표시); 권한 요청 로직 전체 제거; `PresetItemCard` 태그 `Row` → `FlowRow` 교체 |
+| 18 | `Feature(PresetMarket)` | `ui/PresetDetailScreen.kt` (수정) | "포함된 설정" 칩 `Row` → `FlowRow` 교체 (`@OptIn(ExperimentalLayoutApi::class)`) |
+| 19 | `Test` | `SettingsViewModelTest.kt` (수정) | `MarketPresetRepository` mock → `ObserveAuthStateUseCase` mock 교체; `makeViewModel()` 파라미터 갱신 |
+
+### 검증 결과
+
+- `:feature:settings:compileDebugKotlin` BUILD SUCCESSFUL
+- `:core:data:compileDebugKotlin` BUILD SUCCESSFUL
+- `:feature:preset-market:compileDebugKotlin` BUILD SUCCESSFUL
+
+### 설계 결정 및 근거
+
+- **월페이퍼 자동 캡처 → 갤러리 선택 방식 전환**: Android 14+(API 34+)에서 `WallpaperManager.getDrawable()` / `getWallpaperFile()`이 시스템 전용 권한(`READ_WALLPAPER_INTERNAL`)을 요구해 일반 앱에서는 항상 SecurityException 발생. `PickVisualMedia`(시스템 포토 피커)는 Android 11+에서 별도 저장소 권한 없이 동작하므로 근본적으로 더 안정적인 방식.
+- **`READ_EXTERNAL_STORAGE`가 `maxSdkVersion="32"`로 제한된 이유**: manifest에 `maxSdkVersion="32"`로 선언되어 API 33+ 기기에서는 해당 권한이 부여되지 않음. `WallpaperManager` API는 이 권한을 요구하므로 API 33+ 기기에서 SecurityException이 발생, `catch(e: Exception)`에 잡혀 null 반환.
+- **`ObserveAuthStateUseCase` / `SignOutUseCase` 도입**: ViewModel이 Repository 인터페이스를 직접 참조하면 UseCase 계층을 우회하는 클린 아키텍처 위반. UseCase로 래핑해 단일 책임 원칙과 의존 방향(Feature → Domain → Data) 유지.
+- **`FlowRow` 적용**: 고정 `Row`에서 AssistChip 5개(Home/Feed/Drawer/Theme/Wallpaper) 전부 표시 시 총 너비(~430dp)가 가용 너비(~330dp)를 초과해 마지막 칩이 잘림. `FlowRow`로 교체해 칩이 넘칠 경우 자동 줄바꿈.
+- **Room 마이그레이션 전략**: SQLite 3.35.0 미만에서 `DROP COLUMN` 미지원(API 34 미만 모두 해당). `CREATE TABLE ... → INSERT INTO ... SELECT ... → DROP TABLE → RENAME` 패턴으로 안전하게 컬럼 제거; `fallbackToDestructiveMigration` 대신 명시적 Migration으로 기존 사용자 데이터 보존.
+- **`youtubeChannelName` 제거**: Firestore 스키마 및 로컬 DB에서 사용되지 않는 필드가 확인됨. 도메인 모델·DTO·Room 엔티티에서 일괄 제거하고 DB 마이그레이션으로 무결성 유지.
+
+---
+
+## [2026-03-01] feat(preset-market): 프리셋 마켓 기능 전체 구현
+
+### 목표
+
+사용자들이 자신의 런처 프리셋을 다른 사용자와 공유하고 다운로드할 수 있는 "프리셋 마켓" 기능을 Firebase Firestore/Storage/Auth 기반으로 구현한다. 
+다운로드수/좋아요/태그/프리뷰 이미지를 지원하며, 다운로드한 프리셋은 즉시 런처에 반영되고 로컬 프리셋 목록에 추가된다. 
+Google Sign-In(Credential Manager API)으로 인증하며, Paging 3으로 무한 스크롤을 구현한다.
+
+### 변경 사항
+
+| # | 계층 | 파일 | 변경 내용 |
+|---|------|------|----------|
+| 1 | `Gradle` | `libs.versions.toml` | paging(3.3.6), playServicesAds(24.3.0), playServicesAuth(21.3.0), credentials(1.5.0), googleid(1.1.1) 버전 추가; firebase-firestore/storage/auth(BOM 관리, non-ktx), paging-runtime/compose, play-services-ads/auth, credentials/credentials-play-services, googleid 라이브러리 추가 |
+| 2 | `Gradle` | `feature/preset-market/build.gradle.kts` | android.library + kotlin.compose + hilt + ksp; core:domain/core:data/core:ui 의존; Paging Compose, Firebase BOM+Firestore, AdMob, Credential Manager, Coil 의존성 추가 |
+| 3 | `Gradle` | `core/data/build.gradle.kts` | Firebase BOM + firebase-firestore/storage/auth + paging-runtime 추가 |
+| 4 | `Gradle` | `app/build.gradle.kts` | feature:preset-market 모듈 의존성 + play-services-ads 추가 |
+| 5 | `Domain` | `model/preset/MarketPreset.kt` (신규) | 마켓 프리셋 도메인 모델: id/authorUid/authorDisplayName/name/description/tags/previewImageUrls/thumbnailUrl/downloadCount/likeCount + Preset 데이터 필드 전체(URL 기반) + createdAt/updatedAt |
+| 6 | `Domain` | `model/preset/MarketUser.kt` (신규) | 마켓 사용자 모델: uid/displayName/email/photoUrl |
+| 7 | `Domain` | `repository/MarketPresetRepository.kt` (신규) | Firestore CRUD + 좋아요 토글 + 이미지 업로드/다운로드 + 검색 + 다운로드 카운트 등 13개 메서드 인터페이스 |
+| 8 | `Domain` | `usecase/GetTopDownloadPresetsUseCase.kt` (신규) | 다운로드 Top 10 조회 |
+| 9 | `Domain` | `usecase/GetTopLikePresetsUseCase.kt` (신규) | 좋아요 Top 10 조회 |
+| 10 | `Domain` | `usecase/GetMarketPresetDetailUseCase.kt` (신규) | 마켓 프리셋 상세 조회 |
+| 11 | `Domain` | `usecase/SearchMarketPresetsUseCase.kt` (신규) | 검색 쿼리 실행 |
+| 12 | `Domain` | `usecase/ToggleMarketPresetLikeUseCase.kt` (신규) | 좋아요 토글 |
+| 13 | `Domain` | `usecase/UploadPresetToMarketUseCase.kt` (신규) | 프리셋 업로드 오케스트레이션 |
+| 14 | `Domain` | `usecase/SignInWithGoogleUseCase.kt` (신규) | Google 로그인 |
+| 15 | `Domain` | `usecase/GetCurrentMarketUserUseCase.kt` (신규) | 현재 로그인 유저 조회 |
+| 16 | `Data` | `di/FirebaseModule.kt` (신규) | FirebaseAuth/Firestore/Storage @Provides @Singleton Hilt 모듈 |
+| 17 | `Data` | `remote/firestore/MarketPresetDto.kt` (신규) | Firestore 문서 DTO: @DocumentId/@ServerTimestamp 어노테이션, toDomain()/toDto() 확장함수, buildSearchKeywords() (이름 소문자 공백분리 + 태그 결합) |
+| 18 | `Data` | `util/ImageCompressor.kt` (신규) | compressToWebP(max 1080px, quality 80, API 30+ WEBP_LOSSY/이하 WEBP 분기) + generateThumbnail(200px, quality 70) |
+| 19 | `Data` | `repository/MarketPresetRepositoryImpl.kt` (신규) | Firestore CRUD; 좋아요 runTransaction(likes 서브컬렉션 atomic increment/decrement); Storage WebP 압축 업로드 + getFile() 다운로드; searchPresets: whereArrayContains("searchKeywords") + 복수키워드 클라이언트 필터링 |
+| 20 | `Data` | `paging/MarketPresetPagingSource.kt` (신규) | PagingSource<DocumentSnapshot, MarketPreset>: createdAt DESC + startAfter cursor 기반 페이징 |
+| 21 | `Data` | `paging/SearchMarketPresetPagingSource.kt` (신규) | 검색 쿼리 PagingSource: whereArrayContains("searchKeywords", firstKeyword) + 복수키워드 클라이언트 필터링 |
+| 22 | `Data` | `usecase/DownloadMarketPresetUseCase.kt` (신규) | Storage URL→로컬 파일 다운로드(filesDir/market_presets/{id}/); MarketPreset→Preset 변환 + savePreset(); 런처 설정 즉시 적용(save*UseCase 호출); incrementDownloadCount() |
+| 23 | `Data` | `di/RepositoryModule.kt` (수정) | MarketPresetRepositoryImpl → MarketPresetRepository @Binds 추가 |
+| 24 | `Feature(PresetMarket)` | `PresetMarketContract.kt` (신규) | PresetMarketState(currentUser/topDownloadPresets/topLikePresets/selectedTab); MarketTab enum; Intent 7개; SideEffect 4개 |
+| 25 | `Feature(PresetMarket)` | `MarketSearchContract.kt` (신규) | MarketSearchState(query/isLoading/error); Intent/SideEffect 정의 |
+| 26 | `Feature(PresetMarket)` | `PresetDetailContract.kt` (신규) | PresetDetailState(preset/isLiked/isDownloading/isLoading/error); Intent/SideEffect 정의 |
+| 27 | `Feature(PresetMarket)` | `PresetMarketViewModel.kt` (신규) | init: currentUser 로드 + LoadTopPresets; recentPresetsPaging Flow<PagingData<MarketPreset>> cachedIn |
+| 28 | `Feature(PresetMarket)` | `MarketSearchViewModel.kt` (신규) | queryFlow MutableStateFlow; flatMapLatest → SearchMarketPresetPagingSource; searchResultsPaging cachedIn |
+| 29 | `Feature(PresetMarket)` | `PresetDetailViewModel.kt` (신규) | pendingAction 패턴으로 로그인 후 원래 액션 재실행; ensureSignedIn{} 헬퍼; signIn 성공 시 pendingAction.invoke() |
+| 30 | `Feature(PresetMarket)` | `navigation/MarketRoute.kt` (신규) | HOME/DETAIL/{presetId}/SEARCH/{query} 라우트 상수 + detail()/search() 헬퍼 |
+| 31 | `Feature(PresetMarket)` | `ui/AdmobBanner.kt` (신규) | AndroidView + AdView adaptive banner |
+| 32 | `Feature(PresetMarket)` | `ui/MarketPresetCard.kt` (신규) | 썸네일 + 그라디언트 오버레이 + 태그 칩 카드 (Top 10 ViewPager용) |
+| 33 | `Feature(PresetMarket)` | `ui/MarketPresetListItem.kt` (신규) | 가로형 카드: 왼쪽 썸네일 + 오른쪽 정보(제목/태그/카운트) |
+| 34 | `Feature(PresetMarket)` | `ui/MarketHomeScreen.kt` (신규) | 검색바 + AdmobBanner + TabRow(다운로드/좋아요 Top10) + HorizontalPager(3초 auto-scroll) + LazyColumn(Paging 3) |
+| 35 | `Feature(PresetMarket)` | `ui/MarketSearchResultScreen.kt` (신규) | TopAppBar 내 검색바(프리필) + LazyColumn(Paging 3) + Empty state |
+| 36 | `Feature(PresetMarket)` | `ui/PresetDetailScreen.kt` (신규) | HorizontalPager(프리뷰) + PagerIndicator + 정보/태그/카운트 + 좋아요/다운로드 버튼 |
+| 37 | `Feature(PresetMarket)` | `ui/GoogleSignInHandler.kt` (신규) | Credential Manager API 래퍼; RequireSignIn SideEffect 수신 시 Google Sign-In 바텀시트 표시; idToken → ViewModel 전달 |
+| 38 | `Feature(PresetMarket)` | `ui/UploadPresetDialog.kt` (신규) | PickMultipleVisualMedia(최대 4장) + 태그 InputChip + LinearProgressIndicator |
+| 39 | `App` | `MainActivity.kt` (수정) | MarketRoute HOME/SEARCH/DETAIL composable 3개 추가(슬라이드 전환); SettingsSideEffect when 블록에 UploadSuccess/UploadError/RequireSignIn 분기 추가; onNavigateToMarket 콜백 연결 |
+| 40 | `App` | `StreamLauncherApplication.kt` (수정) | MobileAds.initialize(this) 추가 |
+| 41 | `App` | `AndroidManifest.xml` (수정) | INTERNET 권한 추가; AdMob APPLICATION_ID meta-data(테스트 ID) 추가 |
+| 42 | `Feature(Settings)` | `SettingsContract.kt` (수정) | UploadPreset intent 추가; UploadSuccess/UploadError/RequireSignIn SideEffect 추가 |
+| 43 | `Feature(Settings)` | `SettingsViewModel.kt` (수정) | UploadPresetToMarketUseCase + GetCurrentMarketUserUseCase 주입; uploadPreset() 핸들러(로그인 체크 → MarketPreset 빌드 → 업로드) |
+| 44 | `Feature(Settings)` | `ui/PresetSettingsContent.kt` (수정) | "프리셋 마켓" GlassSettingsTile 추가; PresetItemCard에 공유 IconButton 추가; UploadToMarketDialog 인라인 컴포저블 추가; onNavigateToMarket 파라미터 추가 |
+| 45 | `Feature(Settings)` | `ui/SettingsDetailScreen.kt` (수정) | onNavigateToMarket 파라미터 추가 및 PRESET 케이스에 전달 |
+| 46 | `Test` | `SettingsViewModelTest.kt` (수정) | UploadPresetToMarketUseCase + GetCurrentMarketUserUseCase mock 추가; makeViewModel() 파라미터 및 SettingsViewModel 생성자 인수 반영 |
+
+### 검증 결과
+
+- `assembleDebug` BUILD SUCCESSFUL
+- `./gradlew test` BUILD SUCCESSFUL (실패 0건)
+
+### 설계 결정 및 근거
+
+- **Firebase BOM 34.x non-ktx 아티팩트 사용**: Firebase BOM 34.x에서 `-ktx` suffix 아티팩트가 BOM에서 제거됨. `firebase-firestore-ktx` → `firebase-firestore`로 변경하여 BOM 버전 관리 유지.
+- **DownloadMarketPresetUseCase를 core:data에 배치**: Android Context가 필요한 이미지 다운로드 로직이 포함되어 있어 순수 JVM 모듈인 core:domain에 배치 불가. core:data에서 Context를 주입받아 구현.
+- **feature:preset-market이 core:data에 의존**: DownloadMarketPresetUseCase(core:data) 및 FirebaseFirestore(core:data가 provide)를 PresetDetailViewModel과 MarketSearchViewModel에서 직접 사용해야 하므로 core:data 의존 추가. 단방향 의존성(feature→core) 원칙 유지.
+- **UploadToMarketDialog를 feature:settings 내 인라인 구현**: feature:settings는 feature:preset-market에 의존하지 않으므로 preset-market의 UploadPresetDialog를 직접 import 불가. 업로드 다이얼로그를 feature:settings 내에 인라인 컴포저블로 구현하여 단방향 의존성 원칙 준수.
+- **pendingAction 패턴으로 로그인 후 액션 재실행**: 미로그인 상태에서 좋아요/다운로드 시도 시 RequireSignIn SideEffect를 발송하고 pendingAction에 원래 람다를 저장. 로그인 성공 후 pendingAction.invoke()로 재실행하여 UX 중단 없이 의도한 액션 완료.
+- **Firestore searchKeywords 배열 기반 검색**: Firestore는 full-text search 미지원. 업로드 시 프리셋 이름(소문자 공백분리)과 태그를 결합한 searchKeywords 배열 필드를 생성, array-contains로 단일 키워드 쿼리. 복수 키워드는 클라이언트 필터링으로 처리(Firestore array-contains-any는 다른 필드와 복합 쿼리 불가 제약).
+- **AdMob 테스트 ID 사용**: 실 APPLICATION_ID 노출 방지를 위해 테스트 ID(ca-app-pub-3940256099942544~3347511713) 적용. 배포 시 실제 ID로 교체 필요.
+
 ---
 
 ## [2026-03-01] refactor(settings): 네비게이션 구조를 NavHost 기반으로 리팩토링

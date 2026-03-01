@@ -28,7 +28,6 @@ data class PresetEntity(
     val hasFeedSettings: Boolean,
     val useFeed: Boolean,
     val youtubeChannelId: String,
-    val youtubeChannelName: String,
     val chzzkChannelId: String,
     
     // App Drawer
@@ -67,7 +66,6 @@ fun PresetEntity.toDomain() = Preset(
     hasFeedSettings = hasFeedSettings,
     useFeed = useFeed,
     youtubeChannelId = youtubeChannelId,
-    youtubeChannelName = youtubeChannelName,
     chzzkChannelId = chzzkChannelId,
     hasAppDrawerSettings = hasAppDrawerSettings,
     appDrawerColumns = appDrawerColumns,
@@ -99,7 +97,6 @@ fun Preset.toEntity() = PresetEntity(
     hasFeedSettings = hasFeedSettings,
     useFeed = useFeed,
     youtubeChannelId = youtubeChannelId,
-    youtubeChannelName = youtubeChannelName,
     chzzkChannelId = chzzkChannelId,
     hasAppDrawerSettings = hasAppDrawerSettings,
     appDrawerColumns = appDrawerColumns,
