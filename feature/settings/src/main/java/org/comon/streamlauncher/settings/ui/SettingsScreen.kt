@@ -554,7 +554,12 @@ internal fun ImageSettingsContent(
                                     )
                                 }
                                 Text(
-                                    text = cell.name,
+                                    text = when (cell) {
+                                        GridCell.TOP_LEFT -> stringResource(R.string.grid_cell_top_left)
+                                        GridCell.TOP_RIGHT -> stringResource(R.string.grid_cell_top_right)
+                                        GridCell.BOTTOM_LEFT -> stringResource(R.string.grid_cell_bottom_left)
+                                        GridCell.BOTTOM_RIGHT -> stringResource(R.string.grid_cell_bottom_right)
+                                    },
                                     style = MaterialTheme.typography.labelSmall,
                                     color = Color.White,
                                 )

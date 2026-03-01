@@ -16,4 +16,8 @@
 
     <!-- HomeScreen -->
     <string name="home_remove_app">앱 삭제</string>
+
+    <!-- FeedScreen - 하드코딩 텍스트 -->
+    <string name="youtube_platform">YouTube</string>
+    <string name="feed_live_text">LIVE</string>
 </resources>

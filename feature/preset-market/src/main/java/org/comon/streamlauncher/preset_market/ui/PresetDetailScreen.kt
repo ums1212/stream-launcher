@@ -43,13 +43,13 @@ fun PresetDetailScreen(
     var showSignInHandler by remember { mutableStateOf(false) }
     var showLimitDialog by remember { mutableStateOf(false) }
 
+    val downloadCompleteMessage = stringResource(R.string.preset_market_download_complete)
+
     LaunchedEffect(Unit) {
         viewModel.effect.collect { effect ->
             when (effect) {
                 is PresetDetailSideEffect.DownloadComplete ->
-                    snackbarHostState.showSnackbar(
-                        message = "다운로드 완료! 런처에 적용되었습니다."
-                    )
+                    snackbarHostState.showSnackbar(message = downloadCompleteMessage)
                 is PresetDetailSideEffect.ShowError ->
                     snackbarHostState.showSnackbar(message = effect.message)
                 is PresetDetailSideEffect.RequireSignIn ->
@@ -63,11 +63,11 @@ fun PresetDetailScreen(
     if (showLimitDialog) {
         AlertDialog(
             onDismissRequest = { showLimitDialog = false },
-            title = { Text("프리셋 저장 불가") },
-            text = { Text("저장 가능한 개수를 초과하였습니다.\n기존의 프리셋을 삭제한 후 다시 시도해주세요.") },
+            title = { Text(stringResource(R.string.preset_market_download_limit_title)) },
+            text = { Text(stringResource(R.string.preset_market_download_limit_message)) },
             confirmButton = {
                 TextButton(onClick = { showLimitDialog = false }) {
-                    Text("확인")
+                    Text(stringResource(R.string.confirm))
                 }
             }
         )
@@ -237,12 +237,12 @@ fun PresetDetailScreen(
                             verticalArrangement = Arrangement.spacedBy(4.dp),
                         ) {
                             if (preset.hasTopLeftImage || preset.hasTopRightImage || preset.hasBottomLeftImage || preset.hasBottomRightImage) {
-                                AssistChip(onClick = {}, label = { Text("Home") })
+                                AssistChip(onClick = {}, label = { Text(stringResource(R.string.preset_market_includes_home)) })
                             }
-                            if (preset.hasFeedSettings) AssistChip(onClick = {}, label = { Text("Feed") })
-                            if (preset.hasAppDrawerSettings) AssistChip(onClick = {}, label = { Text("Drawer") })
-                            if (preset.hasThemeSettings) AssistChip(onClick = {}, label = { Text("Theme") })
-                            if (preset.hasWallpaperSettings) AssistChip(onClick = {}, label = { Text("Wallpaper") })
+                            if (preset.hasFeedSettings) AssistChip(onClick = {}, label = { Text(stringResource(R.string.preset_market_includes_feed)) })
+                            if (preset.hasAppDrawerSettings) AssistChip(onClick = {}, label = { Text(stringResource(R.string.preset_market_includes_drawer)) })
+                            if (preset.hasThemeSettings) AssistChip(onClick = {}, label = { Text(stringResource(R.string.preset_market_includes_theme)) })
+                            if (preset.hasWallpaperSettings) AssistChip(onClick = {}, label = { Text(stringResource(R.string.preset_market_includes_wallpaper)) })
                         }
 
                         Spacer(modifier = Modifier.height(8.dp))

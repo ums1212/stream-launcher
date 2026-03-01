@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="preset_market_title">Preset Market</string>
+    <string name="preset_market_top_downloads">Download Top 10</string>
+    <string name="preset_market_top_likes">Like Top 10</string>
+    <string name="preset_market_recent">Recently Uploaded</string>
+    <string name="preset_market_search_hint">Search presets…</string>
+    <string name="preset_market_login">Sign In</string>
+    <string name="preset_market_logout">Sign Out</string>
+    <string name="preset_market_logout_confirm">Sign out?</string>
+    <string name="preset_market_download">Download</string>
+    <string name="preset_market_like">Like</string>
+    <string name="preset_market_upload">Upload</string>
+    <string name="preset_market_share">Share</string>
+    <string name="preset_market_download_count">%d downloads</string>
+    <string name="preset_market_like_count">%d likes</string>
+    <string name="preset_market_no_results">No results found</string>
+    <string name="preset_market_loading">Loading…</string>
+    <string name="preset_market_download_complete">Download complete! Applied to launcher.</string>
+    <string name="preset_market_sign_in_required">Sign in required</string>
+    <string name="preset_market_sign_in_failed">Sign in failed</string>
+    <string name="preset_market_sign_in_success">Signed in successfully</string>
+    <string name="preset_market_upload_title">Upload Preset</string>
+    <string name="preset_market_upload_desc">Enter description</string>
+    <string name="preset_market_upload_tags">Tags (comma-separated, max 5)</string>
+    <string name="preset_market_upload_preview">Select preview images (up to 4)</string>
+    <string name="preset_market_upload_success">Upload successful!</string>
+    <string name="preset_market_upload_failed">Upload failed: %s</string>
+    <string name="preset_market_by">by %s</string>
+    <string name="preset_market_detail_preview">Preview</string>
+    <string name="preset_market_detail_tags">Tags</string>
+    <string name="preset_market_detail_includes">Included settings</string>
+    <string name="preset_market_search_results">Search results</string>
+    <string name="preset_market_download_limit_title">Cannot Save Preset</string>
+    <string name="preset_market_download_limit_message">You have exceeded the maximum number of presets.\nPlease delete an existing preset and try again.</string>
+    <string name="preset_market_includes_home">Home Image</string>
+    <string name="preset_market_includes_feed">Feed</string>
+    <string name="preset_market_includes_drawer">App Drawer</string>
+    <string name="preset_market_includes_theme">Theme Color</string>
+    <string name="preset_market_includes_wallpaper">Wallpaper</string>
+    <string name="cancel">Cancel</string>
+    <string name="confirm">Confirm</string>
+</resources>

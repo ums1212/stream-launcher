@@ -1,5 +1,40 @@
 # StreamLauncher 개발 로그
 
+---
+
+## [2026-03-02] chore(i18n): 하드코딩 텍스트 strings.xml 추출 및 영문 리소스 정비
+
+### 목표
+
+전체 모듈에 산재한 하드코딩 텍스트를 `strings.xml`로 이동하고, 미흡했던 영문(`values-en`) 리소스를 모듈별로 완전하게 갖춘다.
+
+### 변경 사항
+
+| # | 계층 | 파일 | 변경 내용 |
+|---|------|------|----------|
+| 1 | `Feature(PresetMarket)` | `res/values/strings.xml` | 신규 7개 추가: `preset_market_download_limit_title/message`, `preset_market_includes_home/feed/drawer/theme/wallpaper` |
+| 2 | `Feature(Launcher)` | `res/values/strings.xml` | 신규 2개 추가: `youtube_platform`, `feed_live_text` |
+| 3 | `Feature(Settings)` | `res/values/strings.xml` | 신규 4개 추가: `grid_cell_top_left/top_right/bottom_left/bottom_right` |
+| 4 | `Feature(PresetMarket)` | `ui/PresetDetailScreen.kt` | `"다운로드 완료…"` → `stringResource(preset_market_download_complete)` (LaunchedEffect 외부 캐싱); `"프리셋 저장 불가"` / `"저장 가능한 개수…"` / `"확인"` → `stringResource`; 포함 설정 칩 레이블 5개 → `stringResource` |
+| 5 | `Feature(PresetMarket)` | `ui/MarketPresetListItem.kt` | `"by ${authorDisplayName}"` → `stringResource(preset_market_by, …)`; `R` / `stringResource` import 추가 |
+| 6 | `Feature(Launcher)` | `ui/FeedScreen.kt` | `contentDescription = "YouTube"` → `stringResource(youtube_platform)`; `text = "LIVE"` 2곳 → `stringResource(feed_live_text)` |
+| 7 | `Feature(Settings)` | `ui/SettingsScreen.kt` | `text = cell.name` → `when(cell)` + `stringResource(grid_cell_*)` 로 한국어 셀 이름 표시 |
+| 8 | `Feature(Launcher)` | `res/values-en/strings.xml` | **정리**: settings/notice 오배치 문자열 제거, 신규 `youtube_platform` / `feed_live_text` 추가 |
+| 9 | `Feature(Settings)` | `res/values-en/strings.xml` | **신규 생성**: settings, preset, grid_cell, notice 전체 40개 영문 번역 |
+| 10 | `Feature(PresetMarket)` | `res/values-en/strings.xml` | **신규 생성**: preset market 전체 42개 영문 번역 |
+
+### 검증 결과
+
+- `./gradlew assembleDebug` BUILD SUCCESSFUL (307 tasks, 0 errors)
+
+### 설계 결정 및 근거
+
+- **launcher `values-en`에 오배치된 settings 문자열 제거**: settings 모듈 분리 이전에 작성된 영문 파일이 정리되지 않아, `feature/launcher/values-en`에 `settings_*` / `notice_*` 문자열이 포함되어 있었다. 각 모듈은 자신의 R 클래스를 사용하므로 해당 번역은 실제로 적용되지 않는 dead code였다. 번역 파일을 각 모듈의 `values-en`으로 이동해 소유권을 명확히 한다.
+- **`grid_cell_*` 문자열 신규 추가**: `ImageSettingsContent`에서 `cell.name`이 그대로 노출되어 사용자에게 `TOP_LEFT` 같은 enum 식별자가 보였다. `when(cell)` 분기 + `stringResource`로 "좌상 / 우상 / 좌하 / 우하" 형태로 현지화한다. `GridCell`은 순수 JVM 모듈(`core:domain`)이므로 Android 리소스를 포함할 수 없어 UI 레이어에서 매핑한다.
+- **`LaunchedEffect` 내부의 `stringResource` 패턴 통일**: Compose의 `stringResource`는 컴포저블 컨텍스트에서만 호출 가능하므로 코루틴 블록 내부에서 직접 호출 불가. 컴포저블 범위에서 변수로 미리 읽어 클로저로 참조하는 패턴을 프로젝트 전반에 일관 적용한다.
+
+---
+
 ## [2026-03-02] feat(preset-market): 로그아웃 확인 다이얼로그 및 로그인 상태 아이콘 구분 추가
 
 ### 목표

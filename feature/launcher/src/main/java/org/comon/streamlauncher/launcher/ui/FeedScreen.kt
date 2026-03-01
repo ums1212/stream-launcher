@@ -225,7 +225,7 @@ private fun ChannelProfileCard(
             // 유튜브 플랫폼 아이콘
             Image(
                 painter = painterResource(id = R.drawable.youtube_ic),
-                contentDescription = "YouTube",
+                contentDescription = stringResource(R.string.youtube_platform),
                 modifier = Modifier
                     .size(32.dp)
                     .clip(RoundedCornerShape(8.dp)),
@@ -264,7 +264,7 @@ private fun ChannelProfileCard(
                     )
                     if (youtubeLiveStatus?.isLive == true) {
                         Text(
-                            text = "LIVE",
+                            text = stringResource(R.string.feed_live_text),
                             modifier = Modifier.padding(start = 4.dp),
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
@@ -332,7 +332,7 @@ private fun LiveStatusCard(
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "LIVE",
+                        text = stringResource(R.string.feed_live_text),
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
                         color = accentPrimary,

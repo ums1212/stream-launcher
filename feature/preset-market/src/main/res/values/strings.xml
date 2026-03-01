@@ -31,6 +31,13 @@
     <string name="preset_market_detail_tags">태그</string>
     <string name="preset_market_detail_includes">포함된 설정</string>
     <string name="preset_market_search_results">검색 결과</string>
+    <string name="preset_market_download_limit_title">프리셋 저장 불가</string>
+    <string name="preset_market_download_limit_message">저장 가능한 개수를 초과하였습니다.\n기존의 프리셋을 삭제한 후 다시 시도해주세요.</string>
+    <string name="preset_market_includes_home">홈 이미지</string>
+    <string name="preset_market_includes_feed">피드</string>
+    <string name="preset_market_includes_drawer">앱 서랍</string>
+    <string name="preset_market_includes_theme">테마 컬러</string>
+    <string name="preset_market_includes_wallpaper">배경화면</string>
     <string name="cancel">취소</string>
     <string name="confirm">확인</string>
 </resources>

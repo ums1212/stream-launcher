@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- SettingsScreen -->
+    <string name="settings_theme_color">Theme Color</string>
+    <string name="settings_home_image">Home Image</string>
+    <string name="settings_app_drawer">App Drawer</string>
+    <string name="settings_feed">Feed Settings</string>
+    <string name="settings_wallpaper">Wallpaper</string>
+    <string name="settings_default_home">Default Home App</string>
+    <string name="settings_wallpaper_error">Cannot open wallpaper settings</string>
+    <string name="settings_color_selected">Selected</string>
+    <string name="settings_idle_image">Idle Image</string>
+    <string name="settings_expanded_image">Expanded Image</string>
+    <string name="settings_image_reset">Reset Images</string>
+    <string name="settings_image_reset_dialog_message">Reset all image settings?</string>
+    <string name="settings_idle_label">Idle</string>
+    <string name="settings_expanded_label">Expanded</string>
+    <string name="settings_feed_title">Feed Settings</string>
+    <string name="settings_chzzk_channel_id">Chzzk Channel ID</string>
+    <string name="settings_youtube_channel_id">YouTube Channel ID</string>
+    <string name="settings_youtube_placeholder">\@handle or Channel ID</string>
+    <string name="settings_no_whitespace">Cannot contain whitespace</string>
+    <string name="settings_save">Save</string>
+    <string name="settings_app_drawer_title">App Drawer Settings</string>
+    <string name="settings_columns">Columns</string>
+    <string name="settings_rows">Rows</string>
+    <string name="settings_icon_size_ratio">Icon Size Ratio</string>
+    <string name="settings_icon_clip_warning">Icons may be clipped depending on device resolution.</string>
+    <string name="settings_reset">Reset</string>
+    <string name="settings_preset">Presets</string>
+
+    <!-- PresetScreen -->
+    <string name="preset_title">Preset Layout Settings</string>
+    <string name="preset_save_current">Save Current Settings as Preset</string>
+    <string name="preset_save_confirm">Add Preset</string>
+    <string name="preset_name_hint">Enter preset name</string>
+    <string name="preset_items_to_save">Select settings to save</string>
+    <string name="preset_items_to_load">Select settings to load</string>
+    <string name="preset_load_title">Load the following preset items?</string>
+    <string name="preset_empty">No saved presets.</string>
+    <string name="preset_max_reached">Maximum 10 presets allowed. Please delete an existing preset.</string>
+    <string name="preset_delete">Delete</string>
+    <string name="preset_cancel">Cancel</string>
+    <string name="preset_confirm">Confirm</string>
+    <string name="preset_item_home">Home Image</string>
+    <string name="preset_item_feed">Feed</string>
+    <string name="preset_item_drawer">App Drawer</string>
+    <string name="preset_item_wallpaper">Wallpaper</string>
+    <string name="preset_item_theme">Theme Color</string>
+    <string name="title_add_preset">Add New Preset</string>
+    <string name="desc_add_preset">Save the current settings as a new preset.</string>
+    <string name="title_presets">Saved Presets</string>
+    <string name="desc_load_preset">Load Preset</string>
+    <string name="preset_permission_title">Permission Required</string>
+    <string name="preset_permission_desc">Storage (photos) access is required to save wallpaper in a preset.\n\nPlease allow permission in [Settings] > [Permissions].</string>
+    <string name="preset_permission_settings">Go to Settings</string>
+    <string name="delete">Delete</string>
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
+
+    <!-- GridCell names -->
+    <string name="grid_cell_top_left">Top Left</string>
+    <string name="grid_cell_top_right">Top Right</string>
+    <string name="grid_cell_bottom_left">Bottom Left</string>
+    <string name="grid_cell_bottom_right">Bottom Right</string>
+
+    <!-- NoticeDialog -->
+    <string name="settings_notice">Notice</string>
+    <string name="notice_title">Notice</string>
+    <string name="notice_dismiss">OK</string>
+    <string name="notice_version">v%1$s</string>
+    <string name="notice_body">Thank you for installing StreamLauncher!\n\nChanges in this version:\n- A notice dialog is shown on first launch after installation.\n- The notice reappears when the version is updated.\n- You can view the notice again from the Settings screen.</string>
+</resources>

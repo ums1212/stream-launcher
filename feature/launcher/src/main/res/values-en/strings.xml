@@ -1,29 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- SettingsScreen -->
-    <string name="settings_theme_color">Theme Color</string>
-    <string name="settings_home_image">Home Image</string>
-    <string name="settings_app_drawer">App Drawer</string>
-    <string name="settings_feed">Feed Settings</string>
-    <string name="settings_wallpaper">Wallpaper</string>
-    <string name="settings_default_home">Default Home App</string>
-    <string name="settings_wallpaper_error">Cannot open wallpaper settings</string>
-    <string name="settings_color_selected">Selected</string>
-    <string name="settings_idle_image">Idle Image</string>
-    <string name="settings_expanded_image">Expanded Image</string>
-    <string name="settings_feed_title">Feed Settings</string>
-    <string name="settings_chzzk_channel_id">Chzzk Channel ID</string>
-    <string name="settings_youtube_channel_id">YouTube Channel ID</string>
-    <string name="settings_youtube_placeholder">\@handle or Channel ID</string>
-    <string name="settings_no_whitespace">Cannot contain whitespace</string>
-    <string name="settings_save">Save</string>
-    <string name="settings_app_drawer_title">App Drawer Settings</string>
-    <string name="settings_columns">Columns</string>
-    <string name="settings_rows">Rows</string>
-    <string name="settings_icon_size_ratio">Icon Size Ratio</string>
-    <string name="settings_icon_clip_warning">Icons may be clipped depending on device resolution.</string>
-    <string name="settings_reset">Reset</string>
-
     <!-- FeedScreen -->
     <string name="feed_title">Feed</string>
     <string name="feed_refresh">Refresh</string>
@@ -37,14 +13,9 @@
     <string name="feed_viewers">%1$d viewers</string>
     <string name="feed_live_badge">Live</string>
     <string name="feed_chzzk">Chzzk</string>
+    <string name="youtube_platform">YouTube</string>
+    <string name="feed_live_text">LIVE</string>
 
     <!-- HomeScreen -->
     <string name="home_remove_app">Remove App</string>
-
-    <!-- NoticeDialog -->
-    <string name="settings_notice">Notice</string>
-    <string name="notice_title">Notice</string>
-    <string name="notice_dismiss">OK</string>
-    <string name="notice_version">v%1$s</string>
-    <string name="notice_body">Thank you for installing StreamLauncher!\n\nChanges in this version:\n- A notice dialog is displayed on the first launch after installation.\n- The notice will appear again when the version is updated.\n- You can view the notice again from the Settings screen.</string>
 </resources>
