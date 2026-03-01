@@ -41,6 +41,7 @@ fun PresetDetailScreen(
     val scope = rememberCoroutineScope()
 
     var showSignInHandler by remember { mutableStateOf(false) }
+    var showLimitDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.effect.collect { effect ->
@@ -53,8 +54,23 @@ fun PresetDetailScreen(
                     snackbarHostState.showSnackbar(message = effect.message)
                 is PresetDetailSideEffect.RequireSignIn ->
                     showSignInHandler = true
+                is PresetDetailSideEffect.PresetLimitExceeded ->
+                    showLimitDialog = true
             }
         }
+    }
+
+    if (showLimitDialog) {
+        AlertDialog(
+            onDismissRequest = { showLimitDialog = false },
+            title = { Text("프리셋 저장 불가") },
+            text = { Text("저장 가능한 개수를 초과하였습니다.\n기존의 프리셋을 삭제한 후 다시 시도해주세요.") },
+            confirmButton = {
+                TextButton(onClick = { showLimitDialog = false }) {
+                    Text("확인")
+                }
+            }
+        )
     }
 
     if (showSignInHandler) {

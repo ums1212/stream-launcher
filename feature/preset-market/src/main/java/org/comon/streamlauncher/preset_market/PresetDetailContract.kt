@@ -24,4 +24,5 @@ sealed interface PresetDetailSideEffect : UiSideEffect {
     data object DownloadComplete : PresetDetailSideEffect
     data class ShowError(val message: String) : PresetDetailSideEffect
     data object RequireSignIn : PresetDetailSideEffect
+    data object PresetLimitExceeded : PresetDetailSideEffect
 }

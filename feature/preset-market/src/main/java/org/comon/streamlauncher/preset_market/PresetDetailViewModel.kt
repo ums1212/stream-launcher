@@ -3,8 +3,10 @@ package org.comon.streamlauncher.preset_market
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.comon.streamlauncher.data.usecase.DownloadMarketPresetUseCase
+import org.comon.streamlauncher.domain.usecase.GetAllPresetsUseCase
 import org.comon.streamlauncher.domain.usecase.GetCurrentMarketUserUseCase
 import org.comon.streamlauncher.domain.usecase.GetMarketPresetDetailUseCase
 import org.comon.streamlauncher.domain.usecase.SignInWithGoogleUseCase
@@ -20,6 +22,7 @@ class PresetDetailViewModel @Inject constructor(
     private val getCurrentMarketUserUseCase: GetCurrentMarketUserUseCase,
     private val toggleMarketPresetLikeUseCase: ToggleMarketPresetLikeUseCase,
     private val downloadMarketPresetUseCase: DownloadMarketPresetUseCase,
+    private val getAllPresetsUseCase: GetAllPresetsUseCase,
     private val signInWithGoogleUseCase: SignInWithGoogleUseCase,
     private val marketRepository: MarketPresetRepository,
 ) : BaseViewModel<PresetDetailState, PresetDetailIntent, PresetDetailSideEffect>(PresetDetailState()) {
@@ -97,8 +100,13 @@ class PresetDetailViewModel @Inject constructor(
 
     private fun downloadPreset() {
         val preset = currentState.preset ?: return
-        updateState { copy(isDownloading = true) }
         viewModelScope.launch {
+            val presetCount = getAllPresetsUseCase().first().size
+            if (presetCount >= 10) {
+                sendEffect(PresetDetailSideEffect.PresetLimitExceeded)
+                return@launch
+            }
+            updateState { copy(isDownloading = true) }
             downloadMarketPresetUseCase(preset)
                 .onSuccess {
                     updateState { copy(isDownloading = false) }

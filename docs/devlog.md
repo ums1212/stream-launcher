@@ -1,5 +1,35 @@
 # StreamLauncher 개발 로그
 
+## [2026-03-02] fix(settings/preset-market): 프리셋 UI 버그 수정 및 개수 제한 경고 추가
+
+### 목표
+
+프리셋 저장 화면의 3가지 버그를 수정하고, 프리셋 최대 개수(10개) 초과 시 일관된 경고 다이얼로그를 프리셋 설정 화면과 마켓 다운로드 화면 양쪽에 제공한다.
+
+### 변경 사항
+
+| # | 계층 | 파일 | 변경 내용 |
+|---|------|------|----------|
+| 1 | `Feature(Settings)` | `ui/PresetSettingsContent.kt` | `SavePresetDialog`: 배경화면 체크 시 이미지 미선택 상태에서 저장 버튼 비활성화 (`enabled = !saveWallpaper \|\| selectedWallpaperUri != null`) |
+| 2 | `Feature(Settings)` | `ui/PresetSettingsContent.kt` | 프리셋 10개 초과 클릭 시 `SettingsIntent.ShowNotice`(공지사항 다이얼로그) 오용 → `showLimitDialog` 로컬 상태로 전환; "저장 가능한 개수를 초과하였습니다" AlertDialog 신규 추가 |
+| 3 | `Feature(Settings)` | `ui/PresetSettingsContent.kt` | 스와이프 삭제 취소 시 카드가 복원되지 않는 버그 수정: `rememberSwipeToDismissBoxState(confirmValueChange = { false })` 패턴으로 교체, 기존 `LaunchedEffect` + `reset()` 제거 |
+| 4 | `Domain` | `preset_market/PresetDetailContract.kt` | `PresetDetailSideEffect`에 `PresetLimitExceeded` 추가 |
+| 5 | `Feature(PresetMarket)` | `preset_market/PresetDetailViewModel.kt` | `GetAllPresetsUseCase` 주입; `downloadPreset()` 실행 전 저장된 프리셋 수 확인 — 10개 이상이면 `PresetLimitExceeded` side effect 발생 후 조기 반환 |
+| 6 | `Feature(PresetMarket)` | `preset_market/ui/PresetDetailScreen.kt` | `PresetLimitExceeded` 수신 시 프리셋 설정 화면과 동일한 AlertDialog 표시 (`showLimitDialog` 상태) |
+
+### 검증 결과
+
+- 코드 리뷰 수준 검증 (빌드 미실행)
+
+### 설계 결정 및 근거
+
+- **`confirmValueChange = { false }` 패턴**: `SwipeToDismissBox`의 기본 `confirmValueChange`는 `true`를 반환해 스와이프 완료 시 dismiss 상태로 확정된다. 이후 `reset()`을 호출해도 content(카드)가 이미 사라진 채로 배경만 남는 시각적 버그가 발생. `false` 반환으로 dismiss 확정을 막으면 스와이프 후 카드가 자동으로 원위치로 복귀하면서 `EndToStart` 감지 시점에 삭제 다이얼로그를 표시할 수 있다.
+- **`ShowNotice` 오용 제거**: 기존 코드에서 프리셋 개수 초과 시 `SettingsIntent.ShowNotice`를 호출했는데, 이는 앱 공지사항 다이얼로그를 위한 인텐트로 맥락이 다르다. 로컬 `showLimitDialog` 상태로 처리해 관심사를 분리.
+- **`PresetLimitExceeded` 전용 side effect**: 기존 `ShowError`(Snackbar)를 재사용하면 경고의 시각적 무게감이 부족하고 프리셋 설정 화면과 UX가 불일치한다. 별도 side effect로 분리해 UI에서 AlertDialog로 일관되게 처리.
+- **개수 확인 위치**: `DownloadMarketPresetUseCase` 내부가 아닌 ViewModel의 `downloadPreset()`에서 확인. UseCase는 단일 책임(다운로드 실행)을 유지하고, 개수 제한은 비즈니스 규칙이므로 ViewModel에서 판단하는 것이 적합.
+
+---
+
 ## [2026-03-01] fix(preset-market): 월페이퍼 업로드·클린 아키텍처·UI 오버플로우 수정
 
 ### 목표

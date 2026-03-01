@@ -45,6 +45,7 @@ fun PresetSettingsContent(
     onNavigateToMarket: () -> Unit = {}
 ) {
     var showSaveDialog by remember { mutableStateOf(false) }
+    var showLimitDialog by remember { mutableStateOf(false) }
     var presetToLoad by remember { mutableStateOf<Preset?>(null) }
     var presetToDelete by remember { mutableStateOf<Preset?>(null) }
     var presetToUpload by remember { mutableStateOf<Preset?>(null) }
@@ -71,7 +72,7 @@ fun PresetSettingsContent(
             accentColor = MaterialTheme.colorScheme.primary,
             onClick = {
                 if (state.presets.size >= 10) {
-                    onIntent(SettingsIntent.ShowNotice)
+                    showLimitDialog = true
                 } else {
                     showSaveDialog = true
                 }
@@ -96,7 +97,7 @@ fun PresetSettingsContent(
                 LaunchedEffect(dismissState.currentValue) {
                     if (dismissState.currentValue == SwipeToDismissBoxValue.EndToStart) {
                         presetToDelete = preset
-                        dismissState.reset()
+                        dismissState.snapTo(SwipeToDismissBoxValue.Settled)
                     }
                 }
 
@@ -137,6 +138,20 @@ fun PresetSettingsContent(
                 )
             }
         }
+    }
+
+    // Preset Limit Dialog
+    if (showLimitDialog) {
+        AlertDialog(
+            onDismissRequest = { showLimitDialog = false },
+            title = { Text("프리셋 저장 불가") },
+            text = { Text("저장 가능한 개수를 초과하였습니다.\n기존의 프리셋을 왼쪽 방향으로 스와이프하여 삭제 후 새로 추가해주세요.") },
+            confirmButton = {
+                TextButton(onClick = { showLimitDialog = false }) {
+                    Text("확인")
+                }
+            }
+        )
     }
 
     // Save Preset Dialog
@@ -355,6 +370,7 @@ fun SavePresetDialog(
         },
         confirmButton = {
             TextButton(
+                enabled = !saveWallpaper || selectedWallpaperUri != null,
                 onClick = {
                     onConfirm(
                         name.ifEmpty { "프리셋 ${System.currentTimeMillis() % 1000}" },
