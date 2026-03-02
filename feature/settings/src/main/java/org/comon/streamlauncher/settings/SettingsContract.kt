@@ -3,6 +3,7 @@ package org.comon.streamlauncher.settings
 import org.comon.streamlauncher.domain.model.GridCell
 import org.comon.streamlauncher.domain.model.GridCellImage
 import org.comon.streamlauncher.domain.model.preset.Preset
+import org.comon.streamlauncher.domain.model.preset.UploadProgress
 import org.comon.streamlauncher.settings.model.ImageType
 import org.comon.streamlauncher.ui.UiIntent
 import org.comon.streamlauncher.ui.UiSideEffect
@@ -21,7 +22,8 @@ data class SettingsState(
     val appDrawerIconSizeRatio: Float = 1.0f,
     val showNoticeDialog: Boolean = false,
     val presets: List<Preset> = emptyList(),
-    val isUploading: Boolean = false,
+    val uploadProgress: UploadProgress? = null,
+    val pendingUploadPresetName: String? = null,
 ) : UiState
 
 sealed interface SettingsIntent : UiIntent {
@@ -65,6 +67,8 @@ sealed interface SettingsIntent : UiIntent {
 
 sealed interface SettingsSideEffect : UiSideEffect {
     data object NavigateToMain : SettingsSideEffect
+    data class StartUploadService(val presetName: String) : SettingsSideEffect
+    data class UploadStarted(val presetName: String) : SettingsSideEffect
     data object UploadSuccess : SettingsSideEffect
     data class UploadError(val message: String) : SettingsSideEffect
     data object RequireSignIn : SettingsSideEffect

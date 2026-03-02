@@ -31,6 +31,7 @@ fun SettingsDetailScreen(
     onIntent: (SettingsIntent) -> Unit,
     onBack: () -> Unit,
     onNavigateToMarket: () -> Unit = {},
+    onShowSnackbar: (String) -> Unit = {},
 ) {
     val title = stringResource(
         when (menu) {
@@ -87,6 +88,7 @@ fun SettingsDetailScreen(
                     state = state,
                     onIntent = onIntent,
                     onNavigateToMarket = onNavigateToMarket,
+                    onShowSnackbar = onShowSnackbar,
                 )
             }
         }

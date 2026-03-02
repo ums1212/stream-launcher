@@ -2,6 +2,45 @@
 
 ---
 
+## [2026-03-02] feat(upload): 프리셋 업로드 포그라운드 서비스 전환
+
+### 목표
+
+기존 `SettingsViewModel`에서 `viewModelScope.launch`로 직접 실행되던 업로드 로직을 **포그라운드 서비스**로 이전한다. 업로드 중 모달 AlertDialog로 화면을 차단하던 UX를 제거하고, **카드 레벨 LinearProgressIndicator** + **Notification 프로그레스바**로 진행 상황을 표시하여 업로드 중에도 다른 화면을 탐색할 수 있도록 한다.
+
+### 변경 사항
+
+| # | 계층 | 파일 | 변경 내용 |
+|---|------|------|----------|
+| 1 | `core:domain` | `model/preset/UploadProgress.kt` | 신규 — `presetName`, `currentStep`, `totalSteps`, `isCompleted`, `error`, `percentage` 보유 데이터 클래스 |
+| 2 | `core:domain` | `upload/UploadProgressTracker.kt` | 신규 — `@Singleton`, `MutableStateFlow<UploadProgress?>` 보유, `update()` / `clear()` 메서드 |
+| 3 | `core:domain` | `upload/UploadDataHolder.kt` | 신규 — `@Singleton`, `pendingPreset: MarketPreset?` / `pendingPreviewUris` 보유, `clear()` 메서드 (Intent 크기 제한 회피용) |
+| 4 | `core:domain` | `usecase/UploadPresetToMarketUseCase.kt` | `uploadWithProgress(preset, previewUris): Flow<UploadProgress>` 추가 — 로컬 이미지 수 기반 `totalSteps` 계산, 각 이미지 업로드 후 `emit()`, 네트워크 예외 사용자 친화적 메시지 변환 |
+| 5 | `app` | `AndroidManifest.xml` | 권한 추가: `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_DATA_SYNC`, `POST_NOTIFICATIONS`; `PresetUploadService` 서비스 등록 (`foregroundServiceType="dataSync"`) |
+| 6 | `app` | `StreamLauncherApplication.kt` | `createNotificationChannels()` 추가 — `"preset_upload"` 채널, `IMPORTANCE_LOW` (무음) |
+| 7 | `app` | `service/PresetUploadService.kt` | 신규 — `@AndroidEntryPoint Service`, `UploadDataHolder`에서 preset 읽기, `ServiceCompat.startForeground()` (API 29 분기), `collect`로 진행 Notification 갱신, 완료/실패 별도 Notification, `START_NOT_STICKY` |
+| 8 | `feature:settings` | `SettingsContract.kt` | `SettingsState.isUploading` → `uploadProgress: UploadProgress?`로 교체; `SettingsSideEffect`에 `StartUploadService(presetName)`, `UploadStarted(presetName)` 추가 |
+| 9 | `feature:settings` | `SettingsViewModel.kt` | `UploadProgressTracker` / `UploadDataHolder` 주입 추가; `init`에 progress collect → `UploadSuccess`/`UploadError` 사이드이펙트 발행; `uploadPreset()`에서 직접 실행 대신 DataHolder 저장 + `StartUploadService` 사이드이펙트 발행으로 위임 |
+| 10 | `feature:settings` | `ui/PresetSettingsContent.kt` | 업로드 중 모달 AlertDialog 제거; `PresetItemCard`에 `uploadProgress: UploadProgress?` 파라미터 추가, 업로드 중 `LinearProgressIndicator` + `%` 텍스트 표시, 카드 배경 강조; 업로드 중 모든 공유 버튼 비활성화; `POST_NOTIFICATIONS` 런타임 권한 요청 (Android 13+) |
+| 11 | `feature:settings` | `ui/SettingsDetailScreen.kt` | `onShowSnackbar: (String) -> Unit` 파라미터 추가 → `PresetSettingsContent`에 전달 |
+| 12 | `app` | `MainActivity.kt` | `StartUploadService` → `startForegroundService()` 처리; `UploadStarted` → 스낵바 "N을 마켓에 업로드합니다"; `SettingsDetailScreen`에 `onShowSnackbar` 전달 |
+| 13 | `feature:settings` | `SettingsViewModelTest.kt` | `UploadProgressTracker` / `UploadDataHolder` mock 추가 (실제 인스턴스 사용), `makeViewModel()` 파라미터 확장 |
+
+### 검증 결과
+
+- `assembleDebug` BUILD SUCCESSFUL
+- `./gradlew test` BUILD SUCCESSFUL (실패 0건, 회귀 없음)
+
+### 설계 결정 및 근거
+
+- **`UploadDataHolder` 싱글톤 메모리 전달**: Firebase `StorageReference.putFile()`은 Uri를 직접 처리하므로 `Parcelable` 변환 없이 메모리 객체를 서비스로 전달하는 것이 가장 단순하다. `Intent` extras는 1MB 제한이 있어 `MarketPreset`(로컬 URI 다수)을 직렬화하면 초과 위험이 있다.
+- **`START_NOT_STICKY`**: 프로세스 종료 시 `UploadDataHolder`/`UploadProgressTracker`가 초기화되므로 서비스 자동 재시작이 무의미하다. 대신 `onStartCommand`에서 `pendingPreset == null` 방어 로직으로 graceful 종료 처리.
+- **`ServiceCompat.startForeground()` + API 29 분기**: `ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC`는 API 29 상수이므로 조건 분기로 하위 호환성 확보. minSdk 28에서 컴파일 오류 방지.
+- **progress tracker에서 UploadSuccess/UploadError 발행**: 서비스가 종료된 후에도 ViewModel의 collect 흐름이 상태 변화를 감지하므로 서비스↔ViewModel 간 직접 통신 없이 단방향 데이터 흐름 유지.
+- **스마트 캐스트 오류 해결**: `UploadProgress.error`는 다른 모듈의 public property이므로 Kotlin이 null 체크 후에도 스마트 캐스트를 거부한다. 로컬 변수(`val errorMsg = progress.error`)에 대입 후 검사하거나 `?.let { }` 체이닝으로 우회.
+
+---
+
 ## [2026-03-02] feat(preset-market): Top 10 카드에 순위 번호(#1, #2…) 표시
 
 ### 목표

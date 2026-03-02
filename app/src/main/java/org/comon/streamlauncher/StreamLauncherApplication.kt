@@ -1,6 +1,8 @@
 package org.comon.streamlauncher
 
 import android.app.Application
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import androidx.work.Constraints
@@ -34,6 +36,7 @@ class StreamLauncherApplication : Application(), ImageLoaderFactory, Configurati
     override fun onCreate() {
         super.onCreate()
         MobileAds.initialize(this)
+        createNotificationChannels()
         scheduleFeedSync()
     }
 
@@ -55,6 +58,19 @@ class StreamLauncherApplication : Application(), ImageLoaderFactory, Configurati
             }
             .crossfade(true)
             .build()
+    }
+
+    private fun createNotificationChannels() {
+        val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        val channel = NotificationChannel(
+            "preset_upload",
+            "프리셋 업로드",
+            NotificationManager.IMPORTANCE_LOW,
+        ).apply {
+            description = "프리셋 마켓 업로드 진행 상황"
+            setSound(null, null)
+        }
+        manager.createNotificationChannel(channel)
     }
 
     private fun scheduleFeedSync() {

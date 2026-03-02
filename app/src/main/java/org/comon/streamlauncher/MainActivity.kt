@@ -77,6 +77,7 @@ import org.comon.streamlauncher.preset_market.navigation.MarketRoute
 import org.comon.streamlauncher.preset_market.ui.MarketHomeScreen
 import org.comon.streamlauncher.preset_market.ui.MarketSearchScreen
 import org.comon.streamlauncher.preset_market.ui.PresetDetailScreen
+import org.comon.streamlauncher.service.PresetUploadService
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -344,6 +345,15 @@ class MainActivity : ComponentActivity() {
                         when (effect) {
                             is SettingsSideEffect.NavigateToMain ->
                                 navController.popBackStack(SettingsRoute.LAUNCHER, false)
+                            is SettingsSideEffect.StartUploadService -> {
+                                val serviceIntent = Intent(this@MainActivity, PresetUploadService::class.java)
+                                    .putExtra(PresetUploadService.EXTRA_PRESET_NAME, effect.presetName)
+                                startForegroundService(serviceIntent)
+                            }
+                            is SettingsSideEffect.UploadStarted ->
+                                settingsScope.launch {
+                                    settingsSnackbarHostState.showSnackbar("${effect.presetName}을 마켓에 업로드합니다")
+                                }
                             is SettingsSideEffect.UploadSuccess ->
                                 settingsScope.launch {
                                     settingsSnackbarHostState.showSnackbar("프리셋이 마켓에 업로드되었습니다!")
@@ -427,6 +437,11 @@ class MainActivity : ComponentActivity() {
                             onIntent = settingsViewModel::handleIntent,
                             onBack = { navController.popBackStack() },
                             onNavigateToMarket = { navController.navigate(MarketRoute.HOME) },
+                            onShowSnackbar = { message ->
+                                settingsScope.launch {
+                                    settingsSnackbarHostState.showSnackbar(message)
+                                }
+                            },
                         )
                     }
                     composable(

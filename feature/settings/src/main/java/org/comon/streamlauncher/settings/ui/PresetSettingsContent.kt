@@ -1,12 +1,18 @@
 package org.comon.streamlauncher.settings.ui
 
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts.PickMultipleVisualMedia
+import androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia
+import androidx.activity.result.contract.ActivityResultContracts.RequestPermission
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -23,12 +29,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
-import androidx.activity.result.contract.ActivityResultContracts.PickMultipleVisualMedia
-import androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia
 import coil.compose.AsyncImage
 import org.comon.streamlauncher.domain.model.preset.Preset
+import org.comon.streamlauncher.domain.model.preset.UploadProgress
 import org.comon.streamlauncher.settings.SettingsIntent
 import org.comon.streamlauncher.settings.SettingsState
 import org.comon.streamlauncher.settings.R
@@ -42,13 +45,23 @@ fun PresetSettingsContent(
     state: SettingsState,
     onIntent: (SettingsIntent) -> Unit,
     modifier: Modifier = Modifier,
-    onNavigateToMarket: () -> Unit = {}
+    onNavigateToMarket: () -> Unit = {},
+    onShowSnackbar: (String) -> Unit = {},
 ) {
     var showSaveDialog by remember { mutableStateOf(false) }
     var showLimitDialog by remember { mutableStateOf(false) }
     var presetToLoad by remember { mutableStateOf<Preset?>(null) }
     var presetToDelete by remember { mutableStateOf<Preset?>(null) }
     var presetToUpload by remember { mutableStateOf<Preset?>(null) }
+
+    val isUploadInProgress = state.uploadProgress != null || state.pendingUploadPresetName != null
+
+    // Android 13+ POST_NOTIFICATIONS 권한 요청
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(RequestPermission()) { granted ->
+        if (!granted) {
+            onShowSnackbar("알림 권한이 없어 업로드 진행 상황을 알림으로 확인할 수 없습니다")
+        }
+    }
 
     Column(
         modifier = modifier
@@ -101,11 +114,15 @@ fun PresetSettingsContent(
                     }
                 }
 
+                // 현재 이 preset이 업로드 중인지 확인
+                val isPendingForThisPreset = state.pendingUploadPresetName == preset.name && state.uploadProgress == null
+                val thisPresetProgress = state.uploadProgress?.takeIf { it.presetName == preset.name }
+
                 SwipeToDismissBox(
                     state = dismissState,
                     modifier = Modifier.animateItem(),
                     enableDismissFromStartToEnd = false,
-                    enableDismissFromEndToStart = true,
+                    enableDismissFromEndToStart = !isUploadInProgress,
                     backgroundContent = {
                         val color = if (dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart) {
                             MaterialTheme.colorScheme.errorContainer
@@ -131,8 +148,12 @@ fun PresetSettingsContent(
                     content = {
                         PresetItemCard(
                             preset = preset,
-                            onClick = { presetToLoad = preset },
-                            onShare = { presetToUpload = preset },
+                            onClick = { if (!isUploadInProgress) presetToLoad = preset },
+                            onShare = if (!isUploadInProgress) {
+                                { presetToUpload = preset }
+                            } else null,
+                            isPending = isPendingForThisPreset,
+                            uploadProgress = thisPresetProgress,
                         )
                     }
                 )
@@ -176,27 +197,31 @@ fun PresetSettingsContent(
             }
         )
     }
-    
+
     // Upload Preset Dialog
     presetToUpload?.let { preset ->
         UploadToMarketDialog(
             presetName = preset.name,
             onDismiss = { presetToUpload = null },
             onUpload = { description, tags, previewUris ->
+                // Android 13+ 알림 권한 요청
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                }
                 onIntent(SettingsIntent.UploadPreset(preset, description, tags, previewUris))
                 presetToUpload = null
             },
         )
     }
 
-    // Delete Confirmation - Auto deleted by swipe but can add a dialog or snackbar if desired
+    // Delete Confirmation
     presetToDelete?.let { preset ->
         AlertDialog(
             onDismissRequest = { presetToDelete = null },
             title = { Text(stringResource(R.string.delete) + "?") },
             text = { Text("Are you sure you want to delete '${preset.name}'?") },
             confirmButton = {
-                TextButton(onClick = { 
+                TextButton(onClick = {
                     onIntent(SettingsIntent.DeletePreset(preset))
                     presetToDelete = null
                 }) {
@@ -210,30 +235,6 @@ fun PresetSettingsContent(
             }
         )
     }
-
-    // Upload Progress Dialog
-    if (state.isUploading) {
-        AlertDialog(
-            onDismissRequest = { /* 업로드 중 닫기 불가 */ },
-            title = { Text("마켓에 업로드 중...") },
-            text = {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                ) {
-                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                    Text(
-                        text = "이미지를 압축하고 업로드하는 중입니다.\n잠시만 기다려주세요.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color.Black.copy(alpha = 0.7f),
-                    )
-                }
-            },
-            confirmButton = {},
-        )
-    }
-
 }
 
 @Composable
@@ -241,57 +242,95 @@ fun PresetItemCard(
     preset: Preset,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    onShare: (() -> Unit)? = null
+    onShare: (() -> Unit)? = null,
+    isPending: Boolean = false,
+    uploadProgress: UploadProgress? = null,
 ) {
     val dateString = remember(preset.createdAt) {
         SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(preset.createdAt))
     }
-    
+
+    val isUploading = uploadProgress != null || isPending
+
     Card(
         onClick = onClick,
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = Color.White
+            containerColor = if (isUploading) {
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+            } else {
+                Color.White
+            }
         )
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = preset.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.Black
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = dateString,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.Black.copy(alpha = 0.7f)
-                )
-                // Show included settings tags
-                Spacer(modifier = Modifier.height(8.dp))
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                ) {
-                    if (preset.hasTopLeftImage || preset.hasTopRightImage || preset.hasBottomLeftImage || preset.hasBottomRightImage) PresetTag("Home")
-                    if (preset.hasFeedSettings) PresetTag("Feed")
-                    if (preset.hasAppDrawerSettings) PresetTag("Drawer")
-                    if (preset.hasThemeSettings) PresetTag("Theme")
-                    if (preset.hasWallpaperSettings) PresetTag("Wallpaper")
+        Column {
+            Row(
+                modifier = Modifier.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = preset.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = dateString,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Black.copy(alpha = 0.7f)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        if (preset.hasTopLeftImage || preset.hasTopRightImage || preset.hasBottomLeftImage || preset.hasBottomRightImage) PresetTag("Home")
+                        if (preset.hasFeedSettings) PresetTag("Feed")
+                        if (preset.hasAppDrawerSettings) PresetTag("Drawer")
+                        if (preset.hasThemeSettings) PresetTag("Theme")
+                        if (preset.hasWallpaperSettings) PresetTag("Wallpaper")
+                    }
+                }
+                if (!isUploading && onShare != null) {
+                    IconButton(onClick = onShare) {
+                        Icon(
+                            imageVector = Icons.Default.Share,
+                            contentDescription = "공유",
+                            tint = Color.Black.copy(alpha = 0.6f),
+                        )
+                    }
                 }
             }
-            if (onShare != null) {
-                IconButton(onClick = onShare) {
-                    Icon(
-                        imageVector = Icons.Default.Share,
-                        contentDescription = "공유",
-                        tint = Color.Black.copy(alpha = 0.6f),
-                    )
+
+            // 업로드 진행 표시
+            if (isUploading) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    if (uploadProgress != null) {
+                        LinearProgressIndicator(
+                            progress = { uploadProgress.percentage },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Text(
+                            text = "업로드 중 ${(uploadProgress.percentage * 100).toInt()}%",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    } else {
+                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                        Text(
+                            text = "업로드 준비 중...",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
                 }
             }
         }
@@ -484,7 +523,6 @@ fun UploadToMarketDialog(
                         }
                     }
                 }
-                // 프리뷰 이미지 선택
                 OutlinedButton(
                     onClick = {
                         imagePicker.launch(

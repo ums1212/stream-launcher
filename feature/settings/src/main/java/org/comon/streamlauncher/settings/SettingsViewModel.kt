@@ -20,7 +20,8 @@ import org.comon.streamlauncher.domain.usecase.SaveFeedSettingsUseCase
 import org.comon.streamlauncher.domain.usecase.SaveGridCellImageUseCase
 import org.comon.streamlauncher.domain.usecase.SavePresetUseCase
 import org.comon.streamlauncher.domain.usecase.SignInWithGoogleUseCase
-import org.comon.streamlauncher.domain.usecase.UploadPresetToMarketUseCase
+import org.comon.streamlauncher.settings.upload.UploadDataHolder
+import org.comon.streamlauncher.settings.upload.UploadProgressTracker
 import org.comon.streamlauncher.settings.model.ImageType
 import org.comon.streamlauncher.ui.BaseViewModel
 import javax.inject.Inject
@@ -38,9 +39,10 @@ class SettingsViewModel @Inject constructor(
     private val savePresetUseCase: SavePresetUseCase,
     private val deletePresetUseCase: DeletePresetUseCase,
     private val wallpaperHelper: org.comon.streamlauncher.domain.util.WallpaperHelper,
-    private val uploadPresetToMarketUseCase: UploadPresetToMarketUseCase,
     private val signInWithGoogleUseCase: SignInWithGoogleUseCase,
     private val observeAuthStateUseCase: ObserveAuthStateUseCase,
+    private val uploadProgressTracker: UploadProgressTracker,
+    private val uploadDataHolder: UploadDataHolder,
 ) : BaseViewModel<SettingsState, SettingsIntent, SettingsSideEffect>(SettingsState()) {
 
     private var currentNoticeVersion: String = ""
@@ -72,6 +74,18 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             observeAuthStateUseCase().collect { user ->
                 cachedMarketUser = user
+            }
+        }
+        viewModelScope.launch {
+            uploadProgressTracker.progress.collect { progress ->
+                updateState { copy(uploadProgress = progress, pendingUploadPresetName = null) }
+                if (progress?.isCompleted == true) {
+                    sendEffect(SettingsSideEffect.UploadSuccess)
+                } else {
+                    progress?.error?.let { error ->
+                        sendEffect(SettingsSideEffect.UploadError(error))
+                    }
+                }
             }
         }
     }
@@ -174,7 +188,6 @@ class SettingsViewModel @Inject constructor(
     private fun savePreset(intent: SettingsIntent.SavePreset) {
         viewModelScope.launch {
             val state = currentState
-            // 사용자가 선택한 URI를 내부 저장소로 복사
             val wallpaperPath = if (intent.saveWallpaper && intent.wallpaperUri != null) {
                 wallpaperHelper.copyWallpaperFromUri(intent.wallpaperUri, System.currentTimeMillis())
             } else null
@@ -194,7 +207,7 @@ class SettingsViewModel @Inject constructor(
                 bottomRightIdleUri = if (intent.saveHome) state.gridCellImages[GridCell.BOTTOM_RIGHT]?.idleImageUri else null,
                 bottomRightExpandedUri = if (intent.saveHome) state.gridCellImages[GridCell.BOTTOM_RIGHT]?.expandedImageUri else null,
                 hasFeedSettings = intent.saveFeed,
-                useFeed = true, // Default to true if feed settings saved
+                useFeed = true,
                 youtubeChannelId = if (intent.saveFeed) state.youtubeChannelId else "",
                 chzzkChannelId = if (intent.saveFeed) state.chzzkChannelId else "",
                 hasAppDrawerSettings = intent.saveDrawer,
@@ -205,7 +218,7 @@ class SettingsViewModel @Inject constructor(
                 wallpaperUri = wallpaperPath,
                 enableParallax = false,
                 hasThemeSettings = intent.saveTheme,
-                themeColorHex = if (intent.saveTheme) state.colorPresetIndex.toString() else null // Store index in hex field for simplicity
+                themeColorHex = if (intent.saveTheme) state.colorPresetIndex.toString() else null
             )
             savePresetUseCase(preset)
         }
@@ -214,7 +227,7 @@ class SettingsViewModel @Inject constructor(
     private fun loadPreset(intent: SettingsIntent.LoadPreset) {
         viewModelScope.launch {
             val preset = intent.preset
-            
+
             if (intent.loadHome) {
                 if (preset.hasTopLeftImage) saveGridCellImageUseCase(GridCell.TOP_LEFT, preset.topLeftIdleUri, preset.topLeftExpandedUri)
                 if (preset.hasTopRightImage) saveGridCellImageUseCase(GridCell.TOP_RIGHT, preset.topRightIdleUri, preset.topRightExpandedUri)
@@ -231,7 +244,7 @@ class SettingsViewModel @Inject constructor(
                 preset.themeColorHex?.toIntOrNull()?.let { saveColorPresetUseCase(it) }
             }
             if (intent.loadWallpaper && preset.hasWallpaperSettings) {
-                preset.wallpaperUri?.let { uri -> 
+                preset.wallpaperUri?.let { uri ->
                     wallpaperHelper.setWallpaperFromPreset(uri)
                 }
             }
@@ -262,48 +275,49 @@ class SettingsViewModel @Inject constructor(
             return
         }
         pendingUploadIntent = null
-        viewModelScope.launch {
-            updateState { copy(isUploading = true) }
-            val authorUser = cachedMarketUser
-            val p = intent.preset
-            val marketPreset = MarketPreset(
-                authorUid = authorUser?.uid ?: "",
-                authorDisplayName = authorUser?.displayName ?: "",
-                name = p.name,
-                description = intent.description,
-                tags = intent.tags,
-                hasTopLeftImage = p.hasTopLeftImage,
-                hasTopRightImage = p.hasTopRightImage,
-                hasBottomLeftImage = p.hasBottomLeftImage,
-                hasBottomRightImage = p.hasBottomRightImage,
-                // 로컬 URI → UseCase 내부에서 Storage 업로드 후 URL로 교체됨
-                topLeftIdleUrl      = p.topLeftIdleUri,
-                topLeftExpandedUrl  = p.topLeftExpandedUri,
-                topRightIdleUrl     = p.topRightIdleUri,
-                topRightExpandedUrl = p.topRightExpandedUri,
-                bottomLeftIdleUrl      = p.bottomLeftIdleUri,
-                bottomLeftExpandedUrl  = p.bottomLeftExpandedUri,
-                bottomRightIdleUrl     = p.bottomRightIdleUri,
-                bottomRightExpandedUrl = p.bottomRightExpandedUri,
-                hasFeedSettings = p.hasFeedSettings,
-                useFeed = p.useFeed,
-                youtubeChannelId = p.youtubeChannelId,
 
-                chzzkChannelId = p.chzzkChannelId,
-                hasAppDrawerSettings = p.hasAppDrawerSettings,
-                appDrawerColumns = p.appDrawerColumns,
-                appDrawerRows = p.appDrawerRows,
-                appDrawerIconSizeRatio = p.appDrawerIconSizeRatio,
-                hasWallpaperSettings = p.hasWallpaperSettings,
-                wallpaperUrl = p.wallpaperUri,
-                enableParallax = p.enableParallax,
-                hasThemeSettings = p.hasThemeSettings,
-                themeColorHex = p.themeColorHex,
-            )
-            uploadPresetToMarketUseCase(marketPreset, intent.previewUris)
-                .onSuccess { sendEffect(SettingsSideEffect.UploadSuccess) }
-                .onFailure { e -> sendEffect(SettingsSideEffect.UploadError(e.message ?: "업로드 실패")) }
-            updateState { copy(isUploading = false) }
-        }
+        val authorUser = cachedMarketUser
+        val p = intent.preset
+        val marketPreset = MarketPreset(
+            authorUid = authorUser?.uid ?: "",
+            authorDisplayName = authorUser?.displayName ?: "",
+            name = p.name,
+            description = intent.description,
+            tags = intent.tags,
+            hasTopLeftImage = p.hasTopLeftImage,
+            hasTopRightImage = p.hasTopRightImage,
+            hasBottomLeftImage = p.hasBottomLeftImage,
+            hasBottomRightImage = p.hasBottomRightImage,
+            topLeftIdleUrl      = p.topLeftIdleUri,
+            topLeftExpandedUrl  = p.topLeftExpandedUri,
+            topRightIdleUrl     = p.topRightIdleUri,
+            topRightExpandedUrl = p.topRightExpandedUri,
+            bottomLeftIdleUrl      = p.bottomLeftIdleUri,
+            bottomLeftExpandedUrl  = p.bottomLeftExpandedUri,
+            bottomRightIdleUrl     = p.bottomRightIdleUri,
+            bottomRightExpandedUrl = p.bottomRightExpandedUri,
+            hasFeedSettings = p.hasFeedSettings,
+            useFeed = p.useFeed,
+            youtubeChannelId = p.youtubeChannelId,
+            chzzkChannelId = p.chzzkChannelId,
+            hasAppDrawerSettings = p.hasAppDrawerSettings,
+            appDrawerColumns = p.appDrawerColumns,
+            appDrawerRows = p.appDrawerRows,
+            appDrawerIconSizeRatio = p.appDrawerIconSizeRatio,
+            hasWallpaperSettings = p.hasWallpaperSettings,
+            wallpaperUrl = p.wallpaperUri,
+            enableParallax = p.enableParallax,
+            hasThemeSettings = p.hasThemeSettings,
+            themeColorHex = p.themeColorHex,
+        )
+
+        // 데이터 홀더에 preset 저장 후 서비스 시작 요청
+        uploadDataHolder.pendingPreset = marketPreset
+        uploadDataHolder.pendingPreviewUris = intent.previewUris
+
+        updateState { copy(pendingUploadPresetName = marketPreset.name) }
+
+        sendEffect(SettingsSideEffect.StartUploadService(marketPreset.name))
+        sendEffect(SettingsSideEffect.UploadStarted(marketPreset.name))
     }
 }
