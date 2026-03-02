@@ -50,7 +50,7 @@ class PresetMarketViewModel @Inject constructor(
             is PresetMarketIntent.ClickPreset -> sendEffect(PresetMarketSideEffect.NavigateToDetail(intent.presetId))
             is PresetMarketIntent.SignInWithGoogle -> signIn(intent.idToken)
             is PresetMarketIntent.SignOut -> signOut()
-            is PresetMarketIntent.NavigateToSearch -> sendEffect(PresetMarketSideEffect.NavigateToSearch(intent.query))
+            is PresetMarketIntent.NavigateToSearch -> sendEffect(PresetMarketSideEffect.NavigateToSearch)
             is PresetMarketIntent.DismissError -> updateState { copy(error = null) }
         }
     }

@@ -23,13 +23,13 @@ sealed interface PresetMarketIntent : UiIntent {
     data class ClickPreset(val presetId: String) : PresetMarketIntent
     data class SignInWithGoogle(val idToken: String) : PresetMarketIntent
     data object SignOut : PresetMarketIntent
-    data class NavigateToSearch(val query: String) : PresetMarketIntent
+    data object NavigateToSearch : PresetMarketIntent
     data object DismissError : PresetMarketIntent
 }
 
 sealed interface PresetMarketSideEffect : UiSideEffect {
     data class NavigateToDetail(val presetId: String) : PresetMarketSideEffect
-    data class NavigateToSearch(val query: String) : PresetMarketSideEffect
+    data object NavigateToSearch : PresetMarketSideEffect
     data class ShowError(val message: String) : PresetMarketSideEffect
     data object RequireSignIn : PresetMarketSideEffect
     data object SignInSuccess : PresetMarketSideEffect

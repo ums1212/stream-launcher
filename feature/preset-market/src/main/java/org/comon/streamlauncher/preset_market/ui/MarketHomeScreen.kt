@@ -1,5 +1,9 @@
 package org.comon.streamlauncher.preset_market.ui
 
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.pager.HorizontalPager
@@ -11,6 +15,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
@@ -25,18 +30,19 @@ import org.comon.streamlauncher.domain.model.preset.MarketPreset
 import org.comon.streamlauncher.preset_market.*
 import org.comon.streamlauncher.preset_market.R
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
 @Composable
 fun MarketHomeScreen(
     onNavigateToDetail: (String) -> Unit,
-    onNavigateToSearch: (String) -> Unit,
+    onNavigateToSearch: () -> Unit,
     onBack: () -> Unit,
+    sharedTransitionScope: SharedTransitionScope,
+    animatedVisibilityScope: AnimatedVisibilityScope,
     modifier: Modifier = Modifier,
     viewModel: PresetMarketViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val recentPresets = viewModel.recentPresetsPaging.collectAsLazyPagingItems()
-    var searchQuery by remember { mutableStateOf("") }
     var showSignIn by remember { mutableStateOf(false) }
     var showSignOutDialog by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
@@ -48,7 +54,7 @@ fun MarketHomeScreen(
         viewModel.effect.collect { effect ->
             when (effect) {
                 is PresetMarketSideEffect.NavigateToDetail -> onNavigateToDetail(effect.presetId)
-                is PresetMarketSideEffect.NavigateToSearch -> onNavigateToSearch(effect.query)
+                is PresetMarketSideEffect.NavigateToSearch -> onNavigateToSearch()
                 is PresetMarketSideEffect.ShowError -> snackbarHostState.showSnackbar(effect.message)
                 is PresetMarketSideEffect.RequireSignIn -> showSignIn = true
                 is PresetMarketSideEffect.SignInSuccess -> snackbarHostState.showSnackbar(signInSuccessMessage)
@@ -93,6 +99,7 @@ fun MarketHomeScreen(
 
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
+    with(sharedTransitionScope) {
     Scaffold(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -124,28 +131,36 @@ fun MarketHomeScreen(
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(0.dp),
         ) {
-            // 검색바
+            // 검색바 (탭하면 검색 화면으로 이동하는 fake SearchBar)
             item {
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
+                Surface(
+                    onClick = { viewModel.handleIntent(PresetMarketIntent.NavigateToSearch) },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    placeholder = { Text(stringResource(R.string.preset_market_search_hint)) },
-                    trailingIcon = {
-                        IconButton(
-                            onClick = {
-                                if (searchQuery.isNotBlank()) {
-                                    viewModel.handleIntent(PresetMarketIntent.NavigateToSearch(searchQuery))
-                                }
-                            }
-                        ) {
-                            Icon(Icons.Default.Search, contentDescription = null)
-                        }
-                    },
-                    singleLine = true,
-                )
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .sharedBounds(
+                            sharedContentState = rememberSharedContentState(key = "market-search-bar"),
+                            animatedVisibilityScope = animatedVisibilityScope,
+                        ),
+                    shape = MaterialTheme.shapes.extraSmall,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.preset_market_search_hint),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.weight(1f))
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
             }
 
             // AdMob 배너
@@ -190,7 +205,7 @@ fun MarketHomeScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(200.dp),
-                        contentAlignment = androidx.compose.ui.Alignment.Center,
+                        contentAlignment = Alignment.Center,
                     ) {
                         CircularProgressIndicator()
                     }
@@ -223,6 +238,7 @@ fun MarketHomeScreen(
             }
         }
     }
+    } // with(sharedTransitionScope)
 }
 
 @Composable

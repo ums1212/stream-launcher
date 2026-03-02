@@ -19,6 +19,10 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.material3.SnackbarHostState
@@ -39,6 +43,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import dagger.hilt.android.AndroidEntryPoint
 import org.comon.streamlauncher.apps_drawer.ui.AppDrawerScreen
 import org.comon.streamlauncher.domain.model.ColorPresets
@@ -67,7 +72,7 @@ import androidx.core.net.toUri
 import android.net.Uri as AndroidUri
 import org.comon.streamlauncher.preset_market.navigation.MarketRoute
 import org.comon.streamlauncher.preset_market.ui.MarketHomeScreen
-import org.comon.streamlauncher.preset_market.ui.MarketSearchResultScreen
+import org.comon.streamlauncher.preset_market.ui.MarketSearchScreen
 import org.comon.streamlauncher.preset_market.ui.PresetDetailScreen
 
 @AndroidEntryPoint
@@ -192,6 +197,7 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+    @OptIn(ExperimentalSharedTransitionApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -318,6 +324,8 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
+                SharedTransitionLayout {
+                val sharedTransitionScope = this
                 NavHost(
                     navController = navController,
                     startDestination = SettingsRoute.LAUNCHER,
@@ -390,30 +398,35 @@ class MainActivity : ComponentActivity() {
                     composable(
                         route = MarketRoute.HOME,
                         enterTransition = { slideInHorizontally(initialOffsetX = { it }) },
-                        exitTransition = { slideOutHorizontally(targetOffsetX = { it }) },
-                        popEnterTransition = { slideInHorizontally(initialOffsetX = { -it }) },
+                        exitTransition = { fadeOut() },
+                        popEnterTransition = { fadeIn() },
                         popExitTransition = { slideOutHorizontally(targetOffsetX = { it }) },
                     ) {
                         MarketHomeScreen(
                             onNavigateToDetail = { navController.navigate(MarketRoute.detail(it)) },
-                            onNavigateToSearch = { navController.navigate(MarketRoute.search(it)) },
+                            onNavigateToSearch = { navController.navigate(MarketRoute.search()) },
                             onBack = { navController.popBackStack() },
+                            sharedTransitionScope = sharedTransitionScope,
+                            animatedVisibilityScope = this,
                         )
                     }
                     composable(
                         route = MarketRoute.SEARCH,
-                        enterTransition = { slideInHorizontally(initialOffsetX = { it }) },
+                        arguments = listOf(navArgument("query") { defaultValue = "" }),
+                        enterTransition = { fadeIn() },
                         exitTransition = { slideOutHorizontally(targetOffsetX = { it }) },
                         popEnterTransition = { slideInHorizontally(initialOffsetX = { -it }) },
-                        popExitTransition = { slideOutHorizontally(targetOffsetX = { it }) },
+                        popExitTransition = { fadeOut() },
                     ) { backStackEntry ->
                         val query = AndroidUri.decode(
                             backStackEntry.arguments?.getString("query") ?: ""
                         )
-                        MarketSearchResultScreen(
+                        MarketSearchScreen(
                             initialQuery = query,
                             onNavigateToDetail = { navController.navigate(MarketRoute.detail(it)) },
                             onBack = { navController.popBackStack() },
+                            sharedTransitionScope = sharedTransitionScope,
+                            animatedVisibilityScope = this,
                         )
                     }
                     composable(
@@ -428,6 +441,7 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                 }
+                } // SharedTransitionLayout
 
                 if (settingsState.showNoticeDialog) {
                     NoticeDialog(

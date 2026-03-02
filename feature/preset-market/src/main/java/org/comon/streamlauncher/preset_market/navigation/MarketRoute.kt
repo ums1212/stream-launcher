@@ -5,8 +5,8 @@ import android.net.Uri
 object MarketRoute {
     const val HOME = "preset_market"
     const val DETAIL = "preset_market_detail/{presetId}"
-    const val SEARCH = "preset_market_search/{query}"
+    const val SEARCH = "preset_market_search?query={query}"
 
     fun detail(presetId: String) = "preset_market_detail/$presetId"
-    fun search(query: String) = "preset_market_search/${Uri.encode(query)}"
+    fun search(query: String = "") = "preset_market_search?query=${Uri.encode(query)}"
 }

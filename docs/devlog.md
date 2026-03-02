@@ -2,6 +2,38 @@
 
 ---
 
+## [2026-03-02] feat(preset-market): 검색 화면 SharedElement 전환 애니메이션 + 리네이밍
+
+### 목표
+
+프리셋 마켓 홈 화면의 검색바를 탭하면 `MarketSearchScreen`으로 전환될 때, Shared Element Transition으로 검색바가 자연스럽게 상단으로 모핑되는 애니메이션을 적용한다. `MarketSearchResultScreen` → `MarketSearchScreen` 리네이밍 병행.
+
+### 변경 사항
+
+| # | 계층 | 파일 | 변경 내용 |
+|---|------|------|----------|
+| 1 | `Feature(PresetMarket)` | `navigation/MarketRoute.kt` | SEARCH 경로 `{query}` → `?query={query}` (optional), `search()` 기본값 추가 |
+| 2 | `Feature(PresetMarket)` | `PresetMarketContract.kt` | `NavigateToSearch` intent/sideeffect: `data class(query)` → `data object` |
+| 3 | `Feature(PresetMarket)` | `PresetMarketViewModel.kt` | `NavigateToSearch` 핸들러에서 query 인자 제거 |
+| 4 | `Feature(PresetMarket)` | `ui/MarketHomeScreen.kt` | `SharedTransitionScope`/`AnimatedVisibilityScope` 파라미터 추가; `OutlinedTextField` → 클릭 전용 fake `Surface` SearchBar + `sharedBounds(key="market-search-bar")`; `onNavigateToSearch: () -> Unit`으로 변경 |
+| 5 | `Feature(PresetMarket)` | `ui/MarketSearchResultScreen.kt` | **삭제** (MarketSearchScreen.kt로 대체) |
+| 6 | `Feature(PresetMarket)` | `ui/MarketSearchScreen.kt` | **신규 생성**: `SharedTransitionScope`/`AnimatedVisibilityScope` 파라미터 추가; TopAppBar 내 `OutlinedTextField`에 `sharedBounds(key="market-search-bar")` 적용; 전환 완료 후 400ms 딜레이 뒤 `FocusRequester`로 자동 포커스; `ImeAction.Search` + `KeyboardActions` 엔터 검색; `LocalSoftwareKeyboardController.hide()` 검색 후 키보드 자동 숨김 |
+| 7 | `App` | `MainActivity.kt` | `NavHost`를 `SharedTransitionLayout`으로 래핑, `sharedTransitionScope` 캡처; HOME exitTransition/popEnterTransition → `fadeOut`/`fadeIn`; SEARCH enterTransition/popExitTransition → `fadeIn`/`fadeOut`; `navArgument("query") { defaultValue = "" }` 선언; scope 전달; `MarketSearchResultScreen` → `MarketSearchScreen` import 변경; `NavType`/`navArgument` import 추가 |
+
+### 검증 결과
+
+- `./gradlew assembleDebug` BUILD SUCCESSFUL (227 tasks)
+- `./gradlew test` BUILD SUCCESSFUL (실패 0건)
+
+### 설계 결정 및 근거
+
+- **HOME↔SEARCH 전환을 fade로 변경**: Shared Element가 위치를 이동하는 동안 slide 전환이 겹치면 요소가 두 방향으로 동시에 이동해 시각적 충돌이 발생한다. fade는 배경만 크로스페이드되므로 shared element의 모핑 경로를 방해하지 않는다.
+- **검색바를 fake Surface로 교체**: 홈 화면의 검색바는 탭하는 즉시 검색 화면으로 전환되므로 실제 텍스트 입력이 불필요하다. `OutlinedTextField`를 유지하면 포커스 획득 시 키보드가 올라오는 부작용이 생긴다. 클릭 가능한 `Surface`로 교체해 외관은 동일하되 입력 기능은 제거한다.
+- **자동 포커스에 400ms 딜레이 적용**: shared element 전환 애니메이션(기본 300ms) 진행 중에 키보드가 올라오면 레이아웃이 흔들린다. 전환 완료를 보장하는 여유 시간(400ms) 후 `focusRequester.requestFocus()`를 호출한다.
+- **`keyboardController?.hide()` 조건 밖 배치**: 빈 쿼리일 때도 검색 버튼을 누르면 키보드가 내려가야 자연스럽다. 검색 실행 조건(`isNotBlank`)과 무관하게 항상 키보드를 숨긴다.
+
+---
+
 ## [2026-03-02] chore(i18n): 하드코딩 텍스트 strings.xml 추출 및 영문 리소스 정비
 
 ### 목표
