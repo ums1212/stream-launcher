@@ -24,5 +24,6 @@ fun AdmobBanner(
                 loadAd(AdRequest.Builder().build())
             }
         },
+        onRelease = { adView -> adView.destroy() },
     )
 }

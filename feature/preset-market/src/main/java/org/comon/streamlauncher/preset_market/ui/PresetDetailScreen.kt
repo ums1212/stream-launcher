@@ -160,6 +160,8 @@ fun PresetDetailScreen(
                         }
                     }
 
+                    AdmobBanner(modifier = Modifier.fillMaxWidth())
+
                     Column(
                         modifier = Modifier.padding(horizontal = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),

@@ -2,6 +2,31 @@
 
 ---
 
+## [2026-03-02] fix(ads): AdmobBanner 메모리 누수 수정 및 PresetDetailScreen 광고 배치
+
+### 목표
+
+LeakCanary가 감지한 AdMob → 소멸된 `MainActivity` 메모리 누수를 수정하고, 프리셋 상세 화면에 배너 광고를 추가한다.
+
+### 변경 사항
+
+| # | 계층 | 파일 | 변경 내용 |
+|---|------|------|----------|
+| 1 | `feature:preset-market` | `AdmobBanner.kt` | `AndroidView`에 `onRelease = { adView -> adView.destroy() }` 콜백 추가 — 컴포저블 해제 시 AdView 리소스 명시적 반환 |
+| 2 | `feature:preset-market` | `PresetDetailScreen.kt` | 프리뷰 이미지 섹션 하단, 상세 정보 Column 위에 `AdmobBanner(modifier = Modifier.fillMaxWidth())` 삽입 |
+
+### 검증 결과
+
+- 컴파일 오류 없음 (같은 패키지 내 참조, 별도 import 불필요)
+- LeakCanary 누수 원인 제거: `onRelease` 콜백으로 AdView → Activity 참조 해제 보장
+
+### 설계 결정 및 근거
+
+- **`onRelease` 콜백 필수**: `AndroidView`의 `factory`로 생성된 `AdView`는 Activity context를 내부에 보유한다. `onRelease`가 없으면 컴포저블이 composition을 떠나도 AdMob SDK 내부 로더(`nonagon.load.as`)가 `AdView` → 소멸된 Activity를 계속 참조하여 36.6 kB 누수가 발생한다.
+- **광고 위치 선정**: 프리뷰 이미지 `if` 블록 바깥에 배치하여 이미지 유무와 관계없이 광고가 항상 표시되도록 했다. 프리뷰 → 광고 → 상세정보 순서로 자연스러운 콘텐츠 흐름을 유지한다.
+
+---
+
 ## [2026-03-02] fix(system-bar): 불투명 화면에서 시스템 바 색상 적응형 전환 구현
 
 ### 목표
