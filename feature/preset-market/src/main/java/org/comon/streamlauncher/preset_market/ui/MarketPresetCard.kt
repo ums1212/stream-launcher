@@ -26,6 +26,7 @@ fun MarketPresetCard(
     preset: MarketPreset,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    rank: Int? = null,
 ) {
     Box(
         modifier = modifier
@@ -61,14 +62,27 @@ fun MarketPresetCard(
                 .align(Alignment.BottomStart)
                 .padding(12.dp),
         ) {
-            Text(
-                text = preset.name,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = Color.White,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (rank != null) {
+                    Text(
+                        text = "#$rank",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                    )
+                }
+                Text(
+                    text = preset.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
             Spacer(modifier = Modifier.height(4.dp))
             Row(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),

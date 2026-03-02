@@ -268,6 +268,7 @@ private fun TopPresetPager(
         MarketPresetCard(
             preset = presets[page],
             onClick = { onClick(presets[page].id) },
+            rank = page + 1,
         )
     }
 }

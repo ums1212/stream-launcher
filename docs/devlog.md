@@ -2,6 +2,33 @@
 
 ---
 
+## [2026-03-02] feat(preset-market): Top 10 카드에 순위 번호(#1, #2…) 표시
+
+### 목표
+
+`MarketPresetCard`의 프리셋명 앞에 HorizontalPager 페이지 인덱스 기반 순위 텍스트(`#1`, `#2` 등)를 표시하여 Top 10 리스트임을 시각적으로 강조한다.
+
+### 변경 사항
+
+| # | 계층 | 파일 | 변경 내용 |
+|---|------|------|----------|
+| 1 | `feature:preset-market` | `MarketPresetCard.kt` | `rank: Int? = null` 파라미터 추가 |
+| 2 | `feature:preset-market` | `MarketPresetCard.kt` | preset.name 텍스트를 `Row`로 감싸고, `rank != null`일 때 `#$rank` 텍스트를 앞에 삽입 (`titleLarge` + `FontWeight.Bold`, White) |
+| 3 | `feature:preset-market` | `MarketHomeScreen.kt` | `HorizontalPager` 블록에서 `rank = page + 1` 전달 |
+
+### 검증 결과
+
+- 컴파일 오류 없음 (파라미터 기본값 `null`로 기존 호출부 호환성 유지)
+- `rank = null` 시 순위 텍스트 미렌더링 — 하위 호환 OK
+
+### 설계 결정 및 근거
+
+- **`rank: Int? = null` 기본값**: 호출부가 rank를 넘기지 않아도 기존 동작 유지. 추후 다른 화면에서 순위 없이 재사용 가능.
+- **`titleLarge` 크기 선택**: 요청 스펙("titleMedium보다 조금 더 크게")에 맞게 Material3 타입 스케일에서 바로 한 단계 위인 `titleLarge` 적용.
+- **`Row` + `spacedBy(6.dp)`**: 순위와 프리셋명 사이 적절한 간격을 유지하면서 name의 `TextOverflow.Ellipsis`가 여전히 동작하도록 배치.
+
+---
+
 ## [2026-03-02] fix(ads): AdmobBanner 메모리 누수 수정 및 PresetDetailScreen 광고 배치
 
 ### 목표
