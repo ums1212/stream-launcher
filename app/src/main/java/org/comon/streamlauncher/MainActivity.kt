@@ -6,6 +6,7 @@ import android.appwidget.AppWidgetHost
 import android.appwidget.AppWidgetManager
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -27,6 +28,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -40,6 +42,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.core.graphics.ColorUtils
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -94,11 +97,14 @@ class MainActivity : ComponentActivity() {
     // 월페이퍼 밝기 상태 (true = 어두운 월페이퍼 → 시스템바 아이콘 밝게)
     private var isWallpaperDark = mutableStateOf(false)
 
+    // 현재 NavController 라우트 (불투명 화면 판별에 사용)
+    private var currentRoute = mutableStateOf<String?>(null)
+
     private val wallpaperColorsChangedListener =
         WallpaperManager.OnColorsChangedListener { colors, _ ->
             val dark = isDarkFromColors(colors)
             isWallpaperDark.value = dark
-            updateSystemBarStyle(dark)
+            updateSystemBarStyle(dark, currentRoute.value)
         }
 
     companion object {
@@ -129,21 +135,40 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * 월페이퍼 밝기에 따라 시스템바 아이콘 색상을 동적으로 전환합니다.
-     * - isDark=true  (어두운 월페이퍼) → SystemBarStyle.dark  → 아이콘 흰색
-     * - isDark=false (밝은 월페이퍼)  → SystemBarStyle.light → 아이콘 검은색
+     * 현재 라우트가 불투명 배경(Material3)을 가진 화면인지 판별합니다.
+     * - settings_detail/ 로 시작하는 설정 상세 화면
+     * - preset_market 으로 시작하는 프리셋 마켓 화면
      */
-    private fun updateSystemBarStyle(isDark: Boolean) {
+    private fun isOpaqueRoute(route: String?): Boolean {
+        if (route == null) return false
+        return route.startsWith("settings_detail/") ||
+               route.startsWith("preset_market")
+    }
+
+    /**
+     * 시스템바 아이콘 색상을 동적으로 전환합니다.
+     * - 불투명 화면(설정 상세, 프리셋 마켓): 시스템 다크/라이트 모드 기준
+     * - 런처 홈 화면: 월페이퍼 밝기 기준
+     */
+    private fun updateSystemBarStyle(isWallpaperDark: Boolean, route: String?) {
         val transparent = android.graphics.Color.TRANSPARENT
-        if (isDark) {
-            enableEdgeToEdge(
-                statusBarStyle = SystemBarStyle.dark(transparent),
-                navigationBarStyle = SystemBarStyle.dark(transparent),
-            )
+        val useDarkIcons = if (isOpaqueRoute(route)) {
+            // 불투명 화면: 시스템 다크모드 기준 (라이트모드 → 검은 아이콘)
+            val nightMode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
+            nightMode != Configuration.UI_MODE_NIGHT_YES
         } else {
+            // 런처 화면: 월페이퍼 밝기 기준
+            !isWallpaperDark
+        }
+        if (useDarkIcons) {
             enableEdgeToEdge(
                 statusBarStyle = SystemBarStyle.light(transparent, transparent),
                 navigationBarStyle = SystemBarStyle.light(transparent, transparent),
+            )
+        } else {
+            enableEdgeToEdge(
+                statusBarStyle = SystemBarStyle.dark(transparent),
+                navigationBarStyle = SystemBarStyle.dark(transparent),
             )
         }
     }
@@ -206,7 +231,7 @@ class MainActivity : ComponentActivity() {
         val initialColors = wallpaperManager.getWallpaperColors(WallpaperManager.FLAG_SYSTEM)
         val initialDark = isDarkFromColors(initialColors)
         isWallpaperDark.value = initialDark
-        updateSystemBarStyle(initialDark)
+        updateSystemBarStyle(initialDark, null)
 
         // 월페이퍼 변경 리스너 등록
         wallpaperManager.addOnColorsChangedListener(
@@ -227,6 +252,15 @@ class MainActivity : ComponentActivity() {
             val preset = ColorPresets.getByIndex(settingsState.colorPresetIndex)
             val dragDropState = remember { DragDropState() }
             val navController = rememberNavController()
+
+            DisposableEffect(navController) {
+                val listener = NavController.OnDestinationChangedListener { _, dest, _ ->
+                    currentRoute.value = dest.route
+                    updateSystemBarStyle(isWallpaperDark.value, dest.route)
+                }
+                navController.addOnDestinationChangedListener(listener)
+                onDispose { navController.removeOnDestinationChangedListener(listener) }
+            }
 
             StreamLauncherTheme(
                 accentPrimaryOverride = Color(preset.accentPrimaryArgb),
@@ -468,7 +502,7 @@ class MainActivity : ComponentActivity() {
         val isDark = isDarkFromColors(colors)
         if (isDark != isWallpaperDark.value) {
             isWallpaperDark.value = isDark
-            updateSystemBarStyle(isDark)
+            updateSystemBarStyle(isDark, currentRoute.value)
         }
     }
 

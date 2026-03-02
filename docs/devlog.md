@@ -2,6 +2,37 @@
 
 ---
 
+## [2026-03-02] fix(system-bar): 불투명 화면에서 시스템 바 색상 적응형 전환 구현
+
+### 목표
+
+프리셋 마켓·설정 상세처럼 불투명 Material3 배경을 가진 화면에서 시스템 바 아이콘 색상이 월페이퍼 밝기가 아닌 시스템 다크/라이트 모드 기준으로 전환되도록 한다. 런처 홈 화면에서는 기존 월페이퍼 밝기 기반 동작을 그대로 유지한다.
+
+### 변경 사항
+
+| # | 계층 | 파일 | 변경 내용 |
+|---|------|------|----------|
+| 1 | `App` | `MainActivity.kt` | `import android.content.res.Configuration`, `DisposableEffect`, `NavController` 임포트 추가 |
+| 2 | `App` | `MainActivity.kt` | 클래스 필드 `currentRoute = mutableStateOf<String?>(null)` 추가 (Compose 외부 리스너에서도 접근 가능) |
+| 3 | `App` | `MainActivity.kt` | `isOpaqueRoute(route)` 헬퍼 추가 — `settings_detail/` 또는 `preset_market` prefix 판별 |
+| 4 | `App` | `MainActivity.kt` | `updateSystemBarStyle(isDark: Boolean)` → `updateSystemBarStyle(isWallpaperDark: Boolean, route: String?)` 리팩터링: 불투명 화면은 `UI_MODE_NIGHT_*` 기준, 런처 화면은 월페이퍼 기준으로 분기 |
+| 5 | `App` | `MainActivity.kt` | `setContent` 내 `DisposableEffect(navController)` 추가 — 목적지 변경 시 `currentRoute.value` 갱신 + `updateSystemBarStyle` 재호출 |
+| 6 | `App` | `MainActivity.kt` | 기존 호출 3곳 수정: `onCreate`(`null`), `wallpaperColorsChangedListener`(`currentRoute.value`), `onResume`(`currentRoute.value`) |
+
+### 검증 결과
+
+- `./gradlew :app:assembleDebug` BUILD SUCCESSFUL (227 tasks, 41 executed)
+- 컴파일 오류 없음
+
+### 설계 결정 및 근거
+
+- **`currentRoute`를 클래스 필드로 선언**: `wallpaperColorsChangedListener`와 `onResume`은 Compose 컨텍스트 밖에서 실행되므로 `remember`로 생성한 로컬 Compose 상태에 접근할 수 없다. `mutableStateOf`를 클래스 필드로 두면 Compose 안(DisposableEffect)에서 쓰고 Compose 밖(리스너)에서 읽는 것이 모두 가능하다.
+- **`DisposableEffect(navController)`로 리스너 관리**: 컴포저블 생명주기에 맞춰 리스너를 자동 등록/해제하므로 메모리 누수 없이 안전하다.
+- **불투명 화면 prefix 기반 판별**: `SettingsRoute.DETAIL = "settings_detail/{menu}"`, `MarketRoute.HOME/SEARCH/DETAIL`이 모두 `"preset_market"` prefix를 공유하므로 `startsWith`만으로 세 화면을 한 번에 포괄한다. 새 불투명 화면이 추가될 경우 `isOpaqueRoute`에 조건만 추가하면 된다.
+- **`useDarkIcons` 로직**: 라이트모드(`UI_MODE_NIGHT_YES` 아님)에서는 배경이 밝으므로 검은 아이콘(dark icons)이 필요 → `nightMode != UI_MODE_NIGHT_YES`가 `true`일 때 `SystemBarStyle.light`(dark icons) 적용.
+
+---
+
 ## [2026-03-02] feat(preset-market): 검색 화면 SharedElement 전환 애니메이션 + 리네이밍
 
 ### 목표
