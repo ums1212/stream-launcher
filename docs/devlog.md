@@ -2,6 +2,74 @@
 
 ---
 
+## [2026-03-03] arch: Android Service 위치 및 `:core:service` 모듈 분리 고찰
+
+### 배경
+
+프리셋 다운로드 포그라운드 서비스 전환 작업 중, `PresetDetailViewModel`에 주입된 `downloadMarketPresetUseCase`가 실제로는 사용되지 않는다는 경고가 발생했다. 이를 계기로 Android Service를 어느 모듈에 배치하는 것이 클린 아키텍처에 부합하는지 검토했다.
+
+### 논의 요약
+
+#### Q1. 도메인 유즈케이스에서 서비스를 호출하는 구조는 가능한가?
+
+`StartDownloadServiceUseCase`를 `:core:domain`에 두려면 `context.startForegroundService()`가 필요하다. 그러나 `:core:domain`은 **순수 JVM 모듈**로 Android 프레임워크 의존성을 가질 수 없으므로 불가능하다.
+
+`:core:data`에 두면 `@ApplicationContext`는 쓸 수 있으나, 서비스 클래스(`PresetDownloadService`)가 `:app`에 있기 때문에 **순환 의존**이 발생한다.
+
+```
+:app ──▶ :core:data ──▶ :app (PresetDownloadService)  ← 순환 불가
+```
+
+의존성 역전(DIP)으로 우회할 수 있으나(`DownloadServiceLauncher` 인터페이스 + `:app` 구현체 주입), 현재 SideEffect 패턴보다 복잡도만 높아진다.
+
+**결론:** 현재 구조(ViewModel → SideEffect → Activity → `startForegroundService()`)가 더 적절하다. `startForegroundService()`는 비즈니스 로직이 아닌 OS 명령이므로 UseCase가 아닌 UI 레이어(Activity)에서 처리하는 것이 클린 아키텍처 원칙에 부합한다.
+
+#### Q2. 서비스 전용 `:core:service` 모듈로 분리하는 방식은 어떤가?
+
+**현재 구조의 문제점:**
+
+`:app`의 `PresetDownloadService`가 `DownloadDataHolder`, `DownloadProgressTracker`를 참조하기 위해 `:feature:preset-market` 내부 구현에 의존하고 있다. UI 목적이 아닌 인프라 목적의 참조로, 책임이 혼재되어 있다.
+
+**제안 구조 (`core:service`):**
+
+```
+:core:service
+  ├── AndroidManifest.xml       (서비스 선언 → app manifest 자동 merge)
+  ├── PresetUploadService
+  ├── PresetDownloadService
+  ├── upload/UploadDataHolder, UploadProgressTracker
+  └── download/DownloadDataHolder, DownloadProgressTracker
+```
+
+의존성 방향:
+
+```
+:core:domain ◀── :core:data ◀── :core:service
+                                      ▲            ▲
+                          :feature:settings   :feature:preset-market
+                                               ▲
+                                             :app
+```
+
+모든 의존성이 단방향이며 순환이 없다. Hilt `@AndroidEntryPoint`는 라이브러리 모듈에서도 지원되고, 라이브러리 모듈의 `AndroidManifest.xml`은 `:app` manifest에 자동 merge된다.
+
+### 설계 결정 및 근거
+
+| 항목 | 결정 |
+|------|------|
+| Android Service의 레이어 위치 | 프레임워크 진입점(Frameworks & Drivers) — `:app` 또는 전용 모듈 |
+| 서비스 기동 책임 | UseCase가 아닌 Activity (SideEffect 패턴 유지) |
+| `:core:service` 모듈 분리 | 현재는 보류 — 서비스가 2개로 고정적이고 리팩토링 비용 대비 이점이 크지 않음 |
+| 분리 시점 기준 | 서비스 종류가 늘어나거나 여러 feature 모듈이 DataHolder/ProgressTracker를 공유해야 할 때 도입 |
+
+### 미적용 사항 (기술 부채 기록)
+
+- `UploadDataHolder`, `UploadProgressTracker` → 현재 `:feature:settings/upload/`에 위치
+- `DownloadDataHolder`, `DownloadProgressTracker` → 현재 `:feature:preset-market/download/`에 위치
+- 서비스 추가 시 `:core:service` 모듈 신설 후 위 4개 클래스 + 서비스 2개를 이전하는 것이 권장 방향
+
+---
+
 ## [2026-03-03] feat(download): 프리셋 다운로드 포그라운드 서비스 전환
 
 ### 목표
