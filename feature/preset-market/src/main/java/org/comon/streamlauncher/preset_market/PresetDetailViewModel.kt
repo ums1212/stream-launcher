@@ -5,13 +5,14 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import org.comon.streamlauncher.data.usecase.DownloadMarketPresetUseCase
 import org.comon.streamlauncher.domain.usecase.GetAllPresetsUseCase
 import org.comon.streamlauncher.domain.usecase.GetCurrentMarketUserUseCase
 import org.comon.streamlauncher.domain.usecase.GetMarketPresetDetailUseCase
 import org.comon.streamlauncher.domain.usecase.SignInWithGoogleUseCase
 import org.comon.streamlauncher.domain.usecase.ToggleMarketPresetLikeUseCase
 import org.comon.streamlauncher.domain.repository.MarketPresetRepository
+import org.comon.streamlauncher.preset_market.download.DownloadDataHolder
+import org.comon.streamlauncher.preset_market.download.DownloadProgressTracker
 import org.comon.streamlauncher.ui.BaseViewModel
 import javax.inject.Inject
 
@@ -21,10 +22,11 @@ class PresetDetailViewModel @Inject constructor(
     private val getMarketPresetDetailUseCase: GetMarketPresetDetailUseCase,
     private val getCurrentMarketUserUseCase: GetCurrentMarketUserUseCase,
     private val toggleMarketPresetLikeUseCase: ToggleMarketPresetLikeUseCase,
-    private val downloadMarketPresetUseCase: DownloadMarketPresetUseCase,
     private val getAllPresetsUseCase: GetAllPresetsUseCase,
     private val signInWithGoogleUseCase: SignInWithGoogleUseCase,
     private val marketRepository: MarketPresetRepository,
+    private val downloadDataHolder: DownloadDataHolder,
+    private val downloadProgressTracker: DownloadProgressTracker,
 ) : BaseViewModel<PresetDetailState, PresetDetailIntent, PresetDetailSideEffect>(PresetDetailState()) {
 
     // 로그인 후 재실행할 대기 중인 액션
@@ -34,6 +36,20 @@ class PresetDetailViewModel @Inject constructor(
         val presetId = savedStateHandle.get<String>("presetId")
         if (presetId != null) {
             handleIntent(PresetDetailIntent.LoadPreset(presetId))
+        }
+
+        viewModelScope.launch {
+            downloadProgressTracker.progress.collect { progress ->
+                updateState { copy(downloadProgress = progress, isDownloading = progress != null) }
+                when {
+                    progress?.isCompleted == true -> {
+                        sendEffect(PresetDetailSideEffect.DownloadComplete)
+                    }
+                    progress?.error != null -> {
+                        sendEffect(PresetDetailSideEffect.ShowError(progress.error ?: "다운로드 실패"))
+                    }
+                }
+            }
         }
     }
 
@@ -99,23 +115,21 @@ class PresetDetailViewModel @Inject constructor(
     }
 
     private fun downloadPreset() {
+        // 이미 다운로드 진행 중이면 무시 (tracker 또는 임시 플래그 모두 확인)
+        if (downloadProgressTracker.progress.value != null || currentState.isDownloading) return
+
         val preset = currentState.preset ?: return
+        // 서비스 기동 전에 즉시 비활성화 — 연타 방지
+        updateState { copy(isDownloading = true) }
         viewModelScope.launch {
             val presetCount = getAllPresetsUseCase().first().size
             if (presetCount >= 10) {
+                updateState { copy(isDownloading = false) }
                 sendEffect(PresetDetailSideEffect.PresetLimitExceeded)
                 return@launch
             }
-            updateState { copy(isDownloading = true) }
-            downloadMarketPresetUseCase(preset)
-                .onSuccess {
-                    updateState { copy(isDownloading = false) }
-                    sendEffect(PresetDetailSideEffect.DownloadComplete)
-                }
-                .onFailure { e ->
-                    updateState { copy(isDownloading = false) }
-                    sendEffect(PresetDetailSideEffect.ShowError(e.message ?: "다운로드 실패"))
-                }
+            downloadDataHolder.pendingPreset = preset
+            sendEffect(PresetDetailSideEffect.StartDownloadService(preset.name))
         }
     }
 

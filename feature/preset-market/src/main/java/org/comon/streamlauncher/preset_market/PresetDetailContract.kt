@@ -1,5 +1,6 @@
 package org.comon.streamlauncher.preset_market
 
+import org.comon.streamlauncher.domain.model.preset.DownloadProgress
 import org.comon.streamlauncher.domain.model.preset.MarketPreset
 import org.comon.streamlauncher.ui.UiIntent
 import org.comon.streamlauncher.ui.UiSideEffect
@@ -11,6 +12,7 @@ data class PresetDetailState(
     val isDownloading: Boolean = false,
     val isLoading: Boolean = true,
     val error: String? = null,
+    val downloadProgress: DownloadProgress? = null,
 ) : UiState
 
 sealed interface PresetDetailIntent : UiIntent {
@@ -25,4 +27,5 @@ sealed interface PresetDetailSideEffect : UiSideEffect {
     data class ShowError(val message: String) : PresetDetailSideEffect
     data object RequireSignIn : PresetDetailSideEffect
     data object PresetLimitExceeded : PresetDetailSideEffect
+    data class StartDownloadService(val presetName: String) : PresetDetailSideEffect
 }

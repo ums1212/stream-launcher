@@ -77,6 +77,7 @@ import org.comon.streamlauncher.preset_market.navigation.MarketRoute
 import org.comon.streamlauncher.preset_market.ui.MarketHomeScreen
 import org.comon.streamlauncher.preset_market.ui.MarketSearchScreen
 import org.comon.streamlauncher.preset_market.ui.PresetDetailScreen
+import org.comon.streamlauncher.service.PresetDownloadService
 import org.comon.streamlauncher.service.PresetUploadService
 
 @AndroidEntryPoint
@@ -487,6 +488,9 @@ class MainActivity : ComponentActivity() {
                     ) {
                         PresetDetailScreen(
                             onBack = { navController.popBackStack() },
+                            onStartDownloadService = {
+                                startForegroundService(Intent(this@MainActivity, PresetDownloadService::class.java))
+                            },
                         )
                     }
                 }

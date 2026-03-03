@@ -1,5 +1,8 @@
 package org.comon.streamlauncher.preset_market.ui
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -33,6 +36,7 @@ import org.comon.streamlauncher.preset_market.R
 @Composable
 fun PresetDetailScreen(
     onBack: () -> Unit,
+    onStartDownloadService: (String) -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: PresetDetailViewModel = hiltViewModel(),
 ) {
@@ -56,6 +60,8 @@ fun PresetDetailScreen(
                     showSignInHandler = true
                 is PresetDetailSideEffect.PresetLimitExceeded ->
                     showLimitDialog = true
+                is PresetDetailSideEffect.StartDownloadService ->
+                    onStartDownloadService(effect.presetName)
             }
         }
     }
@@ -268,26 +274,91 @@ fun PresetDetailScreen(
                                 Text(stringResource(R.string.preset_market_like))
                             }
 
-                            // 다운로드 버튼
-                            Button(
-                                onClick = { viewModel.handleIntent(PresetDetailIntent.DownloadPreset) },
-                                modifier = Modifier.weight(1f),
-                                enabled = !state.isDownloading,
+                            // 다운로드 버튼 (왼→오 프로그레스 fill)
+                            val downloadProgress = state.downloadProgress
+                            val targetFraction = downloadProgress?.percentage ?: 0f
+                            val animatedFraction by animateFloatAsState(
+                                targetValue = targetFraction,
+                                animationSpec = tween(300),
+                                label = "downloadProgress",
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(40.dp)
+                                    .clip(MaterialTheme.shapes.small)
+                                    .then(
+                                        if (!state.isDownloading) {
+                                            Modifier.clickable {
+                                                viewModel.handleIntent(PresetDetailIntent.DownloadPreset)
+                                            }
+                                        } else {
+                                            Modifier
+                                        },
+                                    ),
+                                contentAlignment = Alignment.Center,
                             ) {
-                                if (state.isDownloading) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(18.dp),
-                                        strokeWidth = 2.dp,
-                                    )
-                                } else {
-                                    Icon(
-                                        imageVector = Icons.Default.Download,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(18.dp),
-                                    )
+                                // 배경
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .clip(MaterialTheme.shapes.small),
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .clip(MaterialTheme.shapes.small),
+                                    ) {
+                                        Surface(
+                                            modifier = Modifier.fillMaxSize(),
+                                            color = MaterialTheme.colorScheme.surfaceVariant,
+                                        ) {}
+                                        Surface(
+                                            modifier = Modifier
+                                                .fillMaxHeight()
+                                                .fillMaxWidth(fraction = if (state.isDownloading) animatedFraction else 1f),
+                                            color = MaterialTheme.colorScheme.primary,
+                                        ) {}
+                                    }
                                 }
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(stringResource(R.string.preset_market_download))
+                                // 텍스트/아이콘
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center,
+                                ) {
+                                    when {
+                                        // 서비스 기동 대기 중 (클릭 직후 ~ 서비스 첫 emit 전)
+                                        state.isDownloading && downloadProgress == null -> {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.size(18.dp),
+                                                strokeWidth = 2.dp,
+                                                color = MaterialTheme.colorScheme.onPrimary,
+                                            )
+                                        }
+                                        // 서비스 진행 중 (fill 애니메이션 + %)
+                                        state.isDownloading -> {
+                                            Text(
+                                                text = "${(animatedFraction * 100).toInt()}%",
+                                                color = MaterialTheme.colorScheme.onPrimary,
+                                                style = MaterialTheme.typography.labelLarge,
+                                            )
+                                        }
+                                        // 대기 상태
+                                        else -> {
+                                            Icon(
+                                                imageVector = Icons.Default.Download,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(18.dp),
+                                                tint = MaterialTheme.colorScheme.onPrimary,
+                                            )
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(
+                                                text = stringResource(R.string.preset_market_download),
+                                                color = MaterialTheme.colorScheme.onPrimary,
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
                     }

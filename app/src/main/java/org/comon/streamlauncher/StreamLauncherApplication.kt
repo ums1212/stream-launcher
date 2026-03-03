@@ -62,7 +62,7 @@ class StreamLauncherApplication : Application(), ImageLoaderFactory, Configurati
 
     private fun createNotificationChannels() {
         val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-        val channel = NotificationChannel(
+        val uploadChannel = NotificationChannel(
             "preset_upload",
             "프리셋 업로드",
             NotificationManager.IMPORTANCE_LOW,
@@ -70,7 +70,16 @@ class StreamLauncherApplication : Application(), ImageLoaderFactory, Configurati
             description = "프리셋 마켓 업로드 진행 상황"
             setSound(null, null)
         }
-        manager.createNotificationChannel(channel)
+        val downloadChannel = NotificationChannel(
+            "preset_download",
+            "프리셋 다운로드",
+            NotificationManager.IMPORTANCE_LOW,
+        ).apply {
+            description = "프리셋 마켓 다운로드 진행 상황"
+            setSound(null, null)
+        }
+        manager.createNotificationChannel(uploadChannel)
+        manager.createNotificationChannel(downloadChannel)
     }
 
     private fun scheduleFeedSync() {

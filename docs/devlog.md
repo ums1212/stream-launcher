@@ -2,6 +2,43 @@
 
 ---
 
+## [2026-03-03] feat(download): 프리셋 다운로드 포그라운드 서비스 전환
+
+### 목표
+
+기존 `PresetDetailViewModel`에서 `viewModelScope.launch`로 직접 실행되던 다운로드 로직을 **포그라운드 서비스**로 이전한다. 단순 boolean 플래그(`isDownloading`)로만 표시되던 진행 상황을 `DownloadProgress`로 세분화하고, 버튼에 **왼→오 프로그레스 fill 애니메이션**을 추가하여 다운로드 중에도 앱을 백그라운드로 보낼 수 있도록 안정성을 높인다.
+
+### 변경 사항
+
+| # | 계층 | 파일 | 변경 내용 |
+|---|------|------|----------|
+| 1 | `core:domain` | `model/preset/DownloadProgress.kt` | 신규 — `UploadProgress`와 동일 구조: `presetName`, `currentStep`, `totalSteps`, `isCompleted`, `error`, `percentage` computed property |
+| 2 | `core:data` | `usecase/DownloadMarketPresetUseCase.kt` | `downloadWithProgress(marketPreset): Flow<DownloadProgress>` 추가 — 이미지 URL 수 + 2(설정 적용·카운트 증가)를 `totalSteps`로, 각 이미지 완료마다 `emit()`, 부분 실패 시 `presetDir.deleteRecursively()` 후 에러 emit, `UnknownHostException`/`IOException`/`Exception` 개별 catch |
+| 3 | `feature:preset-market` | `download/DownloadDataHolder.kt` | 신규 — `@Singleton`, `pendingPreset: MarketPreset?`, `clear()` |
+| 4 | `feature:preset-market` | `download/DownloadProgressTracker.kt` | 신규 — `@Singleton`, `StateFlow<DownloadProgress?>`, `update()`, `clear()` |
+| 5 | `feature:preset-market` | `PresetDetailContract.kt` | `PresetDetailState`에 `downloadProgress: DownloadProgress? = null` 추가; `PresetDetailSideEffect`에 `StartDownloadService(presetName)` 추가 |
+| 6 | `feature:preset-market` | `PresetDetailViewModel.kt` | `DownloadDataHolder`, `DownloadProgressTracker` 생성자 주입 추가; `init`에 `downloadProgressTracker.progress` collect → state 업데이트 + `DownloadComplete`/`ShowError` 사이드이펙트; `downloadPreset()`에서 직접 실행 대신 중복 방지 조기 리턴 → `DownloadDataHolder` 저장 → `StartDownloadService` 사이드이펙트 발행으로 전환 |
+| 7 | `app` | `service/PresetDownloadService.kt` | 신규 — `@AndroidEntryPoint Service`, `PresetUploadService`와 동일 패턴; `NOTIFICATION_ID=9003`, `NOTIFICATION_RESULT_ID=9004`, `CHANNEL_ID="preset_download"`; `downloadJob: Job?`으로 중복 실행 방지(`isActive` 검사) |
+| 8 | `app` | `StreamLauncherApplication.kt` | `createNotificationChannels()`에 `"preset_download"` 채널(`IMPORTANCE_LOW`) 추가 |
+| 9 | `app` | `AndroidManifest.xml` | `PresetDownloadService` 서비스 등록 (`foregroundServiceType="dataSync"`, `exported="false"`) |
+| 10 | `app` | `MainActivity.kt` | `PresetDownloadService` import 추가; `PresetDetailScreen` 호출에 `onStartDownloadService` 콜백 추가 → `startForegroundService()` 호출 |
+| 11 | `feature:preset-market` | `ui/PresetDetailScreen.kt` | `onStartDownloadService: (String) -> Unit` 파라미터 추가; `StartDownloadService` 사이드이펙트 처리 추가; 다운로드 버튼을 커스텀 `Box`로 교체 — `animateFloatAsState(tween(300))`으로 primary 색상이 `fillMaxWidth(fraction=…)`로 왼→오 채워지는 효과, 다운로드 중 클릭 비활성화(연타 방지), 진행 중 `XX%` 텍스트 / 대기 중 Download 아이콘+텍스트 표시 |
+
+### 검증 결과
+
+- `assembleDebug` BUILD SUCCESSFUL (스마트 캐스트 오류 1건 수정: `progress.error ?: "…"` 패턴 적용)
+- `./gradlew test` BUILD SUCCESSFUL (실패 0건, 회귀 없음)
+
+### 설계 결정 및 근거
+
+- **`DownloadDataHolder` 싱글톤 메모리 전달**: `MarketPreset`은 다수의 String URL 필드를 갖고 있어 `Intent` extras(1MB 제한) 직렬화 위험이 있다. 업로드와 동일한 패턴(`UploadDataHolder`)으로 메모리 전달을 택해 일관성을 확보한다.
+- **부분 실패 시 `deleteRecursively()` cleanup**: 이미지 1장이라도 실패하면 이미 내려받은 파일들을 즉시 삭제해 깨진 상태의 프리셋이 로컬에 남지 않도록 방지한다.
+- **`downloadJob?.isActive` 중복 방지**: `onStartCommand`가 여러 번 호출되더라도 이미 활성 Job이 있으면 무시한다. ViewModel의 `downloadProgressTracker.progress.value != null` 조기 리턴과 이중으로 중복 실행을 차단한다.
+- **스마트 캐스트 오류 우회**: `DownloadProgress.error`는 다른 모듈(`:core:domain`)의 public API property여서 Kotlin이 null 검사 후에도 스마트 캐스트를 거부한다. `?: "…"` elvis 연산자로 nullable을 non-null로 강제 변환하여 해결.
+- **왼→오 fill 버튼 구현**: `Button` 대신 `Box + Surface(fillMaxWidth(fraction=animatedFraction))` 레이어 구조를 사용해 표준 Compose 컴포넌트의 제약 없이 자유로운 프로그레스 fill 애니메이션을 구현했다. `clickable` modifier를 `then(if(!isDownloading) Modifier.clickable{…} else Modifier)`로 조건부 적용해 진행 중 연타를 방지한다.
+
+---
+
 ## [2026-03-02] feat(upload): 프리셋 업로드 포그라운드 서비스 전환
 
 ### 목표
