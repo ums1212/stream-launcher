@@ -58,9 +58,10 @@ fun PresetSettingsContent(
     val isUploadInProgress = state.uploadProgress != null || state.pendingUploadPresetName != null
 
     // Android 13+ POST_NOTIFICATIONS 권한 요청
+    val uploadNotificationDeniedMsg = stringResource(R.string.upload_notification_denied)
     val notificationPermissionLauncher = rememberLauncherForActivityResult(RequestPermission()) { granted ->
         if (!granted) {
-            onShowSnackbar("알림 권한이 없어 업로드 진행 상황을 알림으로 확인할 수 없습니다")
+            onShowSnackbar(uploadNotificationDeniedMsg)
         }
     }
 
@@ -71,33 +72,35 @@ fun PresetSettingsContent(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // 프리셋 마켓 진입 버튼
-        GlassSettingsTile(
-            label = "프리셋 마켓",
-            icon = Icons.Default.Store,
-            accentColor = MaterialTheme.colorScheme.secondary,
-            onClick = onNavigateToMarket,
-        )
+        Row {
+            // 프리셋 마켓 진입 버튼
+            GlassSettingsTile(
+                label = stringResource(R.string.preset_market),
+                icon = Icons.Default.Store,
+                accentColor = MaterialTheme.colorScheme.primary,
+                onClick = onNavigateToMarket,
+            )
 
-        // Add Preset Button
-        GlassSettingsTile(
-            label = stringResource(R.string.title_add_preset),
-            icon = Icons.Default.Add,
-            accentColor = MaterialTheme.colorScheme.primary,
-            onClick = {
-                if (state.presets.size >= 10) {
-                    showLimitDialog = true
-                } else {
-                    showSaveDialog = true
+            // Add Preset Button
+            GlassSettingsTile(
+                label = stringResource(R.string.title_add_preset),
+                icon = Icons.Default.Add,
+                accentColor = MaterialTheme.colorScheme.primary,
+                onClick = {
+                    if (state.presets.size >= 10) {
+                        showLimitDialog = true
+                    } else {
+                        showSaveDialog = true
+                    }
                 }
-            }
-        )
+            )
+        }
 
         Text(
             text = "${stringResource(R.string.title_presets)} (${state.presets.size}/10)",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
-            color = Color.Black
+            color = MaterialTheme.colorScheme.onSurface
         )
 
         // Preset List
@@ -169,11 +172,11 @@ fun PresetSettingsContent(
     if (showLimitDialog) {
         AlertDialog(
             onDismissRequest = { showLimitDialog = false },
-            title = { Text("프리셋 저장 불가") },
-            text = { Text("저장 가능한 개수를 초과하였습니다.\n기존의 프리셋을 왼쪽 방향으로 스와이프하여 삭제 후 새로 추가해주세요.") },
+            title = { Text(stringResource(R.string.preset_limit_title)) },
+            text = { Text(stringResource(R.string.preset_limit_message)) },
             confirmButton = {
                 TextButton(onClick = { showLimitDialog = false }) {
-                    Text("확인")
+                    Text(stringResource(R.string.preset_confirm))
                 }
             }
         )
@@ -223,7 +226,7 @@ fun PresetSettingsContent(
         AlertDialog(
             onDismissRequest = { presetToDelete = null },
             title = { Text(stringResource(R.string.delete) + "?") },
-            text = { Text("Are you sure you want to delete '${preset.name}'?") },
+            text = { Text(stringResource(R.string.preset_delete_confirm, preset.name)) },
             confirmButton = {
                 TextButton(onClick = {
                     onIntent(SettingsIntent.DeletePreset(preset))
@@ -296,7 +299,7 @@ fun PresetItemCard(
             containerColor = if (isUploading) {
                 MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
             } else {
-                Color.White
+                MaterialTheme.colorScheme.surface
             }
         )
     ) {
@@ -310,13 +313,13 @@ fun PresetItemCard(
                         text = preset.name,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Color.Black
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = dateString,
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color.Black.copy(alpha = 0.7f)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     FlowRow(
@@ -334,8 +337,8 @@ fun PresetItemCard(
                     IconButton(onClick = onShare) {
                         Icon(
                             imageVector = Icons.Default.Share,
-                            contentDescription = "공유",
-                            tint = Color.Black.copy(alpha = 0.6f),
+                            contentDescription = stringResource(R.string.preset_share_desc),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
@@ -359,14 +362,14 @@ fun PresetItemCard(
                                 modifier = Modifier.fillMaxWidth(),
                             )
                             Text(
-                                text = "업로드 중 ${(uploadProgress.percentage * 100).toInt()}%",
+                                text = stringResource(R.string.preset_upload_progress, (uploadProgress.percentage * 100).toInt()),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.primary,
                             )
                         } else {
                             LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                             Text(
-                                text = "업로드 준비 중...",
+                                text = stringResource(R.string.preset_upload_preparing),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.primary,
                             )
@@ -375,7 +378,7 @@ fun PresetItemCard(
                     IconButton(onClick = { showCancelUploadDialog = true }) {
                         Icon(
                             imageVector = Icons.Default.Close,
-                            contentDescription = "업로드 취소",
+                            contentDescription = stringResource(R.string.preset_upload_cancel_desc),
                             tint = MaterialTheme.colorScheme.error,
                         )
                     }
@@ -388,14 +391,14 @@ fun PresetItemCard(
 @Composable
 fun PresetTag(label: String) {
     Surface(
-        color = Color.Black.copy(alpha = 0.05f),
+        color = MaterialTheme.colorScheme.surfaceVariant,
         shape = RoundedCornerShape(4.dp)
     ) {
         Text(
             text = label,
             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
             style = MaterialTheme.typography.labelSmall,
-            color = Color.Black
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
@@ -406,6 +409,7 @@ fun SavePresetDialog(
     onConfirm: (name: String, saveHome: Boolean, saveFeed: Boolean, saveDrawer: Boolean, saveWallpaper: Boolean, saveTheme: Boolean, wallpaperUri: String?) -> Unit,
 ) {
     var name by remember { mutableStateOf("") }
+    val defaultPresetNameFormat = stringResource(R.string.preset_default_name)
     var saveHome by remember { mutableStateOf(true) }
     var saveFeed by remember { mutableStateOf(true) }
     var saveDrawer by remember { mutableStateOf(true) }
@@ -425,7 +429,7 @@ fun SavePresetDialog(
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("프리셋 이름") },
+                    label = { Text(stringResource(R.string.preset_name_label)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -448,7 +452,7 @@ fun SavePresetDialog(
                         TextButton(
                             onClick = { wallpaperPicker.launch(PickVisualMediaRequest(PickVisualMedia.ImageOnly)) }
                         ) {
-                            Text(if (selectedWallpaperUri != null) "선택됨 ✓" else "이미지 선택")
+                            Text(if (selectedWallpaperUri != null) stringResource(R.string.preset_wallpaper_selected) else stringResource(R.string.preset_wallpaper_select_image))
                         }
                     }
                 }
@@ -460,7 +464,7 @@ fun SavePresetDialog(
                 enabled = !saveWallpaper || selectedWallpaperUri != null,
                 onClick = {
                     onConfirm(
-                        name.ifEmpty { "프리셋 ${System.currentTimeMillis() % 1000}" },
+                        name.ifEmpty { String.format(defaultPresetNameFormat, System.currentTimeMillis() % 1000) },
                         saveHome, saveFeed, saveDrawer, saveWallpaper, saveTheme,
                         if (saveWallpaper) selectedWallpaperUri else null,
                     )
@@ -536,7 +540,7 @@ fun UploadToMarketDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("'$presetName' 마켓에 업로드") },
+        title = { Text(stringResource(R.string.preset_upload_to_market, presetName)) },
         text = {
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
@@ -545,7 +549,7 @@ fun UploadToMarketDialog(
                 OutlinedTextField(
                     value = description,
                     onValueChange = { description = it },
-                    label = { Text("설명") },
+                    label = { Text(stringResource(R.string.preset_upload_description_label)) },
                     modifier = Modifier.fillMaxWidth(),
                     maxLines = 3,
                 )
@@ -560,7 +564,7 @@ fun UploadToMarketDialog(
                             tagInput = input
                         }
                     },
-                    label = { Text("태그 (쉼표로 구분, 최대 5개)") },
+                    label = { Text(stringResource(R.string.preset_upload_tag_label)) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                 )
@@ -579,7 +583,7 @@ fun UploadToMarketDialog(
                     },
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text("프리뷰 이미지 선택 (최대 4장, ${previewUris.size}장 선택됨)")
+                    Text(stringResource(R.string.preset_upload_preview_button, previewUris.size))
                 }
                 if (previewUris.isNotEmpty()) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -596,7 +600,7 @@ fun UploadToMarketDialog(
         },
         confirmButton = {
             TextButton(onClick = { onUpload(description, tags, previewUris) }) {
-                Text("업로드")
+                Text(stringResource(R.string.preset_upload_button))
             }
         },
         dismissButton = {
