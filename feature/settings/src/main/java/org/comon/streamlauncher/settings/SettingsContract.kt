@@ -63,6 +63,7 @@ sealed interface SettingsIntent : UiIntent {
         val tags: List<String>,
         val previewUris: List<String>,
     ) : SettingsIntent
+    data object CancelUpload : SettingsIntent
 }
 
 sealed interface SettingsSideEffect : UiSideEffect {
@@ -72,4 +73,5 @@ sealed interface SettingsSideEffect : UiSideEffect {
     data object UploadSuccess : SettingsSideEffect
     data class UploadError(val message: String) : SettingsSideEffect
     data object RequireSignIn : SettingsSideEffect
+    data object StopUploadService : SettingsSideEffect
 }

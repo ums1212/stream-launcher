@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Store
@@ -154,6 +155,7 @@ fun PresetSettingsContent(
                             } else null,
                             isPending = isPendingForThisPreset,
                             uploadProgress = thisPresetProgress,
+                            onCancelUpload = { onIntent(SettingsIntent.CancelUpload) },
                         )
                     }
                 )
@@ -245,6 +247,7 @@ fun PresetItemCard(
     onShare: (() -> Unit)? = null,
     isPending: Boolean = false,
     uploadProgress: UploadProgress? = null,
+    onCancelUpload: () -> Unit = {},
 ) {
     val dateString = remember(preset.createdAt) {
         SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(preset.createdAt))
@@ -307,28 +310,40 @@ fun PresetItemCard(
 
             // 업로드 진행 표시
             if (isUploading) {
-                Column(
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                        .padding(start = 16.dp, end = 4.dp, bottom = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    if (uploadProgress != null) {
-                        LinearProgressIndicator(
-                            progress = { uploadProgress.percentage },
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        Text(
-                            text = "업로드 중 ${(uploadProgress.percentage * 100).toInt()}%",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                    } else {
-                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                        Text(
-                            text = "업로드 준비 중...",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary,
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        if (uploadProgress != null) {
+                            LinearProgressIndicator(
+                                progress = { uploadProgress.percentage },
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            Text(
+                                text = "업로드 중 ${(uploadProgress.percentage * 100).toInt()}%",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        } else {
+                            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                            Text(
+                                text = "업로드 준비 중...",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                    }
+                    IconButton(onClick = onCancelUpload) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "업로드 취소",
+                            tint = MaterialTheme.colorScheme.error,
                         )
                     }
                 }

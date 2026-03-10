@@ -365,6 +365,8 @@ class MainActivity : ComponentActivity() {
                                 }
                             is SettingsSideEffect.RequireSignIn ->
                                 showSettingsSignIn = true
+                            is SettingsSideEffect.StopUploadService ->
+                                stopService(Intent(this@MainActivity, PresetUploadService::class.java))
                         }
                     }
                 }

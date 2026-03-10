@@ -2,6 +2,54 @@
 
 ---
 
+## [2026-03-10] feat(upload): 프리셋 업로드 취소 기능 + Firebase Cloud Functions 서버 정리
+
+### 목표
+
+- 업로드 진행 중 사용자가 취소할 수 있도록 X 버튼 추가
+- 취소 시 포그라운드 서비스 중단 및 UI 상태 초기화
+- 취소로 인해 Firebase Storage에 남는 고아(orphan) 파일을 서버에서 자동 정리
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `feature/settings/.../SettingsContract.kt` | `CancelUpload` intent 추가, `StopUploadService` side effect 추가 |
+| `feature/settings/.../SettingsViewModel.kt` | `cancelUpload()` 메서드 추가 — `progressTracker.clear()`, state 초기화, `StopUploadService` 전송 |
+| `feature/settings/.../ui/PresetSettingsContent.kt` | `PresetItemCard`에 `onCancelUpload` 파라미터 추가, 업로드 영역을 `Row(프로그래스 Column + X IconButton)` 구조로 변경, `Icons.Default.Close` import |
+| `app/.../MainActivity.kt` | `StopUploadService` side effect 핸들러 추가 (`stopService`) |
+| `app/.../service/PresetUploadService.kt` | `onDestroy()`에 `progressTracker.clear()` 추가 (방어적 정리) |
+| `firebase.json` | Firebase 프로젝트 설정 파일 신규 생성 |
+| `.firebaserc` | Firebase 프로젝트 ID 연결 (`stream-launcher-c486c`) |
+| `functions/package.json` | Node.js 22, firebase-admin ^13, firebase-functions ^6.3.2 |
+| `functions/tsconfig.json` | TypeScript Cloud Functions 컴파일 설정 |
+| `functions/src/index.ts` | `onPresetDeleted` (Firestore 삭제 트리거), `cleanupOrphanedPresetImages` (매일 KST 03:00 스케줄) |
+| `.gitignore` | `functions/lib`, `functions/node_modules` 추가 |
+
+### 검증 결과
+
+- `./gradlew assembleDebug --no-daemon` → **BUILD SUCCESSFUL**
+- `./gradlew test --no-daemon` → **BUILD SUCCESSFUL** (실패 0건)
+- `firebase deploy --only functions` → `cleanupOrphanedPresetImages` 배포 성공, `onPresetDeleted` IAM 권한 부여 후 재배포 필요
+
+### 설계 결정 및 근거
+
+**1. 취소 시 클라이언트 롤백 대신 서버 자동 정리 채택**
+
+업로드 취소 시 이미 Storage에 올라간 파일을 클라이언트에서 직접 삭제하는 방식은 롤백 도중 재취소, 네트워크 실패 등 엣지 케이스가 많아 복잡도가 높음. 대신 서버 함수 2개로 분리:
+- `onPresetDeleted`: Firestore 문서 삭제 이벤트로 Storage 파일 즉시 정리 (정상 삭제 경로)
+- `cleanupOrphanedPresetImages`: 업로드 취소로 Firestore 문서 없이 Storage에만 남은 고아 파일을 매일 03시 자동 삭제. 1시간 유예를 두어 진행 중인 업로드는 보호
+
+**2. 고아 파일 유예 시간 1시간**
+
+정상 업로드 완료 시간 대비 충분한 여유를 두되, 불필요한 Storage 비용이 오래 누적되지 않도록 1시간으로 설정.
+
+**3. Node.js 22 선택**
+
+Node.js 20은 2026-04-30 deprecated 예정. 22는 현재 LTS이며 2027년까지 지원.
+
+---
+
 ## [2026-03-10] feat(preset-market): 프리셋 다운로드 중복 방지 — 다운로드 완료 상태 표시
 
 ### 목표

@@ -88,6 +88,7 @@ class PresetUploadService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         scope.cancel()
+        progressTracker.clear()
         uploadDataHolder.clear()
     }
 

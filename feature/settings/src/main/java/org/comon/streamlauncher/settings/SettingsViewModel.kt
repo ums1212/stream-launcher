@@ -122,7 +122,16 @@ class SettingsViewModel @Inject constructor(
             is SettingsIntent.ResetAllGridImages -> resetAllGridImages()
             is SettingsIntent.SignInWithGoogle -> signInAndRetryUpload(intent.idToken)
             is SettingsIntent.UploadPreset -> uploadPreset(intent)
+            is SettingsIntent.CancelUpload -> cancelUpload()
         }
+    }
+
+    private fun cancelUpload() {
+        uploadProgressTracker.clear()
+        updateState { copy(uploadProgress = null, pendingUploadPresetName = null) }
+        pendingUploadLocalPresetId = 0
+        pendingUploadMarketPresetId = ""
+        sendEffect(SettingsSideEffect.StopUploadService)
     }
 
     private fun signInAndRetryUpload(idToken: String) {
