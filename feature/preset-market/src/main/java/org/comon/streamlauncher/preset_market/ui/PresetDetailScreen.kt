@@ -37,6 +37,7 @@ import org.comon.streamlauncher.preset_market.R
 fun PresetDetailScreen(
     onBack: () -> Unit,
     onStartDownloadService: (String) -> Unit = {},
+    onStopDownloadService: () -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: PresetDetailViewModel = hiltViewModel(),
 ) {
@@ -46,6 +47,7 @@ fun PresetDetailScreen(
 
     var showSignInHandler by remember { mutableStateOf(false) }
     var showLimitDialog by remember { mutableStateOf(false) }
+    var showCancelDownloadDialog by remember { mutableStateOf(false) }
 
     val downloadCompleteMessage = stringResource(R.string.preset_market_download_complete)
 
@@ -62,6 +64,8 @@ fun PresetDetailScreen(
                     showLimitDialog = true
                 is PresetDetailSideEffect.StartDownloadService ->
                     onStartDownloadService(effect.presetName)
+                is PresetDetailSideEffect.StopDownloadService ->
+                    onStopDownloadService()
             }
         }
     }
@@ -76,6 +80,33 @@ fun PresetDetailScreen(
                     Text(stringResource(R.string.confirm))
                 }
             }
+        )
+    }
+
+    if (showCancelDownloadDialog) {
+        LaunchedEffect(Unit) {
+            viewModel.handleIntent(PresetDetailIntent.PauseDownload)
+        }
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text(stringResource(R.string.preset_market_cancel_download_title)) },
+            text = { Text(stringResource(R.string.preset_market_cancel_download_message)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showCancelDownloadDialog = false
+                    viewModel.handleIntent(PresetDetailIntent.CancelDownload)
+                }) {
+                    Text(stringResource(R.string.cancel), color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    viewModel.handleIntent(PresetDetailIntent.ResumeDownload)
+                    showCancelDownloadDialog = false
+                }) {
+                    Text(stringResource(R.string.preset_market_cancel_download_resume))
+                }
+            },
         )
     }
 
@@ -308,15 +339,13 @@ fun PresetDetailScreen(
                                         .weight(1f)
                                         .height(40.dp)
                                         .clip(MaterialTheme.shapes.small)
-                                        .then(
-                                            if (!state.isDownloading) {
-                                                Modifier.clickable {
-                                                    viewModel.handleIntent(PresetDetailIntent.DownloadPreset)
-                                                }
+                                        .clickable {
+                                            if (state.isDownloading) {
+                                                showCancelDownloadDialog = true
                                             } else {
-                                                Modifier
-                                            },
-                                        ),
+                                                viewModel.handleIntent(PresetDetailIntent.DownloadPreset)
+                                            }
+                                        },
                                     contentAlignment = Alignment.Center,
                                 ) {
                                     // 배경

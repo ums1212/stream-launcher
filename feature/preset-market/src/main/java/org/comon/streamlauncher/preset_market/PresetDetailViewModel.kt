@@ -61,8 +61,17 @@ class PresetDetailViewModel @Inject constructor(
             is PresetDetailIntent.LoadPreset -> loadPreset(intent.presetId)
             is PresetDetailIntent.ToggleLike -> ensureSignedIn { toggleLike() }
             is PresetDetailIntent.DownloadPreset -> ensureSignedIn { downloadPreset() }
+            is PresetDetailIntent.PauseDownload -> downloadProgressTracker.pause()
+            is PresetDetailIntent.ResumeDownload -> downloadProgressTracker.resume()
+            is PresetDetailIntent.CancelDownload -> cancelDownload()
             is PresetDetailIntent.SignInWithGoogle -> signIn(intent.idToken)
         }
+    }
+
+    private fun cancelDownload() {
+        downloadProgressTracker.requestCancellation()
+        updateState { copy(isDownloading = false, downloadProgress = null) }
+        sendEffect(PresetDetailSideEffect.StopDownloadService)
     }
 
     private fun ensureSignedIn(action: () -> Unit) {

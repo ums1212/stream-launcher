@@ -493,6 +493,9 @@ class MainActivity : ComponentActivity() {
                             onStartDownloadService = {
                                 startForegroundService(Intent(this@MainActivity, PresetDownloadService::class.java))
                             },
+                            onStopDownloadService = {
+                                stopService(Intent(this@MainActivity, PresetDownloadService::class.java))
+                            },
                         )
                     }
                 }

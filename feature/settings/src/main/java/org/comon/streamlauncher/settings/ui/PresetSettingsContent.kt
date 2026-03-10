@@ -155,6 +155,8 @@ fun PresetSettingsContent(
                             } else null,
                             isPending = isPendingForThisPreset,
                             uploadProgress = thisPresetProgress,
+                            onPauseUpload = { onIntent(SettingsIntent.PauseUpload) },
+                            onResumeUpload = { onIntent(SettingsIntent.ResumeUpload) },
                             onCancelUpload = { onIntent(SettingsIntent.CancelUpload) },
                         )
                     }
@@ -247,13 +249,44 @@ fun PresetItemCard(
     onShare: (() -> Unit)? = null,
     isPending: Boolean = false,
     uploadProgress: UploadProgress? = null,
+    onPauseUpload: () -> Unit = {},
+    onResumeUpload: () -> Unit = {},
     onCancelUpload: () -> Unit = {},
 ) {
+    var showCancelUploadDialog by remember { mutableStateOf(false) }
+
     val dateString = remember(preset.createdAt) {
         SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(preset.createdAt))
     }
 
     val isUploading = uploadProgress != null || isPending
+
+    if (showCancelUploadDialog) {
+        LaunchedEffect(Unit) {
+            onPauseUpload()
+        }
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text(stringResource(R.string.upload_cancel_title)) },
+            text = { Text(stringResource(R.string.upload_cancel_message)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showCancelUploadDialog = false
+                    onCancelUpload()
+                }) {
+                    Text(stringResource(R.string.cancel), color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    onResumeUpload()
+                    showCancelUploadDialog = false
+                }) {
+                    Text(stringResource(R.string.upload_cancel_resume))
+                }
+            },
+        )
+    }
 
     Card(
         onClick = onClick,
@@ -339,7 +372,7 @@ fun PresetItemCard(
                             )
                         }
                     }
-                    IconButton(onClick = onCancelUpload) {
+                    IconButton(onClick = { showCancelUploadDialog = true }) {
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = "업로드 취소",

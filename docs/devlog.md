@@ -2,6 +2,58 @@
 
 ---
 
+## [2026-03-10] feat(download/upload): 취소 확인 다이얼로그 + 일시정지 + 알림 정리
+
+### 목표
+
+- 마켓 프리셋 다운로드 중 취소 시 확인 다이얼로그 표시 및 로컬 고아 파일 삭제
+- 다이얼로그 표시 동안 실제 다운로드/업로드 일시정지 구현
+- 바깥 클릭으로 다이얼로그 닫기 비활성화
+- 업로드 취소 X 버튼도 동일하게 확인 다이얼로그 경유하도록 수정
+- 다운로드 취소 후 진행 중이던 알림(notification) 제거
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `feature/preset-market/.../download/DownloadProgressTracker.kt` | `pause()` / `resume()` / `awaitResume()` 추가, `requestCancellation()` 시 isPaused 해제, `clear()` 시 모든 상태 초기화 |
+| `feature/preset-market/.../PresetDetailContract.kt` | `PauseDownload` / `ResumeDownload` / `CancelDownload` intent 추가, `StopDownloadService` side effect 추가 |
+| `feature/preset-market/.../PresetDetailViewModel.kt` | `pauseDownload` → `tracker.pause()`, `resumeDownload` → `tracker.resume()`, `cancelDownload()` → `requestCancellation()` + state 초기화 + `StopDownloadService` effect 전송 |
+| `feature/preset-market/.../ui/PresetDetailScreen.kt` | `onStopDownloadService` 콜백 추가, `showCancelDownloadDialog` 상태 추가, 다운로드 중 버튼 클릭 → 다이얼로그 표시, 다이얼로그 open 시 `LaunchedEffect`로 PauseDownload, "계속" → ResumeDownload, "취소" → CancelDownload, `onDismissRequest = {}` |
+| `app/.../service/PresetDownloadService.kt` | `collect` 블록 첫 줄에 `awaitResume()` 추가, `onDestroy()` 취소 시 `manager.cancel(NOTIFICATION_ID)` + `presetDir.deleteRecursively()` + `progressTracker.clear()` |
+| `app/.../MainActivity.kt` | `onStopDownloadService = { stopService(...) }` 콜백 연결 |
+| `feature/preset-market/.../res/values/strings.xml` | `preset_market_cancel_download_title` / `_message` / `_resume` 추가 |
+| `feature/settings/.../upload/UploadProgressTracker.kt` | `pause()` / `resume()` / `awaitResume()` 추가 |
+| `feature/settings/.../SettingsContract.kt` | `PauseUpload` / `ResumeUpload` intent 추가 |
+| `feature/settings/.../SettingsViewModel.kt` | `PauseUpload` → `tracker.pause()`, `ResumeUpload` → `tracker.resume()` 핸들러 추가 |
+| `feature/settings/.../ui/PresetSettingsContent.kt` | `PresetItemCard`에 `onPauseUpload` / `onResumeUpload` 파라미터 추가, X 버튼 → `showCancelUploadDialog = true`, 다이얼로그 open 시 `LaunchedEffect`로 pause, "계속" → resume, `onDismissRequest = {}` |
+| `feature/settings/.../res/values/strings.xml` | `upload_cancel_title` / `upload_cancel_message` / `upload_cancel_resume` 추가 |
+
+### 검증 결과
+
+- `./gradlew :app:assembleDebug` → **BUILD SUCCESSFUL**
+- `./gradlew :feature:settings:compileDebugKotlin` → **BUILD SUCCESSFUL** (settings 파일 잠금 문제는 Android Studio 종료 후 해소)
+
+### 설계 결정 및 근거
+
+**1. 파일 단위 일시정지 (`awaitResume()`)**
+
+HTTP 스트림 중간을 멈추는 것은 불가능하므로, 각 파일 다운로드/업로드 완료 후 `collect` 블록 진입 시 `awaitResume()`로 대기. 파일 경계에서 멈추며 파일 1개 미만의 오차가 발생하지만 UX상 충분함.
+
+**2. `requestCancellation()` 시 isPaused 강제 해제**
+
+취소 요청 후 `stopService()` → `scope.cancel()`이 호출되는데, 코루틴이 `awaitResume()` 에서 일시정지 중이면 `CancellationException`으로 정상 취소됨. 그러나 명시적으로 `isPaused = false`를 설정해 coroutine이 suspension point를 통과할 수 있도록 보장.
+
+**3. 취소 시 알림 명시적 제거**
+
+포그라운드 서비스가 외부 `stopService()`로 종료될 때 진행 중이던 알림이 자동 제거되지 않는 경우가 있어, `onDestroy()`에서 `NotificationManager.cancel(NOTIFICATION_ID)`를 명시적으로 호출.
+
+**4. `onDismissRequest = {}`로 바깥 클릭 dismiss 차단**
+
+다이얼로그가 열린 상태에서 바깥 클릭으로 닫히면 일시정지만 걸린 채 다운로드가 재개되지 않는 문제 방지.
+
+---
+
 ## [2026-03-10] feat(upload): 프리셋 업로드 취소 기능 + Firebase Cloud Functions 서버 정리
 
 ### 목표

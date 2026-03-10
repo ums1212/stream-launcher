@@ -20,6 +20,9 @@ sealed interface PresetDetailIntent : UiIntent {
     data class LoadPreset(val presetId: String) : PresetDetailIntent
     data object ToggleLike : PresetDetailIntent
     data object DownloadPreset : PresetDetailIntent
+    data object PauseDownload : PresetDetailIntent
+    data object ResumeDownload : PresetDetailIntent
+    data object CancelDownload : PresetDetailIntent
     data class SignInWithGoogle(val idToken: String) : PresetDetailIntent
 }
 
@@ -29,4 +32,5 @@ sealed interface PresetDetailSideEffect : UiSideEffect {
     data object RequireSignIn : PresetDetailSideEffect
     data object PresetLimitExceeded : PresetDetailSideEffect
     data class StartDownloadService(val presetName: String) : PresetDetailSideEffect
+    data object StopDownloadService : PresetDetailSideEffect
 }

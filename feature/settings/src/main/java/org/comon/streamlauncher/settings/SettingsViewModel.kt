@@ -122,6 +122,8 @@ class SettingsViewModel @Inject constructor(
             is SettingsIntent.ResetAllGridImages -> resetAllGridImages()
             is SettingsIntent.SignInWithGoogle -> signInAndRetryUpload(intent.idToken)
             is SettingsIntent.UploadPreset -> uploadPreset(intent)
+            is SettingsIntent.PauseUpload -> uploadProgressTracker.pause()
+            is SettingsIntent.ResumeUpload -> uploadProgressTracker.resume()
             is SettingsIntent.CancelUpload -> cancelUpload()
         }
     }

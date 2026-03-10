@@ -41,4 +41,7 @@
     <string name="preset_market_already_downloaded">Downloaded</string>
     <string name="cancel">Cancel</string>
     <string name="confirm">Confirm</string>
+    <string name="preset_market_cancel_download_title">Cancel Download</string>
+    <string name="preset_market_cancel_download_message">Are you sure you want to cancel the download?</string>
+    <string name="preset_market_cancel_download_resume">Resume</string>
 </resources>

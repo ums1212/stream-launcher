@@ -41,4 +41,7 @@
     <string name="preset_market_already_downloaded">다운로드완료</string>
     <string name="cancel">취소</string>
     <string name="confirm">확인</string>
+    <string name="preset_market_cancel_download_title">다운로드 취소</string>
+    <string name="preset_market_cancel_download_message">다운로드를 취소하시겠습니까?</string>
+    <string name="preset_market_cancel_download_resume">계속</string>
 </resources>

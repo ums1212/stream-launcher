@@ -60,6 +60,7 @@ class PresetUploadService : Service() {
         scope.launch {
             uploadPresetToMarketUseCase.uploadWithProgress(preset, previewUris)
                 .collect { progress ->
+                    progressTracker.awaitResume()
                     progressTracker.update(progress)
                     val errorMsg = progress.error
                     when {

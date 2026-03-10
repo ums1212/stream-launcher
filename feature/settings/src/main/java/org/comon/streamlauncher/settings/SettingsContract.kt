@@ -63,6 +63,8 @@ sealed interface SettingsIntent : UiIntent {
         val tags: List<String>,
         val previewUris: List<String>,
     ) : SettingsIntent
+    data object PauseUpload : SettingsIntent
+    data object ResumeUpload : SettingsIntent
     data object CancelUpload : SettingsIntent
 }
 

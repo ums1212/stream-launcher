@@ -23,6 +23,7 @@ import org.comon.streamlauncher.R
 import org.comon.streamlauncher.data.usecase.DownloadMarketPresetUseCase
 import org.comon.streamlauncher.preset_market.download.DownloadDataHolder
 import org.comon.streamlauncher.preset_market.download.DownloadProgressTracker
+import java.io.File
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -63,6 +64,7 @@ class PresetDownloadService : Service() {
         downloadJob = scope.launch {
             downloadMarketPresetUseCase.downloadWithProgress(preset)
                 .collect { progress ->
+                    progressTracker.awaitResume()
                     progressTracker.update(progress)
                     val errorMsg = progress.error
                     when {
@@ -90,6 +92,16 @@ class PresetDownloadService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        // 사용자가 취소한 경우 → 알림 제거 + 로컬 고아 파일 삭제
+        if (progressTracker.cancellationRequested) {
+            val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+            manager.cancel(NOTIFICATION_ID)
+            val preset = downloadDataHolder.pendingPreset
+            if (preset != null) {
+                File(filesDir, "market_presets/${preset.id}").deleteRecursively()
+            }
+            progressTracker.clear()
+        }
         scope.cancel()
         downloadDataHolder.clear()
     }
