@@ -23,4 +23,10 @@ interface PresetDao {
     
     @Query("DELETE FROM presets WHERE id = (SELECT id FROM presets ORDER BY createdAt ASC LIMIT 1)")
     fun deleteOldestPreset()
+
+    @Query("SELECT EXISTS(SELECT 1 FROM presets WHERE marketPresetId = :marketPresetId)")
+    fun existsByMarketPresetId(marketPresetId: String): Boolean
+
+    @Query("UPDATE presets SET marketPresetId = :marketPresetId WHERE id = :id")
+    fun updateMarketPresetId(id: Int, marketPresetId: String): Int
 }

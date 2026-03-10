@@ -38,6 +38,7 @@
     <string name="preset_market_includes_drawer">App Drawer</string>
     <string name="preset_market_includes_theme">Theme Color</string>
     <string name="preset_market_includes_wallpaper">Wallpaper</string>
+    <string name="preset_market_already_downloaded">Downloaded</string>
     <string name="cancel">Cancel</string>
     <string name="confirm">Confirm</string>
 </resources>

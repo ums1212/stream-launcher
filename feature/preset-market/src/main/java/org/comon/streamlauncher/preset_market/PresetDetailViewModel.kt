@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import org.comon.streamlauncher.domain.repository.PresetRepository
 import org.comon.streamlauncher.domain.usecase.GetAllPresetsUseCase
 import org.comon.streamlauncher.domain.usecase.GetCurrentMarketUserUseCase
 import org.comon.streamlauncher.domain.usecase.GetMarketPresetDetailUseCase
@@ -27,6 +28,7 @@ class PresetDetailViewModel @Inject constructor(
     private val marketRepository: MarketPresetRepository,
     private val downloadDataHolder: DownloadDataHolder,
     private val downloadProgressTracker: DownloadProgressTracker,
+    private val presetRepository: PresetRepository,
 ) : BaseViewModel<PresetDetailState, PresetDetailIntent, PresetDetailSideEffect>(PresetDetailState()) {
 
     // 로그인 후 재실행할 대기 중인 액션
@@ -43,6 +45,7 @@ class PresetDetailViewModel @Inject constructor(
                 updateState { copy(downloadProgress = progress, isDownloading = progress != null) }
                 when {
                     progress?.isCompleted == true -> {
+                        updateState { copy(isAlreadyDownloaded = true) }
                         sendEffect(PresetDetailSideEffect.DownloadComplete)
                     }
                     progress?.error != null -> {
@@ -77,6 +80,9 @@ class PresetDetailViewModel @Inject constructor(
             getMarketPresetDetailUseCase(presetId)
                 .onSuccess { preset ->
                     updateState { copy(preset = preset, isLoading = false) }
+                    // 다운로드 여부 확인
+                    val isDownloaded = presetRepository.isDownloadedByMarketId(presetId)
+                    updateState { copy(isAlreadyDownloaded = isDownloaded) }
                     // 좋아요 상태 확인
                     if (getCurrentMarketUserUseCase() != null) {
                         marketRepository.isLikedByCurrentUser(presetId)

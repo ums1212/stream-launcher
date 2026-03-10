@@ -45,7 +45,8 @@ data class PresetEntity(
     val hasThemeSettings: Boolean,
     val themeColorHex: String?,
     
-    val createdAt: Long
+    val createdAt: Long,
+    val marketPresetId: String? = null
 )
 
 fun PresetEntity.toDomain() = Preset(
@@ -76,7 +77,8 @@ fun PresetEntity.toDomain() = Preset(
     enableParallax = enableParallax,
     hasThemeSettings = hasThemeSettings,
     themeColorHex = themeColorHex,
-    createdAt = createdAt
+    createdAt = createdAt,
+    marketPresetId = marketPresetId
 )
 
 fun Preset.toEntity() = PresetEntity(
@@ -107,5 +109,6 @@ fun Preset.toEntity() = PresetEntity(
     enableParallax = enableParallax,
     hasThemeSettings = hasThemeSettings,
     themeColorHex = themeColorHex,
-    createdAt = createdAt
+    createdAt = createdAt,
+    marketPresetId = marketPresetId
 )

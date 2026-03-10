@@ -38,6 +38,7 @@
     <string name="preset_market_includes_drawer">앱 서랍</string>
     <string name="preset_market_includes_theme">테마 컬러</string>
     <string name="preset_market_includes_wallpaper">배경화면</string>
+    <string name="preset_market_already_downloaded">다운로드완료</string>
     <string name="cancel">취소</string>
     <string name="confirm">확인</string>
 </resources>

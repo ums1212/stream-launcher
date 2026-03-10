@@ -2,6 +2,59 @@
 
 ---
 
+## [2026-03-10] feat(preset-market): 프리셋 다운로드 중복 방지 — 다운로드 완료 상태 표시
+
+### 목표
+
+- `PresetDetailScreen`에서 이미 로컬에 저장된 마켓 프리셋을 재다운로드할 수 없도록 중복 방지
+- 다운로드/업로드 완료 후 해당 프리셋에 마켓 ID(`marketPresetId`)를 연결하여 로컬 DB에 영속화
+- 화면 재진입 시에도 "다운로드완료" 상태 유지, 로컬 삭제 시 재다운로드 허용
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `core/domain/.../model/preset/Preset.kt` | `marketPresetId: String? = null` 필드 추가 |
+| `core/data/.../room/preset/PresetEntity.kt` | `marketPresetId` 컬럼 추가, `toDomain()`/`toEntity()` 매핑 반영 |
+| `core/data/.../room/preset/PresetDao.kt` | `existsByMarketPresetId()`, `updateMarketPresetId(): Int` 쿼리 추가 (non-suspend) |
+| `core/data/.../room/AppDatabase.kt` | `version = 3`, `MIGRATION_2_3` 추가 (`ALTER TABLE presets ADD COLUMN marketPresetId TEXT DEFAULT NULL`) |
+| `core/data/.../di/DatabaseModule.kt` | `addMigrations(MIGRATION_1_2, MIGRATION_2_3)` 추가 |
+| `core/domain/.../repository/PresetRepository.kt` | `isDownloadedByMarketId()`, `updateMarketPresetId(): Int` 인터페이스 추가 |
+| `core/data/.../repository/PresetRepositoryImpl.kt` | 두 메서드 구현 (`withContext(IO)` 래핑) |
+| `core/data/.../usecase/DownloadMarketPresetUseCase.kt` | `invoke()` + `downloadWithProgress()` 두 곳에서 `marketPresetId = marketPreset.id` 포함 |
+| `feature/settings/.../SettingsViewModel.kt` | `PresetRepository` 주입, `UUID.randomUUID()` 생성, `MarketPreset(id = marketPresetId, ...)` 설정, 업로드 완료 시 `updateMarketPresetId()` 호출 |
+| `feature/preset-market/.../PresetDetailContract.kt` | `isAlreadyDownloaded: Boolean = false` 상태 추가 |
+| `feature/preset-market/.../PresetDetailViewModel.kt` | `PresetRepository` 주입, `loadPreset()` 성공 시 `isDownloadedByMarketId()` 체크, 다운로드 완료 시 `isAlreadyDownloaded = true` 업데이트 |
+| `feature/preset-market/.../ui/PresetDetailScreen.kt` | `isAlreadyDownloaded` 분기 — 회색 `outlineVariant` 배경 + "다운로드완료" 텍스트 (클릭 비활성) |
+| `feature/preset-market/.../res/values/strings.xml` | `preset_market_already_downloaded = "다운로드완료"` 추가 |
+| `feature/preset-market/.../res/values-en/strings.xml` | `preset_market_already_downloaded = "Downloaded"` 추가 |
+| `feature/settings/.../SettingsViewModelTest.kt` | `PresetRepository` mock 추가, `makeViewModel()` 파라미터 확장 |
+
+### 검증 결과
+
+- `./gradlew assembleDebug` → **BUILD SUCCESSFUL** (307 tasks)
+- `./gradlew test` → **BUILD SUCCESSFUL** (472 tasks, 실패 0건)
+
+### 설계 결정 및 근거
+
+**1. DAO suspend vs non-suspend 선택**
+
+신규 `@Query` 메서드를 처음에 `suspend fun`으로 작성했으나, Room KSP 코드 생성기가 `Continuation<Boolean>` vs `Continuation<? super Boolean>` 타입 충돌 오류를 발생시켰다 (`unexpected jvm signature V`). 기존 DAO 메서드들이 모두 non-suspend 패턴을 사용하고 있어 동일하게 non-suspend로 유지하고, I/O 디스패칭은 `PresetRepositoryImpl`의 `withContext(Dispatchers.IO)` 에서 처리했다.
+
+**2. updateMarketPresetId 반환 타입을 Int로**
+
+Room은 `@Query` UPDATE 문에서 영향받은 행 수를 `Int`로 반환한다. `Unit`(void) 반환 시 KSP가 `V` 서명을 처리하지 못하는 버그가 있어 `Int`로 확정했다. 인터페이스/구현체에서 반환값은 호출부에서 무시한다.
+
+**3. 업로드 시 UUID 생성 위치**
+
+업로드 ID를 Firestore에서 자동 생성하는 대신 클라이언트(SettingsViewModel)에서 `UUID.randomUUID()`로 생성하여 `MarketPreset(id = marketPresetId)`에 설정한다. 이렇게 하면 업로드 시작 시점에 ID를 알 수 있어 업로드 완료 후 로컬 Preset과 즉시 연결(`updateMarketPresetId`) 가능하다.
+
+**4. PresetDetailViewModel에 PresetRepository 직접 주입**
+
+`feature:preset-market`은 이미 `core:data`에 의존하고 있어 `PresetRepository` 주입이 가능하다. 별도 UseCase를 만들지 않고 repository를 직접 주입하여 `isDownloadedByMarketId()` 호출 코드를 최소화했다.
+
+---
+
 ## [2026-03-03] arch: Android Service 위치 및 `:core:service` 모듈 분리 고찰
 
 ### 배경

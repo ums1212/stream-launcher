@@ -33,4 +33,12 @@ class PresetRepositoryImpl @Inject constructor(
     override suspend fun deletePreset(preset: Preset) = withContext(Dispatchers.IO) {
         presetDao.deletePreset(preset.toEntity())
     }
+
+    override suspend fun isDownloadedByMarketId(marketPresetId: String): Boolean = withContext(Dispatchers.IO) {
+        presetDao.existsByMarketPresetId(marketPresetId)
+    }
+
+    override suspend fun updateMarketPresetId(presetId: Int, marketPresetId: String): Int = withContext(Dispatchers.IO) {
+        presetDao.updateMarketPresetId(presetId, marketPresetId)
+    }
 }

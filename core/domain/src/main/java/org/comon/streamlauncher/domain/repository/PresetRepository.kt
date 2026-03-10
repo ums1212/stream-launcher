@@ -7,4 +7,6 @@ interface PresetRepository {
     fun getAllPresets(): Flow<List<Preset>>
     suspend fun savePreset(preset: Preset)
     suspend fun deletePreset(preset: Preset)
+    suspend fun isDownloadedByMarketId(marketPresetId: String): Boolean
+    suspend fun updateMarketPresetId(presetId: Int, marketPresetId: String): Int
 }

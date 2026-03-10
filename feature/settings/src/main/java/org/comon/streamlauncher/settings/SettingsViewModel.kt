@@ -18,12 +18,14 @@ import org.comon.streamlauncher.domain.usecase.SaveAppDrawerSettingsUseCase
 import org.comon.streamlauncher.domain.usecase.SaveColorPresetUseCase
 import org.comon.streamlauncher.domain.usecase.SaveFeedSettingsUseCase
 import org.comon.streamlauncher.domain.usecase.SaveGridCellImageUseCase
+import org.comon.streamlauncher.domain.repository.PresetRepository
 import org.comon.streamlauncher.domain.usecase.SavePresetUseCase
 import org.comon.streamlauncher.domain.usecase.SignInWithGoogleUseCase
 import org.comon.streamlauncher.settings.upload.UploadDataHolder
 import org.comon.streamlauncher.settings.upload.UploadProgressTracker
 import org.comon.streamlauncher.settings.model.ImageType
 import org.comon.streamlauncher.ui.BaseViewModel
+import java.util.UUID
 import javax.inject.Inject
 
 @HiltViewModel
@@ -43,11 +45,14 @@ class SettingsViewModel @Inject constructor(
     private val observeAuthStateUseCase: ObserveAuthStateUseCase,
     private val uploadProgressTracker: UploadProgressTracker,
     private val uploadDataHolder: UploadDataHolder,
+    private val presetRepository: PresetRepository,
 ) : BaseViewModel<SettingsState, SettingsIntent, SettingsSideEffect>(SettingsState()) {
 
     private var currentNoticeVersion: String = ""
     private var pendingUploadIntent: SettingsIntent.UploadPreset? = null
     private var cachedMarketUser: MarketUser? = null
+    private var pendingUploadLocalPresetId: Int = 0
+    private var pendingUploadMarketPresetId: String = ""
 
     init {
         viewModelScope.launch {
@@ -80,6 +85,11 @@ class SettingsViewModel @Inject constructor(
             uploadProgressTracker.progress.collect { progress ->
                 updateState { copy(uploadProgress = progress, pendingUploadPresetName = null) }
                 if (progress?.isCompleted == true) {
+                    val localId = pendingUploadLocalPresetId
+                    val marketId = pendingUploadMarketPresetId
+                    if (localId != 0 && marketId.isNotEmpty()) {
+                        presetRepository.updateMarketPresetId(localId, marketId)
+                    }
                     sendEffect(SettingsSideEffect.UploadSuccess)
                 } else {
                     progress?.error?.let { error ->
@@ -278,7 +288,11 @@ class SettingsViewModel @Inject constructor(
 
         val authorUser = cachedMarketUser
         val p = intent.preset
+        val marketPresetId = UUID.randomUUID().toString()
+        pendingUploadLocalPresetId = p.id
+        pendingUploadMarketPresetId = marketPresetId
         val marketPreset = MarketPreset(
+            id = marketPresetId,
             authorUid = authorUser?.uid ?: "",
             authorDisplayName = authorUser?.displayName ?: "",
             name = p.name,

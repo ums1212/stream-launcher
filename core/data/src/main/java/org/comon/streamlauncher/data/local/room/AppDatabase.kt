@@ -7,7 +7,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import org.comon.streamlauncher.data.local.room.preset.PresetDao
 import org.comon.streamlauncher.data.local.room.preset.PresetEntity
 
-@Database(entities = [PresetEntity::class], version = 2, exportSchema = false)
+@Database(entities = [PresetEntity::class], version = 3, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun presetDao(): PresetDao
 
@@ -62,6 +62,12 @@ abstract class AppDatabase : RoomDatabase() {
                 """.trimIndent())
                 db.execSQL("DROP TABLE presets")
                 db.execSQL("ALTER TABLE presets_new RENAME TO presets")
+            }
+        }
+
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE presets ADD COLUMN marketPresetId TEXT DEFAULT NULL")
             }
         }
     }

@@ -38,5 +38,6 @@ data class Preset(
     val hasThemeSettings: Boolean,
     val themeColorHex: String?, // Null means system default or dynamic color
     
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val marketPresetId: String? = null
 )

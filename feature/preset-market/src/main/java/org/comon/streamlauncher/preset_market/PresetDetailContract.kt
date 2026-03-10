@@ -13,6 +13,7 @@ data class PresetDetailState(
     val isLoading: Boolean = true,
     val error: String? = null,
     val downloadProgress: DownloadProgress? = null,
+    val isAlreadyDownloaded: Boolean = false,
 ) : UiState
 
 sealed interface PresetDetailIntent : UiIntent {

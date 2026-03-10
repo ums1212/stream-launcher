@@ -78,6 +78,7 @@ class DownloadMarketPresetUseCase @Inject constructor(
             enableParallax = marketPreset.enableParallax,
             hasThemeSettings = marketPreset.hasThemeSettings,
             themeColorHex = marketPreset.themeColorHex,
+            marketPresetId = marketPreset.id,
         )
         presetRepository.savePreset(localPreset)
 
@@ -186,6 +187,7 @@ class DownloadMarketPresetUseCase @Inject constructor(
                 enableParallax = marketPreset.enableParallax,
                 hasThemeSettings = marketPreset.hasThemeSettings,
                 themeColorHex = marketPreset.themeColorHex,
+                marketPresetId = marketPreset.id,
             )
             presetRepository.savePreset(localPreset)
 
