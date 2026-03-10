@@ -44,4 +44,6 @@
     <string name="preset_market_cancel_download_title">다운로드 취소</string>
     <string name="preset_market_cancel_download_message">다운로드를 취소하시겠습니까?</string>
     <string name="preset_market_cancel_download_resume">계속</string>
+    <string name="preset_market_unsupported_auth">지원하지 않는 인증 방식입니다.</string>
+    <string name="preset_market_sign_in_error">로그인에 실패했습니다: %s</string>
 </resources>

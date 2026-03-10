@@ -2,6 +2,32 @@
 
 ---
 
+## [2026-03-10] refactor(preset-market): GoogleSignInHandler 하드코딩 문자열 strings.xml로 추출
+
+### 목표
+
+- `GoogleSignInHandler.kt`에 하드코딩된 에러 메시지 2개를 strings.xml로 관리
+- 한국어(`values`) · 영어(`values-en`) 양쪽에 모두 추가
+- `context.getString` 대신 `stringResource`를 사용해 Compose 관용적 방식으로 통일
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `feature/preset-market/.../res/values/strings.xml` | `preset_market_unsupported_auth`, `preset_market_sign_in_error` 추가 |
+| `feature/preset-market/.../res/values-en/strings.xml` | 동일 키 영문 번역 추가 |
+| `feature/preset-market/.../ui/GoogleSignInHandler.kt` | 하드코딩 문자열 제거, `stringResource`로 컴포저블 스코프에서 캡처 후 LaunchedEffect 내에서 `.format()` 사용 |
+
+### 검증 결과
+
+- 별도 빌드 실행 없음 (문자열 리소스 + import 변경만)
+
+### 설계 결정 및 근거
+
+- **`stringResource` vs `context.getString`**: `LaunchedEffect` 내부는 코루틴 스코프이므로 `@Composable` 함수 호출 불가. 포맷 문자열(`%s` 포함)은 컴포저블 스코프에서 `stringResource`로 미리 캡처하고, 코루틴 안에서 Kotlin `.format(e.message)`으로 인자를 채우는 방식 채택 → `context` 의존 없이 순수 Compose 리소스 API만 사용
+
+---
+
 ## [2026-03-10] feat(download/upload): 취소 확인 다이얼로그 + 일시정지 + 알림 정리
 
 ### 목표

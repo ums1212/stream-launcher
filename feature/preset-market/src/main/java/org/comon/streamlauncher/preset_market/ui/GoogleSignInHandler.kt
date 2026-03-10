@@ -2,6 +2,7 @@ package org.comon.streamlauncher.preset_market.ui
 
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
@@ -12,6 +13,7 @@ import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import org.comon.streamlauncher.preset_market.BuildConfig
+import org.comon.streamlauncher.preset_market.R
 
 /**
  * Google Sign-In 플로우를 처리하는 컴포저블.
@@ -32,6 +34,8 @@ fun GoogleSignInHandler(
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
+    val unsupportedAuthText = stringResource(R.string.preset_market_unsupported_auth)
+    val signInErrorText = stringResource(R.string.preset_market_sign_in_error)
 
     LaunchedEffect(Unit) {
         try {
@@ -40,12 +44,12 @@ fun GoogleSignInHandler(
             if (idToken != null) {
                 onSignInSuccess(idToken)
             } else {
-                onSignInFailure("지원하지 않는 인증 방식입니다.")
+                onSignInFailure(unsupportedAuthText)
             }
         } catch (e: GetCredentialCancellationException) {
             // 사용자가 직접 취소 — 에러 메시지 불필요
         } catch (e: GetCredentialException) {
-            onSignInFailure("로그인에 실패했습니다: ${e.message}")
+            onSignInFailure(signInErrorText.format(e.message))
         } finally {
             onDismiss()
         }
