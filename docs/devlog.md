@@ -2,6 +2,47 @@
 
 ---
 
+## [2026-03-12] feat(widget): 위젯 자유 배치 시스템 구현 (동적 그리드 + 드래그/리사이즈)
+
+### 목표
+
+- 기존 2×3 고정 슬롯 방식 → 70dp 셀 기반 동적 그리드로 전환
+- 위젯이 자연스러운 크기(minWidth/minHeight)로 배치되도록 개선
+- 편집 모드에서 드래그로 위젯 이동, 우하단 핸들로 크기 조절
+- 기존 CSV 슬롯 데이터를 JSON 형식으로 3단계 마이그레이션
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `core/domain/.../model/WidgetPlacement.kt` | **신규** — `appWidgetId`, `column`, `row`, `columnSpan`, `rowSpan`, `minColumnSpan`, `minRowSpan` 필드 |
+| `core/domain/.../model/WidgetGrid.kt` | **신규** — `CELL_SIZE_DP=70`, `computeColumns(widthDp)`, `computeRows(heightDp)` (최소 3열×4행 보장) |
+| `core/domain/.../repository/WidgetRepository.kt` | 인터페이스 전면 교체: `getWidgetPlacements()`, `addWidget`, `removeWidget`, `updateWidgetPlacement`, `updateWidgetSize`, `migrateLegacySlots` |
+| `core/data/.../repository/WidgetRepositoryImpl.kt` | JSON 배열 저장(`widget_placements`), `@Serializable WidgetPlacementDto`, 3단계 마이그레이션(single int → packed CSV → slots CSV → JSON) |
+| `feature/widget/.../WidgetContract.kt` | **신규** — `WidgetState`(placements/isEditMode/draggingWidgetId/resizingWidgetId/preview 필드), `WidgetIntent` sealed interface |
+| `feature/widget/.../WidgetViewModel.kt` | MVI 패턴 전면 재작성: `handleIntent`, `findAvailablePosition`(행 우선 탐색), 겹침 감지, 드래그/리사이즈 프리뷰 상태 관리 |
+| `feature/widget/.../ui/WidgetScreen.kt` | Box 기반 자유 배치 UI: `onGloballyPositioned` 그리드 측정, `Modifier.offset+size` 절대 배치, 편집 모드 그리드 가이드라인(점선), 드래그/리사이즈 프리뷰 사각형, 우상단 삭제 버튼, 우하단 리사이즈 핸들(대각선 3줄), `rememberUpdatedState` 패턴으로 gesture handler 안정성 확보 |
+| `feature/widget/.../res/values/strings.xml` | `widget_resize` 문자열 추가 |
+| `feature/widget/.../res/values-en/strings.xml` | `widget_resize` 영문 추가 |
+| `app/.../navigation/CrossPagerNavigation.kt` | `isWidgetDragging: Boolean` 파라미터 추가 → 드래그 중 `HorizontalPager.userScrollEnabled = false` |
+| `app/.../MainActivity.kt` | `pendingSlot` 제거, `launchWidgetPicker()` 슬롯 인자 제거, `addPendingWidget(widgetId)` 신규(minWidth/minHeight → minCols/minRows 계산), `deleteWidget(appWidgetId)` appWidgetId 기반으로 변경, `widgetState` 단일 StateFlow 수집 |
+
+### 검증 결과
+
+- `./gradlew assembleDebug` → **BUILD SUCCESSFUL** (53s)
+- `./gradlew test` → **BUILD SUCCESSFUL**, 실패 0건
+
+### 설계 결정 및 근거
+
+- **셀 크기 70dp**: Android 공식 런처 권장 셀 크기. 대부분의 기기에서 5열 전후로 계산되어 일반 위젯 크기와 잘 맞음
+- **동적 그리드 런타임 계산**: `onGloballyPositioned`로 실제 위젯 영역 크기를 측정 후 `floor(area / 70dp)`로 계산 → 태블릿·폴더블 기기에서 자동 최적화
+- **`rememberUpdatedState` 패턴**: 드래그 중 `cellWidthPx`, `placement.column` 등이 변경되더라도 `pointerInput` 블록을 재시작하지 않으면서 최신 값을 참조. 드래그 도중 composable 재구성으로 인한 제스처 취소 방지
+- **ViewModel에서의 addWidget 위치 탐색**: UI 레이어가 아닌 ViewModel에서 `findAvailablePosition` 수행. 기본 5×10 그리드 기준 탐색으로 실제 화면 크기와 약간 차이나도 유효한 위치 반환. 화면 밖 배치는 스크롤 없이 표시 불가하므로 추후 스크롤 지원 시 개선 가능
+- **3단계 마이그레이션**: Step 13(single int) → Step 14(packed CSV) → 현재(slots CSV) → 신규(JSON) 순서로 레거시 키 존재 여부를 계단식으로 확인. 신규 키(`widget_placements`)가 있으면 즉시 return하여 중복 마이그레이션 방지
+- **드래그 vs 리사이즈 핸들 충돌**: 위젯 전체 영역에 드래그 핸들, 우하단 32dp Box에 리사이즈 핸들 배치. Compose 내부 제스처 처리에서 `change.consume()`이 있는 내부 composable이 우선권을 가지므로 리사이즈 핸들 드래그가 위젯 이동을 방해하지 않음
+
+---
+
 ## [2026-03-10] refactor(preset-market): GoogleSignInHandler 하드코딩 문자열 strings.xml로 추출
 
 ### 목표

@@ -5,4 +5,5 @@
     <string name="widget_empty_hint">화면을 길게 눌러 위젯을 추가하세요</string>
     <string name="widget_delete">위젯 삭제</string>
     <string name="widget_add">위젯 추가</string>
+    <string name="widget_resize">위젯 크기 조절</string>
 </resources>

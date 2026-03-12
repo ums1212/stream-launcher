@@ -5,4 +5,5 @@
     <string name="widget_empty_hint">Long press to add widgets</string>
     <string name="widget_delete">Delete Widget</string>
     <string name="widget_add">Add Widget</string>
+    <string name="widget_resize">Resize Widget</string>
 </resources>

@@ -94,7 +94,6 @@ class MainActivity : ComponentActivity() {
 
     // 위젯 선택 진행 중 임시 보관
     private var pendingWidgetId: Int = AppWidgetManager.INVALID_APPWIDGET_ID
-    private var pendingSlot: Int = -1
 
     // 월페이퍼 밝기 상태 (true = 어두운 월페이퍼 → 시스템바 아이콘 밝게)
     private var isWallpaperDark = mutableStateOf(false)
@@ -179,14 +178,13 @@ class MainActivity : ComponentActivity() {
     private val configureWidgetLauncher: ActivityResultLauncher<Intent> =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode == RESULT_OK && pendingWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
-                widgetViewModel.setWidgetAtSlot(pendingSlot, pendingWidgetId)
+                addPendingWidget(pendingWidgetId)
             } else {
                 if (pendingWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
                     appWidgetHost.deleteAppWidgetId(pendingWidgetId)
                 }
             }
             pendingWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
-            pendingSlot = -1
         }
 
     // 위젯 선택 다이얼로그 결과 처리
@@ -212,14 +210,12 @@ class MainActivity : ComponentActivity() {
                         configureWidgetLauncher.launch(configIntent)
                     } catch (e: ActivityNotFoundException) {
                         Log.w("MainActivity", "위젯 구성 액티비티 없음, 바로 저장", e)
-                        widgetViewModel.setWidgetAtSlot(pendingSlot, widgetId)
+                        addPendingWidget(widgetId)
                         pendingWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
-                        pendingSlot = -1
                     }
                 } else {
-                    widgetViewModel.setWidgetAtSlot(pendingSlot, widgetId)
+                    addPendingWidget(widgetId)
                     pendingWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
-                    pendingSlot = -1
                 }
             }
         }
@@ -269,8 +265,7 @@ class MainActivity : ComponentActivity() {
                 accentSecondaryOverride = Color(preset.accentSecondaryArgb),
             ) {
             CompositionLocalProvider(LocalDragDropState provides dragDropState) {
-                val widgetSlots by widgetViewModel.widgetSlots.collectAsStateWithLifecycle()
-                val isWidgetEditMode by widgetViewModel.isEditMode.collectAsStateWithLifecycle()
+                val widgetState by widgetViewModel.uiState.collectAsStateWithLifecycle()
 
                 LaunchedEffect(Unit) {
                     viewModel.effect.collect { effect ->
@@ -407,15 +402,15 @@ class MainActivity : ComponentActivity() {
                                     iconSizeRatio = uiState.appDrawerIconSizeRatio,
                                 )
                             },
-                            isWidgetEditMode = isWidgetEditMode,
+                            isWidgetEditMode = widgetState.isEditMode,
+                            isWidgetDragging = widgetState.draggingWidgetId != null,
                             widgetContent = {
                                 WidgetScreen(
-                                    widgetSlots = widgetSlots,
+                                    state = widgetState,
                                     appWidgetHost = appWidgetHost,
                                     onAddWidgetClick = ::launchWidgetPicker,
                                     onDeleteWidgetClick = ::deleteWidget,
-                                    isEditMode = isWidgetEditMode,
-                                    onEditModeChange = { widgetViewModel.setEditMode(it) }
+                                    onIntent = widgetViewModel::handleIntent,
                                 )
                             },
                             isHomeEditMode = uiState.editingCell != null,
@@ -553,8 +548,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun launchWidgetPicker(slotIndex: Int) {
-        pendingSlot = slotIndex
+    private fun launchWidgetPicker() {
         val newWidgetId = appWidgetHost.allocateAppWidgetId()
         val pickIntent = Intent(AppWidgetManager.ACTION_APPWIDGET_PICK).apply {
             putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, newWidgetId)
@@ -562,11 +556,23 @@ class MainActivity : ComponentActivity() {
         pickWidgetLauncher.launch(pickIntent)
     }
 
-    private fun deleteWidget(slotIndex: Int) {
-        val widgetId = widgetViewModel.widgetSlots.value.getOrNull(slotIndex)
-        if (widgetId != null && widgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
-            appWidgetHost.deleteAppWidgetId(widgetId)
+    private fun addPendingWidget(widgetId: Int) {
+        val info = appWidgetManager.getAppWidgetInfo(widgetId)
+        val density = resources.displayMetrics.density
+        val cellDp = 70f
+        val minCols = if (info != null) ((info.minWidth / density + cellDp - 1) / cellDp).toInt().coerceAtLeast(1) else 2
+        val minRows = if (info != null) ((info.minHeight / density + cellDp - 1) / cellDp).toInt().coerceAtLeast(1) else 2
+        widgetViewModel.handleIntent(
+            org.comon.streamlauncher.widget.WidgetIntent.AddWidget(widgetId, minCols, minRows)
+        )
+    }
+
+    private fun deleteWidget(appWidgetId: Int) {
+        if (appWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+            appWidgetHost.deleteAppWidgetId(appWidgetId)
         }
-        widgetViewModel.clearSlot(slotIndex)
+        widgetViewModel.handleIntent(
+            org.comon.streamlauncher.widget.WidgetIntent.RemoveWidget(appWidgetId)
+        )
     }
 }
