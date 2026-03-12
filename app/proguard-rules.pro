@@ -1,21 +1,69 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# ============================================================
+# StreamLauncher ProGuard Rules
+# ============================================================
+# 대부분의 AndroidX / Firebase / Hilt / Coil / Paging3 라이브러리는
+# AAR 내에 자체 consumer ProGuard 룰을 포함하므로 별도 추가 불필요.
+# 아래 항목만 명시적으로 관리한다.
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# ------------------------------------------------------------
+# 디버깅용: 스택트레이스에 소스 파일명 / 줄번호 보존
+# (Firebase Crashlytics 리포트에서도 사용됨)
+# ------------------------------------------------------------
+-keepattributes SourceFile,LineNumberTable
+-renamesourcefileattribute SourceFile
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# ------------------------------------------------------------
+# kotlinx-serialization
+# @Serializable 클래스의 companion object(serializer)를 보존한다.
+# R8이 unused member로 제거하는 것을 방지.
+# ------------------------------------------------------------
+-keepattributes *Annotation*, InnerClasses
+-dontnote kotlinx.serialization.AnnotationsKt
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+-keepclassmembers class kotlinx.serialization.json.** {
+    *** Companion;
+}
+-keepclasseswithmembers class * {
+    @kotlinx.serialization.Serializable <fields>;
+}
+-keep @kotlinx.serialization.Serializable class * {
+    static ** Companion;
+    static ** serializer(...);
+    ** INSTANCE;
+}
+-keepclassmembers @kotlinx.serialization.Serializable class * {
+    static ** $serializer;
+    static ** Companion;
+    public static ** serializer(...);
+    public <fields>;
+}
+
+# ------------------------------------------------------------
+# Retrofit2
+# 서비스 인터페이스 메서드 시그니처 보존 (Retrofit이 리플렉션으로 파싱)
+# ------------------------------------------------------------
+-keepattributes Signature, Exceptions
+
+-keep,allowobfuscation,allowshrinking interface retrofit2.Call
+-keep,allowobfuscation,allowshrinking class retrofit2.Response
+-keep,allowobfuscation,allowshrinking class kotlin.coroutines.Continuation
+
+-keepclasseswithmembers class * {
+    @retrofit2.http.* <methods>;
+}
+
+# ------------------------------------------------------------
+# OkHttp3
+# platform 클래스 관련 경고 억제
+# ------------------------------------------------------------
+-dontwarn okhttp3.**
+-dontwarn okio.**
+-dontwarn javax.annotation.**
+-dontwarn org.conscrypt.**
+
+# ------------------------------------------------------------
+# xmlutil (nl.adaptivity.xmlutil)
+# XML 직렬화 어노테이션 처리 보존
+# ------------------------------------------------------------
+-keep class nl.adaptivity.xmlutil.** { *; }
+-dontwarn nl.adaptivity.xmlutil.**
