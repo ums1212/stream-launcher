@@ -527,7 +527,12 @@ class MainActivity : ComponentActivity() {
 
     override fun onStop() {
         super.onStop()
-        appWidgetHost.stopListening()
+        try {
+            appWidgetHost.stopListening()
+        } catch (e: Exception) {
+            // Android 시스템 버그: AppWidgetServiceImpl.Provider.id가 null인 상태에서
+            // stopListening() 호출 시 RemoteException 발생 가능. 무시해도 무방함.
+        }
     }
 
     override fun onDestroy() {

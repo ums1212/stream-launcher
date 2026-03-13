@@ -55,6 +55,7 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.hilt.work)
+    ksp(libs.androidx.hilt.compiler)
 
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
