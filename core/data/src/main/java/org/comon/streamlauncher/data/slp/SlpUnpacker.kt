@@ -25,10 +25,8 @@ object SlpUnpacker {
         ZipInputStream(slpFile.inputStream().buffered()).use { zis ->
             var entry = zis.nextEntry
             while (entry != null) {
-                if (!entry.isDirectory) {
-                    val sanitized = sanitizePath(entry.name)
-                        ?: run { zis.closeEntry(); entry = zis.nextEntry; return@use }
-
+                val sanitized = if (!entry.isDirectory) sanitizePath(entry.name) else null
+                if (sanitized != null) {
                     if (sanitized == "manifest.json") {
                         manifestBytes = zis.readBytes()
                     } else {

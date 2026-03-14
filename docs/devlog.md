@@ -2,6 +2,40 @@
 
 ---
 
+## [2026-03-13] refactor(slp): UploadPresetToMarketUseCase를 domain 레이어로 복원 — PresetPackager 인터페이스 추출
+
+### 목표
+
+- `UploadMarketPresetUseCase`가 `SlpPacker`(Android Context + ImageCompressor)에 직접 의존하여 `core:data`에 배치된 상태를 Clean Architecture 원칙에 따라 복원
+- Android 의존성을 `PresetPackager` 인터페이스로 추상화하여 UseCase를 다시 `core:domain`으로 이동
+- `core:domain`이 Android 의존성 없이 순수 비즈니스 로직만 보유하도록 레이어 경계 복원
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `core/domain/.../repository/PresetPackager.kt` | **신규** — `PackedPresetResult(slpFilePath, presetTemplate)` 데이터 클래스 + `PresetPackager` 인터페이스 (`packPreset()`, `deleteTempFile()`) |
+| `core/data/.../slp/PresetPackagerImpl.kt` | **신규** — `SlpPacker.pack()` + `SlpPacker.buildManifest().toMarketPreset()` 위임. `@ApplicationContext Context` 주입 |
+| `core/data/.../di/PresetPackagerModule.kt` | **신규** — `@Binds PresetPackagerImpl → PresetPackager` (`@InstallIn(SingletonComponent)`) |
+| `core/domain/.../usecase/UploadPresetToMarketUseCase.kt` | **재생성** — `MarketPresetRepository` + `PresetPackager` 주입. Android import 없음. `invoke()` + `uploadWithProgress()` (Flow 3단계 진행률) |
+| `core/data/.../usecase/UploadMarketPresetUseCase.kt` | **삭제** — `UploadPresetToMarketUseCase`(core:domain)로 대체 |
+| `app/.../service/PresetUploadService.kt` | import 경로 복원: `data.usecase.UploadMarketPresetUseCase` → `domain.usecase.UploadPresetToMarketUseCase` |
+| `core/data/.../slp/SlpPacker.kt` | 주석 내 UseCase 참조명 업데이트 |
+
+### 검증 결과
+
+- `./gradlew assembleDebug` → **BUILD SUCCESSFUL** (22s)
+- `./gradlew test` → **BUILD SUCCESSFUL**, 실패 0건 (464 tasks)
+
+### 설계 결정 및 근거
+
+- **PresetPackager 인터페이스 위치**: `core:domain/repository/` — domain 레이어가 자신이 필요로 하는 추상화를 직접 정의(DIP). `PackedPresetResult`도 domain 모델이므로 같은 파일에 배치
+- **PresetPackagerImpl 위치**: `core:data/slp/` — SlpPacker/SlpMapper/ImageCompressor 등 모두 이미 data 레이어에 존재하므로 응집도 유지
+- **DownloadMarketPresetUseCase는 core:data 유지**: 이번 작업 이전부터 data에 있었고, 언패킹 로직(SlpUnpacker)이 data에만 존재하므로 현재 위치 유지가 더 일관적
+- **uploadWithProgress 로직 보존**: 기존 3단계 진행률(패킹 → SLP 업로드 → 썸네일+Firestore) 동일하게 재구현하여 PresetUploadService 동작 변화 없음
+
+---
+
 ## [2026-03-13] feat(slp): 프리셋 커스텀 포맷 .slp 구현 (단일 압축 전송)
 
 ### 목표

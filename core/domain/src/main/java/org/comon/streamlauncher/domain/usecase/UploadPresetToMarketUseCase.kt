@@ -5,13 +5,20 @@ import kotlinx.coroutines.flow.flow
 import org.comon.streamlauncher.domain.model.preset.MarketPreset
 import org.comon.streamlauncher.domain.model.preset.UploadProgress
 import org.comon.streamlauncher.domain.repository.MarketPresetRepository
+import org.comon.streamlauncher.domain.repository.PresetPackager
 import java.io.IOException
 import java.net.UnknownHostException
 import java.util.UUID
 import javax.inject.Inject
 
+/**
+ * 프리셋을 단일 .slp 파일로 패킹하여 Firebase Storage 업로드 → Firestore 문서 생성
+ *
+ * schemaVersion = 2, 개별 이미지 URL 없음, slpStorageUrl 만 사용
+ */
 class UploadPresetToMarketUseCase @Inject constructor(
     private val repository: MarketPresetRepository,
+    private val packager: PresetPackager,
 ) {
     suspend operator fun invoke(
         preset: MarketPreset,
@@ -19,49 +26,34 @@ class UploadPresetToMarketUseCase @Inject constructor(
     ): Result<String> = runCatching {
         val uid = repository.getCurrentUser()?.uid ?: error("로그인이 필요합니다")
         val presetId = preset.id.ifEmpty { UUID.randomUUID().toString() }
-        val basePath = "preset_images/$uid/$presetId"
 
-        suspend fun uploadIfLocal(uri: String?, filename: String): String? {
-            if (uri == null) return null
-            if (uri.startsWith("http")) return uri
-            return repository.uploadImage(uri, "$basePath/$filename").getOrNull()
+        // 1. .slp 패킹
+        val packed = packager.packPreset(preset, previewUris, presetId)
+
+        try {
+            // 2. .slp Storage 업로드
+            val storagePath = "presets/$uid/$presetId.slp"
+            val slpStorageUrl = repository.uploadSlpFile(packed.slpFilePath, storagePath).getOrThrow()
+
+            // 3. 썸네일 업로드 (목록 표시용)
+            val thumbnailUri = previewUris.firstOrNull()
+                ?: listOfNotNull(
+                    preset.topLeftIdleUrl, preset.topRightIdleUrl,
+                    preset.bottomLeftIdleUrl, preset.bottomRightIdleUrl,
+                ).firstOrNull { !it.startsWith("http") }
+            val thumbnailUrl = thumbnailUri?.let {
+                repository.uploadImage(it, "presets/$uid/$presetId/thumbnail.webp").getOrNull()
+            } ?: ""
+
+            // 4. Firestore 문서 생성
+            val finalPreset = packed.presetTemplate.copy(
+                slpStorageUrl = slpStorageUrl,
+                thumbnailUrl = thumbnailUrl,
+            )
+            repository.uploadPreset(finalPreset).getOrThrow()
+        } finally {
+            packager.deleteTempFile(packed.slpFilePath)
         }
-
-        val topLeftIdleUrl      = uploadIfLocal(preset.topLeftIdleUrl,      "top_left_idle.webp")
-        val topLeftExpandedUrl  = uploadIfLocal(preset.topLeftExpandedUrl,  "top_left_expanded.webp")
-        val topRightIdleUrl     = uploadIfLocal(preset.topRightIdleUrl,     "top_right_idle.webp")
-        val topRightExpandedUrl = uploadIfLocal(preset.topRightExpandedUrl, "top_right_expanded.webp")
-        val bottomLeftIdleUrl      = uploadIfLocal(preset.bottomLeftIdleUrl,      "bottom_left_idle.webp")
-        val bottomLeftExpandedUrl  = uploadIfLocal(preset.bottomLeftExpandedUrl,  "bottom_left_expanded.webp")
-        val bottomRightIdleUrl     = uploadIfLocal(preset.bottomRightIdleUrl,     "bottom_right_idle.webp")
-        val bottomRightExpandedUrl = uploadIfLocal(preset.bottomRightExpandedUrl, "bottom_right_expanded.webp")
-        val wallpaperUrl = uploadIfLocal(preset.wallpaperUrl, "wallpaper.webp")
-
-        val previewUrls = previewUris.mapIndexedNotNull { i, uri ->
-            repository.uploadImage(uri, "$basePath/preview_$i.webp").getOrNull()
-        }
-
-        val thumbnailUrl = previewUrls.firstOrNull()
-            ?: topLeftIdleUrl ?: topRightIdleUrl
-            ?: bottomLeftIdleUrl ?: bottomRightIdleUrl
-            ?: ""
-
-        val finalPreset = preset.copy(
-            id = presetId,
-            topLeftIdleUrl      = topLeftIdleUrl,
-            topLeftExpandedUrl  = topLeftExpandedUrl,
-            topRightIdleUrl     = topRightIdleUrl,
-            topRightExpandedUrl = topRightExpandedUrl,
-            bottomLeftIdleUrl      = bottomLeftIdleUrl,
-            bottomLeftExpandedUrl  = bottomLeftExpandedUrl,
-            bottomRightIdleUrl     = bottomRightIdleUrl,
-            bottomRightExpandedUrl = bottomRightExpandedUrl,
-            wallpaperUrl        = wallpaperUrl,
-            previewImageUrls    = previewUrls,
-            thumbnailUrl        = thumbnailUrl,
-        )
-
-        repository.uploadPreset(finalPreset).getOrThrow()
     }
 
     fun uploadWithProgress(
@@ -69,75 +61,43 @@ class UploadPresetToMarketUseCase @Inject constructor(
         previewUris: List<String> = emptyList(),
     ): Flow<UploadProgress> = flow {
         val presetName = preset.name
-
-        // 실제 업로드가 필요한 로컬 이미지 수 계산 (null이 아니고 http가 아닌 것)
-        val localImageCount = listOf(
-            preset.topLeftIdleUrl,
-            preset.topLeftExpandedUrl,
-            preset.topRightIdleUrl,
-            preset.topRightExpandedUrl,
-            preset.bottomLeftIdleUrl,
-            preset.bottomLeftExpandedUrl,
-            preset.bottomRightIdleUrl,
-            preset.bottomRightExpandedUrl,
-            preset.wallpaperUrl,
-        ).count { uri -> uri != null && !uri.startsWith("http") }
-
-        // totalSteps: 로컬 이미지 + 프리뷰 이미지 + 1 (Firestore)
-        val totalSteps = localImageCount + previewUris.size + 1
+        val totalSteps = 3
         var completed = 0
 
         try {
             val uid = repository.getCurrentUser()?.uid ?: error("로그인이 필요합니다")
             val presetId = preset.id.ifEmpty { UUID.randomUUID().toString() }
-            val basePath = "preset_images/$uid/$presetId"
 
-            suspend fun uploadIfLocal(uri: String?, filename: String): String? {
-                if (uri == null) return null
-                if (uri.startsWith("http")) return uri
-                val result = repository.uploadImage(uri, "$basePath/$filename").getOrNull()
+            // Step 1: 패킹
+            val packed = packager.packPreset(preset, previewUris, presetId)
+            emit(UploadProgress(presetName, ++completed, totalSteps))
+
+            try {
+                // Step 2: .slp 업로드
+                val storagePath = "presets/$uid/$presetId.slp"
+                val slpStorageUrl = repository.uploadSlpFile(packed.slpFilePath, storagePath).getOrThrow()
                 emit(UploadProgress(presetName, ++completed, totalSteps))
-                return result
+
+                // Step 3: 썸네일 업로드 + Firestore 문서
+                val thumbnailUri = previewUris.firstOrNull()
+                    ?: listOfNotNull(
+                        preset.topLeftIdleUrl, preset.topRightIdleUrl,
+                        preset.bottomLeftIdleUrl, preset.bottomRightIdleUrl,
+                    ).firstOrNull { !it.startsWith("http") }
+                val thumbnailUrl = thumbnailUri?.let {
+                    repository.uploadImage(it, "presets/$uid/$presetId/thumbnail.webp").getOrNull()
+                } ?: ""
+
+                val finalPreset = packed.presetTemplate.copy(
+                    slpStorageUrl = slpStorageUrl,
+                    thumbnailUrl = thumbnailUrl,
+                )
+                repository.uploadPreset(finalPreset).getOrThrow()
+
+                emit(UploadProgress(presetName, totalSteps, totalSteps, isCompleted = true))
+            } finally {
+                packager.deleteTempFile(packed.slpFilePath)
             }
-
-            val topLeftIdleUrl      = uploadIfLocal(preset.topLeftIdleUrl,      "top_left_idle.webp")
-            val topLeftExpandedUrl  = uploadIfLocal(preset.topLeftExpandedUrl,  "top_left_expanded.webp")
-            val topRightIdleUrl     = uploadIfLocal(preset.topRightIdleUrl,     "top_right_idle.webp")
-            val topRightExpandedUrl = uploadIfLocal(preset.topRightExpandedUrl, "top_right_expanded.webp")
-            val bottomLeftIdleUrl      = uploadIfLocal(preset.bottomLeftIdleUrl,      "bottom_left_idle.webp")
-            val bottomLeftExpandedUrl  = uploadIfLocal(preset.bottomLeftExpandedUrl,  "bottom_left_expanded.webp")
-            val bottomRightIdleUrl     = uploadIfLocal(preset.bottomRightIdleUrl,     "bottom_right_idle.webp")
-            val bottomRightExpandedUrl = uploadIfLocal(preset.bottomRightExpandedUrl, "bottom_right_expanded.webp")
-            val wallpaperUrl = uploadIfLocal(preset.wallpaperUrl, "wallpaper.webp")
-
-            val previewUrls = previewUris.mapIndexedNotNull { i, uri ->
-                val result = repository.uploadImage(uri, "$basePath/preview_$i.webp").getOrNull()
-                emit(UploadProgress(presetName, ++completed, totalSteps))
-                result
-            }
-
-            val thumbnailUrl = previewUrls.firstOrNull()
-                ?: topLeftIdleUrl ?: topRightIdleUrl
-                ?: bottomLeftIdleUrl ?: bottomRightIdleUrl
-                ?: ""
-
-            val finalPreset = preset.copy(
-                id = presetId,
-                topLeftIdleUrl      = topLeftIdleUrl,
-                topLeftExpandedUrl  = topLeftExpandedUrl,
-                topRightIdleUrl     = topRightIdleUrl,
-                topRightExpandedUrl = topRightExpandedUrl,
-                bottomLeftIdleUrl      = bottomLeftIdleUrl,
-                bottomLeftExpandedUrl  = bottomLeftExpandedUrl,
-                bottomRightIdleUrl     = bottomRightIdleUrl,
-                bottomRightExpandedUrl = bottomRightExpandedUrl,
-                wallpaperUrl        = wallpaperUrl,
-                previewImageUrls    = previewUrls,
-                thumbnailUrl        = thumbnailUrl,
-            )
-
-            repository.uploadPreset(finalPreset).getOrThrow()
-            emit(UploadProgress(presetName, totalSteps, totalSteps, isCompleted = true))
         } catch (e: UnknownHostException) {
             emit(UploadProgress(presetName, completed, totalSteps, error = "네트워크 연결을 확인하세요"))
         } catch (e: IOException) {

@@ -50,7 +50,18 @@
       "Bash(taskkill //F //IM \"java.exe\" 2>&1; echo \"done\")",
       "Bash(cd D:/comon/StreamLauncher && JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew --stop 2>&1)",
       "Bash(cd D:/comon/StreamLauncher && JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew assembleRelease 2>&1 | tail -20)",
-      "Bash(cd D:/comon/StreamLauncher && JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew assembleRelease 2>&1 | tail -40)"
+      "Bash(cd D:/comon/StreamLauncher && JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew assembleRelease 2>&1 | tail -40)",
+      "Bash(cd \"D:/comon/StreamLauncher\" && JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew :core:data:compileDebugKotlin :core:domain:compileDebugKotlin 2>&1 | tail -60)",
+      "Bash(cd \"D:/comon/StreamLauncher\" && JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew :core:data:compileDebugKotlin :app:compileDebugKotlin 2>&1 | grep -E \"error:|warning:|BUILD\" | head -60)",
+      "Bash(cd \"D:/comon/StreamLauncher\" && JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew :core:data:compileDebugKotlin :app:compileDebugKotlin 2>&1 | grep -E \"error:|Error|exception\" | head -40)",
+      "Bash(cd \"D:/comon/StreamLauncher\" && JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew :core:data:compileDebugKotlin 2>&1 | grep -A3 \"e:\" | head -60)",
+      "Bash(cd \"D:/comon/StreamLauncher\" && JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew :core:data:compileDebugKotlin 2>&1 | grep -E \"^e:|BUILD\" | head -40)",
+      "Bash(cd \"D:/comon/StreamLauncher\" && JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew :app:compileDebugKotlin 2>&1 | grep -E \"^e:|BUILD\" | head -40)",
+      "Bash(cd \"D:/comon/StreamLauncher\" && JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew assembleDebug test 2>&1 | tail -8)",
+      "Bash(cd D:/comon/StreamLauncher && JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew assembleDebug --stacktrace 2>&1 | grep -A5 \"PresetPackager\" | head -40)",
+      "Bash(cd D:/comon/StreamLauncher && JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew :core:domain:compileKotlin 2>&1 | tail -20)",
+      "Bash(cd D:/comon/StreamLauncher && JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew :core:domain:compileKotlin --rerun-tasks 2>&1 | tail -20)",
+      "Bash(cd D:/comon/StreamLauncher && JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew :core:data:kspDebugKotlin --rerun-tasks 2>&1 | tail -30)"
     ]
   }
 }

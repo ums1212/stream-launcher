@@ -1,7 +1,6 @@
 package org.comon.streamlauncher.data.slp
 
 import android.content.Context
-import android.net.Uri
 import androidx.core.net.toUri
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -142,7 +141,7 @@ object SlpPacker {
 
     private fun compressUri(context: Context, uri: String): ByteArray =
         if (uri.startsWith("/")) {
-            ImageCompressor.compressToWebP(java.io.File(uri))
+            ImageCompressor.compressToWebP(File(uri))
         } else {
             ImageCompressor.compressToWebP(context, uri.toUri())
         }
