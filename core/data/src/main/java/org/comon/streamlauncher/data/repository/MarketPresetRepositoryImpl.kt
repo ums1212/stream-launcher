@@ -156,14 +156,14 @@ class MarketPresetRepositoryImpl @Inject constructor(
         docRef.id
     }
 
-    override suspend fun uploadImage(localUri: String, storagePath: String): Result<String> =
+    override suspend fun uploadImage(localUri: String, storagePath: String, maxWidth: Int, quality: Int): Result<String> =
         runCatching {
             // 절대 파일 경로(/data/...): BitmapFactory.decodeFile()로 직접 읽기
             // content:// URI: ContentResolver를 통해 읽기
             val bytes = if (localUri.startsWith("/")) {
-                ImageCompressor.compressToWebP(File(localUri))
+                ImageCompressor.compressToWebP(File(localUri), maxWidth, quality)
             } else {
-                ImageCompressor.compressToWebP(context, localUri.toUri())
+                ImageCompressor.compressToWebP(context, localUri.toUri(), maxWidth, quality)
             }
             val ref = storage.reference.child(storagePath)
             ref.putBytes(bytes).await()

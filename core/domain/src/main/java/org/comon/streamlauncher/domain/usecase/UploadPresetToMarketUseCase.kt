@@ -42,12 +42,12 @@ class UploadPresetToMarketUseCase @Inject constructor(
                     preset.bottomLeftIdleUrl, preset.bottomRightIdleUrl,
                 ).firstOrNull { !it.startsWith("http") }
             val thumbnailUrl = thumbnailUri?.let {
-                repository.uploadImage(it, "presets/$uid/$presetId/thumbnail.webp").getOrNull()
+                repository.uploadImage(it, "presets/$uid/$presetId/thumbnail.webp", maxWidth = 480, quality = 70).getOrNull()
             } ?: ""
 
             // 4. 프리뷰 이미지 개별 업로드
             val previewImageUrls = previewUris.mapIndexedNotNull { index, uri ->
-                repository.uploadImage(uri, "presets/$uid/$presetId/preview_$index.webp").getOrNull()
+                repository.uploadImage(uri, "presets/$uid/$presetId/preview_$index.webp", maxWidth = 720, quality = 70).getOrNull()
             }
 
             // 5. Firestore 문서 생성
@@ -91,12 +91,12 @@ class UploadPresetToMarketUseCase @Inject constructor(
                         preset.bottomLeftIdleUrl, preset.bottomRightIdleUrl,
                     ).firstOrNull { !it.startsWith("http") }
                 val thumbnailUrl = thumbnailUri?.let {
-                    repository.uploadImage(it, "presets/$uid/$presetId/thumbnail.webp").getOrNull()
+                    repository.uploadImage(it, "presets/$uid/$presetId/thumbnail.webp", maxWidth = 480, quality = 70).getOrNull()
                 } ?: ""
 
                 // 프리뷰 이미지 개별 업로드
                 val previewImageUrls = previewUris.mapIndexedNotNull { index, uri ->
-                    repository.uploadImage(uri, "presets/$uid/$presetId/preview_$index.webp").getOrNull()
+                    repository.uploadImage(uri, "presets/$uid/$presetId/preview_$index.webp", maxWidth = 720, quality = 70).getOrNull()
                 }
 
                 val finalPreset = packed.presetTemplate.copy(

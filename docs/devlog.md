@@ -2,6 +2,43 @@
 
 ---
 
+## [2026-03-14] fix+perf(market): 프리뷰 이미지 업로드 누락 수정 및 해상도 축소
+
+### 목표
+
+- `UploadPresetToMarketUseCase`에서 프리뷰 이미지(`previewImageUrls`)가 Firestore 문서에 포함되지 않던 버그 수정
+- 프리셋 업로드 시 프리뷰/썸네일 이미지를 원본 해상도 그대로 전송하는 문제 개선
+- `MarketPresetRepository.uploadImage()`에 `maxWidth`/`quality` 파라미터를 추가하여 업로드 용도별로 다른 해상도 적용
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `core/domain/.../usecase/UploadPresetToMarketUseCase.kt` | `invoke()` + `uploadWithProgress()` 두 메서드에 프리뷰 이미지 개별 업로드 블록 추가 (`previewImageUrls`) 및 `finalPreset.copy()`에 `previewImageUrls` 포함 |
+| `core/domain/.../repository/MarketPresetRepository.kt` | `uploadImage()`에 `maxWidth: Int = 1080`, `quality: Int = 80` 기본값 파라미터 추가 |
+| `core/data/.../repository/MarketPresetRepositoryImpl.kt` | `uploadImage()` 시그니처 일치 업데이트. `ImageCompressor.compressToWebP()` 호출 시 `maxWidth`/`quality` 전달 |
+
+해상도 기준:
+
+| 용도 | maxWidth | quality |
+|------|----------|---------|
+| 기본 (기존 호출부) | 1080 | 80 |
+| 프리뷰 이미지 | 720 | 70 |
+| 썸네일 | 480 | 70 |
+
+### 검증 결과
+
+- `./gradlew assembleDebug` → **BUILD SUCCESSFUL** (46s)
+- `./gradlew test` → **BUILD SUCCESSFUL**, 실패 0건 (464 tasks)
+
+### 설계 결정 및 근거
+
+- **버그 원인**: `.slp` 포맷 도입(schemaVersion=2) 이후 `previewImageUrls`가 `finalPreset.copy()`에서 누락된 채로 Firestore에 빈 리스트로 저장되고 있었음. 상세 화면의 프리뷰 슬라이더가 표시되지 않는 증상
+- **기본값 유지**: 인터페이스·구현체 모두 기본값(`1080px, 80%`)을 그대로 두어 기존 호출부(셀 이미지 등) 영향 없음
+- **단방향 파라미터 흐름**: UseCase(도메인) → Repository 인터페이스 → 구현체 → ImageCompressor 순서로 해상도 결정 책임이 도메인 레이어에 집중됨
+
+---
+
 ## [2026-03-14] refactor(slp): DownloadMarketPresetUseCase를 domain 레이어로 이동 — PresetUnpackager 인터페이스 추출
 
 ### 목표
