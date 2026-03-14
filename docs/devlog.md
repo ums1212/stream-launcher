@@ -2,6 +2,39 @@
 
 ---
 
+## [2026-03-14] refactor(slp): DownloadMarketPresetUseCase를 domain 레이어로 이동 — PresetUnpackager 인터페이스 추출
+
+### 목표
+
+- `DownloadMarketPresetUseCase`가 `core:data`에 위치하며 Android `Context`에 직접 의존하는 구조를 업로드 플로우(`PresetPackager`)와 동일한 패턴으로 리팩토링
+- Android 파일 I/O 로직을 `PresetUnpackager` 인터페이스로 추상화하여 UseCase를 `core:domain`으로 이동
+- `core:domain`이 Android 의존성 없이 순수 비즈니스 로직만 보유하도록 레이어 경계 복원
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `core/domain/.../repository/PresetUnpackager.kt` | **신규** — `UnpackedPresetResult(localPreset)` 데이터 클래스 + `PresetUnpackager` 인터페이스 (`downloadAndUnpack()`, `downloadLegacyImages()`, `cleanupPresetDir()`) |
+| `core/data/.../slp/PresetUnpackagerImpl.kt` | **신규** — `@ApplicationContext Context` + `MarketPresetRepository` 주입. V2(SlpUnpacker)/V1(개별 이미지) 파일 I/O 구현 |
+| `core/data/.../di/PresetUnpackagerModule.kt` | **신규** — `@Binds PresetUnpackagerImpl → PresetUnpackager` (`@InstallIn(SingletonComponent)`) |
+| `core/domain/.../usecase/DownloadMarketPresetUseCase.kt` | **신규(이동)** — `PresetUnpackager` 주입으로 Context 제거. `invoke()` + `downloadWithProgress()` (Flow). V1도 3단계 coarse progress로 단순화 |
+| `core/data/.../usecase/DownloadMarketPresetUseCase.kt` | **삭제** — `domain.usecase.DownloadMarketPresetUseCase`로 대체 |
+| `app/.../service/PresetDownloadService.kt` | import 경로 수정: `data.usecase` → `domain.usecase` |
+
+### 검증 결과
+
+- `./gradlew assembleDebug` → **BUILD SUCCESSFUL** (1m 9s)
+- `./gradlew test` → **BUILD SUCCESSFUL**, 실패 0건 (464 tasks)
+
+### 설계 결정 및 근거
+
+- **PresetPackager와 대칭 구조**: 업로드는 `PresetPackager(pack/deleteTempFile)`, 다운로드는 `PresetUnpackager(downloadAndUnpack/downloadLegacyImages/cleanupPresetDir)`. 인터페이스명과 메서드 분류 방식이 서로 대응됨
+- **V1 progress 단순화**: 기존 V1은 이미지 수(n) + 2 단계였으나, `PresetUnpackager`로 분리하면서 UseCase 레벨에서는 3단계(download → apply → increment) coarse progress로 통일. V1은 레거시이므로 세밀한 진행률 불필요
+- **cleanupPresetDir 책임**: 파일 삭제는 Context가 필요하므로 `PresetUnpackager` 인터페이스에 포함. 에러 핸들링(catch 블록)은 UseCase에 남겨 도메인 로직 집중도 유지
+- **모듈 의존성 변경 없음**: `core:domain`은 pure JVM 유지, `core:data`는 기존과 동일한 의존 구조
+
+---
+
 ## [2026-03-13] refactor(slp): UploadPresetToMarketUseCase를 domain 레이어로 복원 — PresetPackager 인터페이스 추출
 
 ### 목표

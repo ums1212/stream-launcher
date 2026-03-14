@@ -20,7 +20,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.comon.streamlauncher.MainActivity
 import org.comon.streamlauncher.R
-import org.comon.streamlauncher.data.usecase.DownloadMarketPresetUseCase
+import org.comon.streamlauncher.domain.usecase.DownloadMarketPresetUseCase
 import org.comon.streamlauncher.preset_market.download.DownloadDataHolder
 import org.comon.streamlauncher.preset_market.download.DownloadProgressTracker
 import java.io.File

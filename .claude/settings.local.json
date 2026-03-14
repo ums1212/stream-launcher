@@ -61,7 +61,8 @@
       "Bash(cd D:/comon/StreamLauncher && JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew assembleDebug --stacktrace 2>&1 | grep -A5 \"PresetPackager\" | head -40)",
       "Bash(cd D:/comon/StreamLauncher && JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew :core:domain:compileKotlin 2>&1 | tail -20)",
       "Bash(cd D:/comon/StreamLauncher && JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew :core:domain:compileKotlin --rerun-tasks 2>&1 | tail -20)",
-      "Bash(cd D:/comon/StreamLauncher && JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew :core:data:kspDebugKotlin --rerun-tasks 2>&1 | tail -30)"
+      "Bash(cd D:/comon/StreamLauncher && JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew :core:data:kspDebugKotlin --rerun-tasks 2>&1 | tail -30)",
+      "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew --stop && JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew assembleDebug 2>&1 | tail -20)"
     ]
   }
 }

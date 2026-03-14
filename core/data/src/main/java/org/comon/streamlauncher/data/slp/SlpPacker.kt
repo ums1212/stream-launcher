@@ -2,7 +2,6 @@ package org.comon.streamlauncher.data.slp
 
 import android.content.Context
 import androidx.core.net.toUri
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.comon.streamlauncher.data.util.ImageCompressor
 import org.comon.streamlauncher.domain.model.preset.MarketPreset
