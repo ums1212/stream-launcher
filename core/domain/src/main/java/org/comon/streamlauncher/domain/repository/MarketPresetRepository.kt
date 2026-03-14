@@ -20,7 +20,9 @@ interface MarketPresetRepository {
     ): Result<List<MarketPreset>>
     suspend fun uploadPreset(preset: MarketPreset): Result<String>
     suspend fun uploadImage(localUri: String, storagePath: String): Result<String>
+    suspend fun uploadSlpFile(localPath: String, storagePath: String): Result<String>
     suspend fun downloadImageToLocal(storageUrl: String, localPath: String): Result<String>
+    suspend fun downloadSlpFile(storageUrl: String, localPath: String): Result<String>
     suspend fun toggleLike(presetId: String): Result<Boolean>
     suspend fun incrementDownloadCount(presetId: String): Result<Unit>
 }

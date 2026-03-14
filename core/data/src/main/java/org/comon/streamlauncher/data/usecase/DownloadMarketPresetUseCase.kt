@@ -4,6 +4,8 @@ import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import org.comon.streamlauncher.data.slp.toLocalPreset
+import org.comon.streamlauncher.data.slp.SlpUnpacker
 import org.comon.streamlauncher.domain.model.GridCell
 import org.comon.streamlauncher.domain.model.preset.DownloadProgress
 import org.comon.streamlauncher.domain.model.preset.MarketPreset
@@ -29,15 +31,40 @@ class DownloadMarketPresetUseCase @Inject constructor(
     private val saveColorPresetUseCase: SaveColorPresetUseCase,
 ) {
     suspend operator fun invoke(marketPreset: MarketPreset): Result<Unit> = runCatching {
+        if (marketPreset.slpStorageUrl != null) {
+            invokeV2(marketPreset)
+        } else {
+            invokeV1(marketPreset)
+        }
+    }
+
+    /** v2: 단일 .slp 파일 다운로드 + 추출 */
+    private suspend fun invokeV2(marketPreset: MarketPreset) {
+        val presetDir = File(context.filesDir, "market_presets/${marketPreset.id}")
+        val cacheFile = File(context.cacheDir, "slp_download/${marketPreset.id}.slp")
+        cacheFile.parentFile?.mkdirs()
+
+        try {
+            marketRepository.downloadSlpFile(marketPreset.slpStorageUrl!!, cacheFile.absolutePath).getOrThrow()
+            val (manifest, extractedPaths) = SlpUnpacker.unpack(cacheFile, presetDir)
+            val localPreset = manifest.toLocalPreset(extractedPaths, marketPreset.id)
+            presetRepository.savePreset(localPreset)
+            applySettings(marketPreset, localPreset)
+        } finally {
+            cacheFile.delete()
+        }
+        marketRepository.incrementDownloadCount(marketPreset.id)
+    }
+
+    /** v1(레거시): 이미지별 개별 다운로드 */
+    private suspend fun invokeV1(marketPreset: MarketPreset) {
         val presetDir = File(context.filesDir, "market_presets/${marketPreset.id}")
         presetDir.mkdirs()
 
-        // Storage URL → 로컬 파일 다운로드
         suspend fun downloadUrl(url: String?, filename: String): String? {
             url ?: return null
             val localPath = File(presetDir, filename).absolutePath
-            return marketRepository.downloadImageToLocal(url, localPath)
-                .getOrNull()
+            return marketRepository.downloadImageToLocal(url, localPath).getOrNull()
         }
 
         val topLeftIdleLocal = downloadUrl(marketPreset.topLeftIdleUrl, "top_left_idle.webp")
@@ -50,7 +77,6 @@ class DownloadMarketPresetUseCase @Inject constructor(
         val bottomRightExpandedLocal = downloadUrl(marketPreset.bottomRightExpandedUrl, "bottom_right_expanded.webp")
         val wallpaperLocal = downloadUrl(marketPreset.wallpaperUrl, "wallpaper.webp")
 
-        // 로컬 Preset 객체 생성 후 저장
         val localPreset = Preset(
             name = marketPreset.name,
             hasTopLeftImage = marketPreset.hasTopLeftImage,
@@ -82,38 +108,81 @@ class DownloadMarketPresetUseCase @Inject constructor(
         )
         presetRepository.savePreset(localPreset)
 
-        // 런처 설정 즉시 적용
-        if (marketPreset.hasTopLeftImage) {
-            saveGridCellImageUseCase(GridCell.TOP_LEFT, topLeftIdleLocal, topLeftExpandedLocal)
-        }
-        if (marketPreset.hasTopRightImage) {
-            saveGridCellImageUseCase(GridCell.TOP_RIGHT, topRightIdleLocal, topRightExpandedLocal)
-        }
-        if (marketPreset.hasBottomLeftImage) {
-            saveGridCellImageUseCase(GridCell.BOTTOM_LEFT, bottomLeftIdleLocal, bottomLeftExpandedLocal)
-        }
-        if (marketPreset.hasBottomRightImage) {
-            saveGridCellImageUseCase(GridCell.BOTTOM_RIGHT, bottomRightIdleLocal, bottomRightExpandedLocal)
-        }
-        if (marketPreset.hasFeedSettings) {
-            saveFeedSettingsUseCase(marketPreset.chzzkChannelId, marketPreset.youtubeChannelId)
-        }
+        if (marketPreset.hasTopLeftImage) saveGridCellImageUseCase(GridCell.TOP_LEFT, topLeftIdleLocal, topLeftExpandedLocal)
+        if (marketPreset.hasTopRightImage) saveGridCellImageUseCase(GridCell.TOP_RIGHT, topRightIdleLocal, topRightExpandedLocal)
+        if (marketPreset.hasBottomLeftImage) saveGridCellImageUseCase(GridCell.BOTTOM_LEFT, bottomLeftIdleLocal, bottomLeftExpandedLocal)
+        if (marketPreset.hasBottomRightImage) saveGridCellImageUseCase(GridCell.BOTTOM_RIGHT, bottomRightIdleLocal, bottomRightExpandedLocal)
+        if (marketPreset.hasFeedSettings) saveFeedSettingsUseCase(marketPreset.chzzkChannelId, marketPreset.youtubeChannelId)
         if (marketPreset.hasAppDrawerSettings) {
-            saveAppDrawerSettingsUseCase(
-                marketPreset.appDrawerColumns,
-                marketPreset.appDrawerRows,
-                marketPreset.appDrawerIconSizeRatio,
-            )
+            saveAppDrawerSettingsUseCase(marketPreset.appDrawerColumns, marketPreset.appDrawerRows, marketPreset.appDrawerIconSizeRatio)
         }
-        if (marketPreset.hasThemeSettings) {
-            marketPreset.themeColorHex?.toIntOrNull()?.let { saveColorPresetUseCase(it) }
-        }
+        if (marketPreset.hasThemeSettings) marketPreset.themeColorHex?.toIntOrNull()?.let { saveColorPresetUseCase(it) }
 
-        // 다운로드 카운트 증가
         marketRepository.incrementDownloadCount(marketPreset.id)
     }
 
+    /** 런처 설정 즉시 적용 (v2 경로용) */
+    private suspend fun applySettings(marketPreset: MarketPreset, localPreset: Preset) {
+        if (marketPreset.hasTopLeftImage) saveGridCellImageUseCase(GridCell.TOP_LEFT, localPreset.topLeftIdleUri, localPreset.topLeftExpandedUri)
+        if (marketPreset.hasTopRightImage) saveGridCellImageUseCase(GridCell.TOP_RIGHT, localPreset.topRightIdleUri, localPreset.topRightExpandedUri)
+        if (marketPreset.hasBottomLeftImage) saveGridCellImageUseCase(GridCell.BOTTOM_LEFT, localPreset.bottomLeftIdleUri, localPreset.bottomLeftExpandedUri)
+        if (marketPreset.hasBottomRightImage) saveGridCellImageUseCase(GridCell.BOTTOM_RIGHT, localPreset.bottomRightIdleUri, localPreset.bottomRightExpandedUri)
+        if (marketPreset.hasFeedSettings) saveFeedSettingsUseCase(localPreset.chzzkChannelId, localPreset.youtubeChannelId)
+        if (marketPreset.hasAppDrawerSettings) {
+            saveAppDrawerSettingsUseCase(localPreset.appDrawerColumns, localPreset.appDrawerRows, localPreset.appDrawerIconSizeRatio)
+        }
+        if (marketPreset.hasThemeSettings) localPreset.themeColorHex?.toIntOrNull()?.let { saveColorPresetUseCase(it) }
+    }
+
     fun downloadWithProgress(marketPreset: MarketPreset): Flow<DownloadProgress> = flow {
+        if (marketPreset.slpStorageUrl != null) {
+            downloadWithProgressV2(marketPreset)
+            return@flow
+        }
+        downloadWithProgressV1(marketPreset)
+    }
+
+    private suspend fun kotlinx.coroutines.flow.FlowCollector<DownloadProgress>.downloadWithProgressV2(
+        marketPreset: MarketPreset,
+    ) {
+        val presetDir = File(context.filesDir, "market_presets/${marketPreset.id}")
+        val cacheFile = File(context.cacheDir, "slp_download/${marketPreset.id}.slp")
+        cacheFile.parentFile?.mkdirs()
+        val presetName = marketPreset.name
+        val totalSteps = 3
+
+        try {
+            // Step 1: .slp 다운로드
+            marketRepository.downloadSlpFile(marketPreset.slpStorageUrl!!, cacheFile.absolutePath).getOrThrow()
+            emit(DownloadProgress(presetName, 1, totalSteps))
+
+            // Step 2: 추출 + 저장
+            val (manifest, extractedPaths) = SlpUnpacker.unpack(cacheFile, presetDir)
+            val localPreset = manifest.toLocalPreset(extractedPaths, marketPreset.id)
+            presetRepository.savePreset(localPreset)
+            applySettings(marketPreset, localPreset)
+            emit(DownloadProgress(presetName, 2, totalSteps))
+
+            // Step 3: 카운트 증가
+            marketRepository.incrementDownloadCount(marketPreset.id)
+            emit(DownloadProgress(presetName, totalSteps, totalSteps, isCompleted = true))
+        } catch (e: UnknownHostException) {
+            presetDir.deleteRecursively()
+            emit(DownloadProgress(presetName, 0, totalSteps, error = "네트워크 연결 없음"))
+        } catch (e: IOException) {
+            presetDir.deleteRecursively()
+            emit(DownloadProgress(presetName, 0, totalSteps, error = e.message ?: "IO 오류"))
+        } catch (e: Exception) {
+            presetDir.deleteRecursively()
+            emit(DownloadProgress(presetName, 0, totalSteps, error = e.message ?: "알 수 없는 오류"))
+        } finally {
+            cacheFile.delete()
+        }
+    }
+
+    private suspend fun kotlinx.coroutines.flow.FlowCollector<DownloadProgress>.downloadWithProgressV1(
+        marketPreset: MarketPreset,
+    ) {
         val presetDir = File(context.filesDir, "market_presets/${marketPreset.id}")
         presetDir.mkdirs()
 
@@ -147,7 +216,7 @@ class DownloadMarketPresetUseCase @Inject constructor(
                             error = result.exceptionOrNull()?.message ?: "이미지 다운로드 실패",
                         ),
                     )
-                    return@flow
+                    return@downloadWithProgressV1
                 }
                 localPaths[filename] = result.getOrNull()
                 emit(

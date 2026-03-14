@@ -2,6 +2,48 @@
 
 ---
 
+## [2026-03-13] feat(slp): 프리셋 커스텀 포맷 .slp 구현 (단일 압축 전송)
+
+### 목표
+
+- 프리셋 업로드/다운로드 시 이미지를 개별 전송하는 방식(최대 ~13회 요청) → 단일 `.slp` 파일 1회 전송으로 교체
+- ZIP 기반 커스텀 포맷(`.slp` = StreamLauncher Preset)으로 이미지 + 메타데이터를 번들링
+- Firestore DTO 1개 + Storage 파일 1개만 전송하는 원자적 구조 구현
+- 기존 v1(개별 URL) 프리셋과 하위 호환 유지
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `core/data/.../slp/SlpManifest.kt` | **신규** — `.slp` 내 `manifest.json` 스키마: `SlpManifest`, `SlpImagePaths`, `SlpCellFlags`, `SlpFeedSettings`, `SlpAppDrawerSettings`, `SlpWallpaperSettings`, `SlpThemeSettings` (@Serializable) |
+| `core/data/.../slp/SlpPacker.kt` | **신규** — `pack(context, preset, previewUris, outDir, presetId): File`. 이미지 WebP 압축(ImageCompressor 재사용) + ZipOutputStream으로 .slp 생성. 이미지 엔트리는 STORED, manifest.json은 DEFLATED. `buildManifest()` 공개 메서드 별도 추출 |
+| `core/data/.../slp/SlpUnpacker.kt` | **신규** — `unpack(slpFile, targetDir): Pair<SlpManifest, Map<String, String>>`. ZipInputStream 추출 + 경로 순회 공격(`../`) 차단 + manifest.json 파싱 |
+| `core/data/.../slp/SlpMapper.kt` | **신규** — `SlpManifest.toLocalPreset(extractedPaths, marketPresetId)`, `SlpManifest.toMarketPreset(id, slpStorageUrl, thumbnailUrl)` 확장 함수 |
+| `core/domain/.../model/preset/MarketPreset.kt` | `slpStorageUrl: String? = null` 필드 추가 |
+| `core/domain/.../repository/MarketPresetRepository.kt` | `uploadSlpFile(localPath, storagePath)`, `downloadSlpFile(storageUrl, localPath)` 추가 |
+| `core/data/.../remote/firestore/MarketPresetDto.kt` | `slpStorageUrl: String? = null` 필드 추가 + `toDomain()` / `toDto()` 매퍼 반영 |
+| `core/data/.../repository/MarketPresetRepositoryImpl.kt` | `uploadSlpFile()` (`putFile` 사용), `downloadSlpFile()` (`getFile` 사용) 구현 |
+| `core/data/.../usecase/UploadMarketPresetUseCase.kt` | **신규** (core:domain의 기존 UseCase 대체) — SlpPacker 기반 3단계 업로드: 패킹 → .slp Storage 업로드 → 썸네일 별도 업로드 + Firestore 문서 생성. `schemaVersion=2` |
+| `core/domain/.../usecase/UploadPresetToMarketUseCase.kt` | **삭제** — `UploadMarketPresetUseCase`(core:data)로 대체 |
+| `core/data/.../usecase/DownloadMarketPresetUseCase.kt` | `slpStorageUrl` 유무로 v2/v1 분기: v2는 .slp 1회 다운로드 → SlpUnpacker 추출 → 설정 적용, v1(레거시)은 기존 개별 다운로드 유지 |
+| `app/.../service/PresetUploadService.kt` | inject 타입을 `UploadPresetToMarketUseCase` → `UploadMarketPresetUseCase`로 변경 |
+
+### 검증 결과
+
+- `./gradlew assembleDebug` → **BUILD SUCCESSFUL** (16s)
+- `./gradlew test` → **BUILD SUCCESSFUL**, 실패 0건 (464 tasks)
+
+### 설계 결정 및 근거
+
+- **ZIP + .slp 확장자**: `java.util.zip` 사용으로 추가 의존성 없음. `.slp` 확장자는 브랜딩용. ZIP은 범용 툴로 디버깅 용이
+- **이미지 엔트리 STORED(무압축)**: WebP는 이미 손실 압축됨. ZIP DEFLATED를 추가 적용해도 파일 크기 절감 효과 미미하며 pack/unpack 속도 손해
+- **썸네일은 별도 업로드**: Firestore 목록(MarketHomeScreen, 검색 결과)에서 .slp 전체를 다운로드하지 않고 썸네일만 표시해야 하므로 별도 Storage 객체로 유지
+- **v1 하위 호환**: `slpStorageUrl == null`이면 기존 개별 URL 다운로드 경로 실행. Firestore 문서 구조 그대로 유지하여 마이그레이션 불필요
+- **UploadPresetToMarketUseCase를 core:data로 이동**: SlpPacker가 `Context`(ContentResolver) + `ImageCompressor`(core:data)에 의존하므로 core:domain에서 접근 불가. DownloadMarketPresetUseCase와 동일한 패턴으로 core:data에 배치
+- **Firestore 스키마**: v2 문서는 `schemaVersion=2`, `slpStorageUrl` 포함, 개별 이미지 URL 필드는 null. v1/v2 문서가 동일 컬렉션에 공존하며 클라이언트가 분기 처리
+
+---
+
 ## [2026-03-12] feat(widget): 위젯 자유 배치 시스템 구현 (동적 그리드 + 드래그/리사이즈)
 
 ### 목표

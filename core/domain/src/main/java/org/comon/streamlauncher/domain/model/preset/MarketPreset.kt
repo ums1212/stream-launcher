@@ -48,6 +48,9 @@ data class MarketPreset(
     val hasThemeSettings: Boolean = false,
     val themeColorHex: String? = null,
 
+    // .slp 포맷 (schemaVersion=2) — Storage에 업로드된 단일 압축 파일 URL
+    val slpStorageUrl: String? = null,
+
     val createdAt: Long = 0L,
     val updatedAt: Long = 0L,
 )

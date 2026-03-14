@@ -55,6 +55,9 @@ data class MarketPresetDto(
     val hasThemeSettings: Boolean = false,
     val themeColorHex: String? = null,
 
+    // .slp 포맷 (schemaVersion=2)
+    val slpStorageUrl: String? = null,
+
     @ServerTimestamp
     val createdAt: Date? = null,
     @ServerTimestamp
@@ -98,6 +101,7 @@ fun MarketPresetDto.toDomain(): MarketPreset = MarketPreset(
     enableParallax = enableParallax,
     hasThemeSettings = hasThemeSettings,
     themeColorHex = themeColorHex,
+    slpStorageUrl = slpStorageUrl,
     createdAt = createdAt?.time ?: 0L,
     updatedAt = updatedAt?.time ?: 0L,
 )
@@ -140,6 +144,7 @@ fun MarketPreset.toDto(): MarketPresetDto = MarketPresetDto(
     enableParallax = enableParallax,
     hasThemeSettings = hasThemeSettings,
     themeColorHex = themeColorHex,
+    slpStorageUrl = slpStorageUrl,
 )
 
 private fun buildSearchKeywords(name: String, tags: List<String>): List<String> {

@@ -170,6 +170,14 @@ class MarketPresetRepositoryImpl @Inject constructor(
             ref.downloadUrl.await().toString()
         }
 
+    override suspend fun uploadSlpFile(localPath: String, storagePath: String): Result<String> =
+        runCatching {
+            val file = File(localPath)
+            val ref = storage.reference.child(storagePath)
+            ref.putFile(android.net.Uri.fromFile(file)).await()
+            ref.downloadUrl.await().toString()
+        }
+
     override suspend fun downloadImageToLocal(
         storageUrl: String,
         localPath: String,
@@ -180,6 +188,15 @@ class MarketPresetRepositoryImpl @Inject constructor(
         ref.getFile(file).await()
         file.absolutePath
     }
+
+    override suspend fun downloadSlpFile(storageUrl: String, localPath: String): Result<String> =
+        runCatching {
+            val file = File(localPath)
+            file.parentFile?.mkdirs()
+            val ref = storage.getReferenceFromUrl(storageUrl)
+            ref.getFile(file).await()
+            file.absolutePath
+        }
 
     override suspend fun toggleLike(presetId: String): Result<Boolean> = runCatching {
         val uid = auth.currentUser?.uid ?: error("로그인이 필요합니다")
