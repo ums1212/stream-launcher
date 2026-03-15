@@ -77,7 +77,7 @@ fun PresetSettingsContent(
             GlassSettingsTile(
                 label = stringResource(R.string.preset_market),
                 icon = Icons.Default.Store,
-                accentColor = MaterialTheme.colorScheme.primary,
+                lerpFraction = 0f,
                 onClick = onNavigateToMarket,
             )
 
@@ -85,7 +85,7 @@ fun PresetSettingsContent(
             GlassSettingsTile(
                 label = stringResource(R.string.title_add_preset),
                 icon = Icons.Default.Add,
-                accentColor = MaterialTheme.colorScheme.primary,
+                lerpFraction = 0f,
                 onClick = {
                     if (state.presets.size >= 10) {
                         showLimitDialog = true

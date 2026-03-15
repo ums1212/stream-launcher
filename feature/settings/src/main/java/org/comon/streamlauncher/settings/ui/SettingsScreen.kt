@@ -7,14 +7,9 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,14 +30,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.rounded.Campaign
-import androidx.compose.material.icons.rounded.GridView
-import androidx.compose.material.icons.rounded.Home
-import androidx.compose.material.icons.rounded.Image
-import androidx.compose.material.icons.rounded.Palette
-import androidx.compose.material.icons.rounded.RssFeed
-import androidx.compose.material.icons.rounded.Save
-import androidx.compose.material.icons.rounded.Wallpaper
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -66,11 +53,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -86,9 +70,12 @@ import org.comon.streamlauncher.settings.R
 import org.comon.streamlauncher.settings.SettingsIntent
 import org.comon.streamlauncher.settings.SettingsState
 import org.comon.streamlauncher.settings.model.ImageType
+import org.comon.streamlauncher.settings.model.SettingsActionType
+import org.comon.streamlauncher.settings.model.settingMenuList
 import org.comon.streamlauncher.settings.navigation.SettingsMenu
 import org.comon.streamlauncher.settings.navigation.SettingsRoute
 import org.comon.streamlauncher.ui.theme.StreamLauncherTheme
+import org.comon.streamlauncher.ui.util.calculateIsCompactHeight
 
 @Composable
 fun SettingsScreen(
@@ -100,7 +87,10 @@ fun SettingsScreen(
         contentAlignment = Alignment.Center,
         modifier = modifier.fillMaxSize(),
     ) {
-        MainSettingsContent(onNavigate = onNavigate, onIntent = onIntent)
+        MainSettingsContent(
+            onNavigate = onNavigate,
+            onIntent = onIntent
+        )
     }
 }
 
@@ -110,175 +100,48 @@ private fun MainSettingsContent(
     onIntent: (SettingsIntent) -> Unit,
 ) {
     val context = LocalContext.current
-    val accentPrimary = StreamLauncherTheme.colors.accentPrimary
-    val accentSecondary = StreamLauncherTheme.colors.accentSecondary
     val settingsWallpaperErrorMessage = stringResource(R.string.settings_wallpaper_error)
-
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.padding(horizontal = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            GlassSettingsTile(
-                label = stringResource(R.string.settings_theme_color),
-                icon = Icons.Rounded.Palette,
-                accentColor = accentPrimary,
-                onClick = { onNavigate(SettingsRoute.detail(SettingsMenu.COLOR.name)) },
-                modifier = Modifier.weight(1f),
-            )
-            GlassSettingsTile(
-                label = stringResource(R.string.settings_home_image),
-                icon = Icons.Rounded.Image,
-                accentColor = lerp(accentPrimary, accentSecondary, 0.17f),
-                onClick = { onNavigate(SettingsRoute.detail(SettingsMenu.IMAGE.name)) },
-                modifier = Modifier.weight(1f),
-            )
-        }
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            GlassSettingsTile(
-                label = stringResource(R.string.settings_app_drawer),
-                icon = Icons.Rounded.GridView,
-                accentColor = lerp(accentPrimary, accentSecondary, 0.33f),
-                onClick = { onNavigate(SettingsRoute.detail(SettingsMenu.APP_DRAWER.name)) },
-                modifier = Modifier.weight(1f),
-            )
-            GlassSettingsTile(
-                label = stringResource(R.string.settings_feed),
-                icon = Icons.Rounded.RssFeed,
-                accentColor = lerp(accentPrimary, accentSecondary, 0.5f),
-                onClick = { onNavigate(SettingsRoute.detail(SettingsMenu.FEED.name)) },
-                modifier = Modifier.weight(1f),
-            )
-        }
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            GlassSettingsTile(
-                label = stringResource(R.string.settings_notice),
-                icon = Icons.Rounded.Campaign,
-                accentColor = lerp(accentPrimary, accentSecondary, 0.67f),
-                onClick = { onIntent(SettingsIntent.ShowNotice) },
-                modifier = Modifier.weight(1f),
-            )
-            GlassSettingsTile(
-                label = stringResource(R.string.settings_wallpaper),
-                icon = Icons.Rounded.Wallpaper,
-                accentColor = lerp(accentPrimary, accentSecondary, 0.83f),
-                onClick = {
-                    try {
-                        context.startActivity(Intent(Intent.ACTION_SET_WALLPAPER))
-                    } catch (e: Exception) {
-                        Toast.makeText(context, settingsWallpaperErrorMessage, Toast.LENGTH_SHORT).show()
+    val isCompactLandscape = calculateIsCompactHeight()
+    val settingMenuList = remember { settingMenuList }
+    val handleItemClick: (SettingsActionType) -> Unit = { actionType ->
+        when (actionType) {
+            SettingsActionType.COLOR -> onNavigate(SettingsRoute.detail(SettingsMenu.COLOR.name))
+            SettingsActionType.IMAGE -> onNavigate(SettingsRoute.detail(SettingsMenu.IMAGE.name))
+            SettingsActionType.APP_DRAWER -> onNavigate(SettingsRoute.detail(SettingsMenu.APP_DRAWER.name))
+            SettingsActionType.FEED -> onNavigate(SettingsRoute.detail(SettingsMenu.FEED.name))
+            SettingsActionType.NOTICE -> onIntent(SettingsIntent.ShowNotice)
+            SettingsActionType.WALLPAPER -> {
+                try {
+                    context.startActivity(Intent(Intent.ACTION_SET_WALLPAPER))
+                } catch (_: Exception) {
+                    Toast.makeText(context, settingsWallpaperErrorMessage, Toast.LENGTH_SHORT).show()
+                }
+            }
+            SettingsActionType.DEFAULT_HOME -> {
+                val homeIntent = Intent(Settings.ACTION_HOME_SETTINGS)
+                val settingsIntent = Intent(Settings.ACTION_SETTINGS)
+                try {
+                    if (homeIntent.resolveActivity(context.packageManager) != null) {
+                        context.startActivity(homeIntent)
+                    } else {
+                        context.startActivity(settingsIntent)
                     }
-                },
-                modifier = Modifier.weight(1f),
-            )
-        }
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            GlassSettingsTile(
-                label = stringResource(R.string.settings_default_home),
-                icon = Icons.Rounded.Home,
-                accentColor = accentSecondary,
-                onClick = {
-                    try {
-                        val homeIntent = Intent(Settings.ACTION_HOME_SETTINGS)
-                        if (homeIntent.resolveActivity(context.packageManager) != null) {
-                            context.startActivity(homeIntent)
-                        } else {
-                            context.startActivity(Intent(Settings.ACTION_SETTINGS))
-                        }
-                    } catch (_: ActivityNotFoundException) {
-                        context.startActivity(Intent(Settings.ACTION_SETTINGS))
-                    }
-                },
-                modifier = Modifier.weight(1f),
-            )
-            GlassSettingsTile(
-                label = stringResource(R.string.settings_preset),
-                icon = Icons.Rounded.Save,
-                accentColor = lerp(accentPrimary, accentSecondary, 0.4f),
-                onClick = { onNavigate(SettingsRoute.detail(SettingsMenu.PRESET.name)) },
-                modifier = Modifier.weight(1f),
-            )
+                } catch (_: ActivityNotFoundException) {
+                    context.startActivity(settingsIntent)
+                }
+            }
+            SettingsActionType.PRESET -> onNavigate(SettingsRoute.detail(SettingsMenu.PRESET.name))
         }
     }
-}
 
-@Composable
-fun GlassSettingsTile(
-    label: String,
-    icon: ImageVector,
-    accentColor: Color,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val haptic = LocalHapticFeedback.current
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.95f else 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMedium,
-        ),
-        label = "tileScale_$label",
-    )
-    val glassSurface = StreamLauncherTheme.colors.glassSurface
-    val glassOnSurface = StreamLauncherTheme.colors.glassOnSurface
-    val tileShape = RoundedCornerShape(16.dp)
-
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = modifier
-            .scale(scale)
-            .height(88.dp)
-            .clip(tileShape)
-            .background(glassSurface)
-            .border(
-                width = 1.dp,
-                color = accentColor.copy(alpha = 0.35f),
-                shape = tileShape,
-            )
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null,
-            ) {
-                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                onClick()
-            },
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-            modifier = Modifier.padding(8.dp),
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = accentColor,
-                modifier = Modifier.size(28.dp),
-            )
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelLarge,
-                color = glassOnSurface,
-            )
-        }
+    if(isCompactLandscape){
+        // 스마트폰 가로화면인 경우에만 좁은 height 대응 화면
+        LandScapeSettingsScreen(settingMenuList, handleItemClick)
+    } else {
+        // 그외 나머지 화면일 경우
+        PortraitSettingsScreen(settingMenuList, handleItemClick)
     }
 }
-
 
 @Composable
 internal fun ColorSettingsContent(
