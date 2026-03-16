@@ -1,5 +1,30 @@
 # StreamLauncher 개발 로그
 
+## [2026-03-16] fix(app-drawer): 가로 모드에서 앱 드로어 행/열 전환
+
+### 목표
+
+- App Drawer가 portrait와 landscape에서 동일한 행/열 값을 그대로 쓰지 않도록 조정한다
+- 세로 기준 배치가 `4(column) x 6(row)`일 때 가로에서는 `6(column) x 4(row)`처럼 transpose된 배치를 적용한다
+- 검색, 페이지 분할, 페이지 인디케이터, 드래그 앤 드롭 등 기존 App Drawer 동작은 그대로 유지한다
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `app/.../MainActivity.kt` | `LocalConfiguration`으로 현재 orientation을 읽어 landscape일 때 `uiState.appDrawerGridColumns`와 `uiState.appDrawerGridRows`를 swap한 뒤 `AppDrawerScreen`에 전달 |
+
+### 검증 결과
+
+- `ReadLints` 기준 `app/.../MainActivity.kt` 신규 오류 없음
+- `JAVA_HOME=\"C:/Program Files/Java/jdk-17\" .\\gradlew.bat :app:compileDebugKotlin` → **BUILD SUCCESSFUL**
+
+### 설계 결정 및 근거
+
+- **호출부 한정 변경**: `AppDrawerScreen`은 전달받은 `columns`/`rows`만으로 페이지 수와 셀 배치를 계산하므로, 호출부에서만 값을 전환하면 기능 요구사항을 충족할 수 있음
+- **세로 기준 설정 유지**: 저장소와 설정 화면의 기본값은 그대로 두고, landscape에서는 표시만 transpose해 사용자가 설정한 세로 기준 레이아웃 의미를 유지함
+- **기존 동작 보존**: 앱 정렬, 검색 필터링, 페이지 계산 로직은 그대로 두고 실제 표시 축만 바꿔 회전 대응 범위를 최소화함
+
 ---
 
 ## [2026-03-16] fix(leak): 홈 이미지/아이콘 경량화 및 잔여 회전 누수 보강

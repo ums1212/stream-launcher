@@ -32,6 +32,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalConfiguration
 import kotlinx.coroutines.launch
 import org.comon.streamlauncher.preset_market.ui.GoogleSignInHandler
 import androidx.compose.ui.graphics.Color
@@ -362,6 +363,22 @@ class MainActivity : ComponentActivity() {
                     startDestination = SettingsRoute.LAUNCHER,
                 ) {
                     composable(route = SettingsRoute.LAUNCHER) {
+                        val configuration = LocalConfiguration.current
+                        val isLandscape =
+                            configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+                        val appDrawerColumns =
+                            if (isLandscape) {
+                                uiState.appDrawerGridRows
+                            } else {
+                                uiState.appDrawerGridColumns
+                            }
+                        val appDrawerRows =
+                            if (isLandscape) {
+                                uiState.appDrawerGridColumns
+                            } else {
+                                uiState.appDrawerGridRows
+                            }
+
                         CrossPagerNavigation(
                             resetTrigger = resetTrigger,
                             feedContent = { isVisible ->
@@ -386,8 +403,8 @@ class MainActivity : ComponentActivity() {
                                     onAppAssigned = { app, cell ->
                                         viewModel.handleIntent(HomeIntent.AssignAppToCell(app, cell))
                                     },
-                                    columns = uiState.appDrawerGridColumns,
-                                    rows = uiState.appDrawerGridRows,
+                                    columns = appDrawerColumns,
+                                    rows = appDrawerRows,
                                     iconSizeRatio = uiState.appDrawerIconSizeRatio,
                                 )
                             },
