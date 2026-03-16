@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
@@ -81,11 +82,17 @@ fun CrossPagerNavigation(
     val dragDropState = LocalDragDropState.current
 
     // 드래그 시작 시 홈 화면으로 스크롤 콜백 등록
-    LaunchedEffect(Unit) {
-        dragDropState.onScrollToHome = {
+    DisposableEffect(dragDropState, scope, verticalPagerState, horizontalPagerState) {
+        val scrollToHome: () -> Unit = {
             scope.launch {
                 verticalPagerState.animateScrollToPage(1, animationSpec = tween(300))
                 horizontalPagerState.animateScrollToPage(1, animationSpec = tween(300))
+            }
+        }
+        dragDropState.onScrollToHome = scrollToHome
+        onDispose {
+            if (dragDropState.onScrollToHome === scrollToHome) {
+                dragDropState.onScrollToHome = null
             }
         }
     }
@@ -119,7 +126,7 @@ fun CrossPagerNavigation(
         VerticalPager(
             state = verticalPagerState,
             modifier = Modifier.fillMaxSize(),
-            beyondViewportPageCount = 1,
+            beyondViewportPageCount = 0,
             userScrollEnabled = !horizontalPagerState.isScrollInProgress
                 && !dragDropState.isDragging
                 && !isHomeEditMode
@@ -225,7 +232,7 @@ private fun CenterRow(
         HorizontalPager(
             state = horizontalPagerState,
             modifier = Modifier.fillMaxSize(),
-            beyondViewportPageCount = 1,
+            beyondViewportPageCount = 0,
             userScrollEnabled = !verticalPagerState.isScrollInProgress && !isDragging && !isHomeEditMode && !isWidgetDragging,
         ) { horizontalPage ->
             when (horizontalPage) {

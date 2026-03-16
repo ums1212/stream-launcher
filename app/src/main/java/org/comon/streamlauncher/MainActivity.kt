@@ -20,10 +20,6 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.compose.animation.ExperimentalSharedTransitionApi
-import androidx.compose.animation.SharedTransitionLayout
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.material3.SnackbarHostState
@@ -46,7 +42,6 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import androidx.navigation.navArgument
 import dagger.hilt.android.AndroidEntryPoint
 import org.comon.streamlauncher.apps_drawer.ui.AppDrawerScreen
 import org.comon.streamlauncher.domain.model.ColorPresets
@@ -72,11 +67,8 @@ import org.comon.streamlauncher.ui.theme.StreamLauncherTheme
 import org.comon.streamlauncher.widget.WidgetViewModel
 import org.comon.streamlauncher.widget.ui.WidgetScreen
 import androidx.core.net.toUri
-import android.net.Uri as AndroidUri
 import org.comon.streamlauncher.preset_market.navigation.MarketRoute
-import org.comon.streamlauncher.preset_market.ui.MarketHomeScreen
-import org.comon.streamlauncher.preset_market.ui.MarketSearchScreen
-import org.comon.streamlauncher.preset_market.ui.PresetDetailScreen
+import org.comon.streamlauncher.preset_market.ui.PresetMarketHost
 import org.comon.streamlauncher.service.PresetDownloadService
 import org.comon.streamlauncher.service.PresetUploadService
 
@@ -138,12 +130,12 @@ class MainActivity : ComponentActivity() {
     /**
      * 현재 라우트가 불투명 배경(Material3)을 가진 화면인지 판별합니다.
      * - settings_detail/ 로 시작하는 설정 상세 화면
-     * - preset_market 으로 시작하는 프리셋 마켓 화면
+     * - 마켓 호스트 화면
      */
     private fun isOpaqueRoute(route: String?): Boolean {
         if (route == null) return false
         return route.startsWith("settings_detail/") ||
-               route.startsWith("preset_market")
+            route == MarketRoute.HOST
     }
 
     /**
@@ -220,7 +212,6 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-    @OptIn(ExperimentalSharedTransitionApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -366,8 +357,6 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                SharedTransitionLayout {
-                val sharedTransitionScope = this
                 NavHost(
                     navController = navController,
                     startDestination = SettingsRoute.LAUNCHER,
@@ -434,7 +423,7 @@ class MainActivity : ComponentActivity() {
                             state = settingsState,
                             onIntent = settingsViewModel::handleIntent,
                             onBack = { navController.popBackStack() },
-                            onNavigateToMarket = { navController.navigate(MarketRoute.HOME) },
+                            onNavigateToMarket = { navController.navigate(MarketRoute.HOST) },
                             onShowSnackbar = { message ->
                                 settingsScope.launch {
                                     settingsSnackbarHostState.showSnackbar(message)
@@ -443,47 +432,11 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                     composable(
-                        route = MarketRoute.HOME,
+                        route = MarketRoute.HOST,
                         enterTransition = { slideInHorizontally(initialOffsetX = { it }) },
-                        exitTransition = { fadeOut() },
-                        popEnterTransition = { fadeIn() },
                         popExitTransition = { slideOutHorizontally(targetOffsetX = { it }) },
                     ) {
-                        MarketHomeScreen(
-                            onNavigateToDetail = { navController.navigate(MarketRoute.detail(it)) },
-                            onNavigateToSearch = { navController.navigate(MarketRoute.search()) },
-                            onBack = { navController.popBackStack() },
-                            sharedTransitionScope = sharedTransitionScope,
-                            animatedVisibilityScope = this,
-                        )
-                    }
-                    composable(
-                        route = MarketRoute.SEARCH,
-                        arguments = listOf(navArgument("query") { defaultValue = "" }),
-                        enterTransition = { fadeIn() },
-                        exitTransition = { slideOutHorizontally(targetOffsetX = { it }) },
-                        popEnterTransition = { slideInHorizontally(initialOffsetX = { -it }) },
-                        popExitTransition = { fadeOut() },
-                    ) { backStackEntry ->
-                        val query = AndroidUri.decode(
-                            backStackEntry.arguments?.getString("query") ?: ""
-                        )
-                        MarketSearchScreen(
-                            initialQuery = query,
-                            onNavigateToDetail = { navController.navigate(MarketRoute.detail(it)) },
-                            onBack = { navController.popBackStack() },
-                            sharedTransitionScope = sharedTransitionScope,
-                            animatedVisibilityScope = this,
-                        )
-                    }
-                    composable(
-                        route = MarketRoute.DETAIL,
-                        enterTransition = { slideInHorizontally(initialOffsetX = { it }) },
-                        exitTransition = { slideOutHorizontally(targetOffsetX = { it }) },
-                        popEnterTransition = { slideInHorizontally(initialOffsetX = { -it }) },
-                        popExitTransition = { slideOutHorizontally(targetOffsetX = { it }) },
-                    ) {
-                        PresetDetailScreen(
+                        PresetMarketHost(
                             onBack = { navController.popBackStack() },
                             onStartDownloadService = {
                                 startForegroundService(Intent(this@MainActivity, PresetDownloadService::class.java))
@@ -494,7 +447,6 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                 }
-                } // SharedTransitionLayout
 
                 if (settingsState.showNoticeDialog) {
                     NoticeDialog(
@@ -536,6 +488,15 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        try {
+            appWidgetHost.stopListening()
+        } catch (_: Exception) {
+            // onStop에서 이미 정리되더라도 회전 종료 시 한 번 더 방어적으로 해제
+        }
+        if (pendingWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+            appWidgetHost.deleteAppWidgetId(pendingWidgetId)
+            pendingWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
+        }
         super.onDestroy()
         WallpaperManager.getInstance(this)
             .removeOnColorsChangedListener(wallpaperColorsChangedListener)

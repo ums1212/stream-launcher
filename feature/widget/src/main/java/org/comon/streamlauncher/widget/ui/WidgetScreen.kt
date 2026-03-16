@@ -1,11 +1,13 @@
 package org.comon.streamlauncher.widget.ui
 
 import android.appwidget.AppWidgetHost
+import android.appwidget.AppWidgetHostView
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProviderInfo
 import android.content.Context
 import android.view.GestureDetector
 import android.view.MotionEvent
+import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
@@ -75,6 +77,7 @@ private class WidgetContainerView(context: Context) : FrameLayout(context) {
 
     var isDeleteModeActive: Boolean = false
     var onLongPressListener: (() -> Unit)? = null
+    private var hostedView: AppWidgetHostView? = null
 
     private val gestureDetector = GestureDetector(
         context,
@@ -90,6 +93,29 @@ private class WidgetContainerView(context: Context) : FrameLayout(context) {
         if (isDeleteModeActive) return true
         gestureDetector.onTouchEvent(ev)
         return super.dispatchTouchEvent(ev)
+    }
+
+    override fun onDetachedFromWindow() {
+        releaseHostedView()
+        super.onDetachedFromWindow()
+    }
+
+    fun attachHostedView(hostView: AppWidgetHostView) {
+        if (hostedView === hostView && hostView.parent === this) return
+
+        releaseHostedView()
+        hostedView = hostView
+        (hostView.parent as? ViewGroup)?.removeView(hostView)
+        addView(hostView)
+    }
+
+    fun releaseHostedView() {
+        onLongPressListener = null
+        hostedView?.let { view ->
+            (view.parent as? ViewGroup)?.removeView(view)
+        }
+        hostedView = null
+        removeAllViews()
     }
 }
 
@@ -399,12 +425,15 @@ private fun WidgetItem(
                             FrameLayout.LayoutParams.MATCH_PARENT,
                         )
                     }
-                    addView(hostView)
+                    attachHostedView(hostView)
                 }
             },
             update = { container ->
                 container.isDeleteModeActive = isEditMode
                 container.onLongPressListener = if (!isEditMode) onEnterEditMode else null
+            },
+            onRelease = { container ->
+                container.releaseHostedView()
             },
             modifier = Modifier.fillMaxSize(),
         )

@@ -12,6 +12,7 @@ val localProperties = Properties().also { props ->
     val file = rootProject.file("local.properties")
     if (file.exists()) props.load(file.inputStream())
 }
+val enableBannerAds = localProperties.getProperty("debug.enable.banner.ads", "true").toBoolean()
 
 android {
     namespace = "org.comon.streamlauncher.preset_market"
@@ -27,6 +28,11 @@ android {
             "String",
             "WEB_CLIENT_ID",
             "\"${localProperties.getProperty("google.web.client.id", "")}\""
+        )
+        buildConfigField(
+            "boolean",
+            "ENABLE_BANNER_ADS",
+            enableBannerAds.toString()
         )
     }
 
@@ -67,6 +73,7 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
     implementation(libs.androidx.compose.foundation)
+    implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.coil.compose)
     implementation(libs.material.icons.extended)

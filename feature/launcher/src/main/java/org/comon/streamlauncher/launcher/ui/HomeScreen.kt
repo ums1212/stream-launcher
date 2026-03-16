@@ -2,7 +2,11 @@ package org.comon.streamlauncher.launcher.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -35,6 +39,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -61,7 +66,6 @@ import androidx.compose.ui.res.stringResource
 import org.comon.streamlauncher.launcher.R
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import kotlinx.coroutines.delay
 import org.comon.streamlauncher.domain.model.AppEntity
 import org.comon.streamlauncher.domain.model.GridCell
 import org.comon.streamlauncher.domain.model.GridCellImage
@@ -202,8 +206,11 @@ private fun RowScope.GridCellContent(
     val contentAlpha = ((weight - 0.6f) / 0.2f).coerceIn(0f, 1f)
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
+    val appContext = remember(context) { context.applicationContext }
     val shape = RoundedCornerShape(12.dp)
     val dragDropState = LocalDragDropState.current
+    var cellWidthPx by remember { mutableIntStateOf(0) }
+    var cellHeightPx by remember { mutableIntStateOf(0) }
 
     // 셀 영역을 DragDropState에 등록
     DisposableEffect(cell) {
@@ -251,6 +258,8 @@ private fun RowScope.GridCellContent(
             .onGloballyPositioned { coords ->
                 val pos = coords.positionInRoot()
                 val size = coords.size
+                cellWidthPx = size.width
+                cellHeightPx = size.height
                 dragDropState.registerCellBounds(
                     cell,
                     Rect(
@@ -297,9 +306,13 @@ private fun RowScope.GridCellContent(
                 val expandedUri = gridCellImage?.expandedImageUri
                 if (expandedUri != null) {
                     AsyncImage(
-                        model = ImageRequest.Builder(context)
+                        model = ImageRequest.Builder(appContext)
                             .data(expandedUri)
-                            .crossfade(300)
+                            .apply {
+                                if (cellWidthPx > 0 && cellHeightPx > 0) {
+                                    size(cellWidthPx, cellHeightPx)
+                                }
+                            }
                             .build(),
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
@@ -366,9 +379,13 @@ private fun RowScope.GridCellContent(
                 val idleUri = gridCellImage?.idleImageUri
                 if (idleUri != null) {
                     AsyncImage(
-                        model = ImageRequest.Builder(context)
+                        model = ImageRequest.Builder(appContext)
                             .data(idleUri)
-                            .crossfade(300)
+                            .apply {
+                                if (cellWidthPx > 0 && cellHeightPx > 0) {
+                                    size(cellWidthPx, cellHeightPx)
+                                }
+                            }
                             .build(),
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
@@ -403,30 +420,26 @@ private fun GridAppItem(
 
     // 흔들림 애니메이션 효과 (편집 모드 시, 드래그 중에는 정지)
     val isDragged = dragDropState.isDragging && dragDropState.draggedApp == app
-    var isWiggling by remember { mutableStateOf(false) }
+    val editRotation = if (isEditing && !isDragged) {
+        val wiggleTransition = rememberInfiniteTransition(label = "wiggleTransition")
+        val animatedRotation by wiggleTransition.animateFloat(
+            initialValue = -2f,
+            targetValue = 2f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(100),
+                repeatMode = RepeatMode.Reverse,
+            ),
+            label = "wiggleRotation",
+        )
+        animatedRotation
+    } else {
+        0f
+    }
     val rotation by animateFloatAsState(
-        targetValue = when {
-            isDragged -> 0f
-            isWiggling -> 2f
-            isEditing -> -2f
-            else -> 0f
-        },
+        targetValue = if (isDragged) 0f else editRotation,
         animationSpec = if (isEditing && !isDragged) tween(100) else spring(),
         label = "wiggle",
     )
-
-    LaunchedEffect(isEditing) {
-        if (isEditing) {
-            while (true) {
-                isWiggling = true
-                delay(100)
-                isWiggling = false
-                delay(100)
-            }
-        } else {
-            isWiggling = false
-        }
-    }
 
     Box(
         modifier = Modifier.fillMaxSize(),

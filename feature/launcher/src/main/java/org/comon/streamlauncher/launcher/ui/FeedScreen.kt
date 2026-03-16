@@ -1,7 +1,6 @@
 package org.comon.streamlauncher.launcher.ui
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -37,7 +36,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -93,29 +91,20 @@ private fun FeedContent(
             .padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
         // 헤더
-        val refreshRotation = remember { Animatable(0f) }
-        LaunchedEffect(state.isLoading) {
-            if (state.isLoading) {
-                refreshRotation.snapTo(0f)
-                while (true) {
-                    refreshRotation.animateTo(
-                        targetValue = refreshRotation.value + 360f,
-                        animationSpec = tween(durationMillis = 800, easing = LinearEasing),
-                    )
-                }
-            } else {
-                val current = refreshRotation.value % 360f
-                if (current > 0f) {
-                    refreshRotation.animateTo(
-                        targetValue = ((refreshRotation.value / 360f).toInt() + 1) * 360f,
-                        animationSpec = tween(
-                            durationMillis = ((360f - current) / 360f * 800f).toInt(),
-                            easing = LinearEasing,
-                        ),
-                    )
-                }
-                refreshRotation.snapTo(0f)
-            }
+        val refreshRotation = if (state.isLoading && isVisible) {
+            val infiniteTransition = rememberInfiniteTransition(label = "refreshRotation")
+            val rotation by infiniteTransition.animateFloat(
+                initialValue = 0f,
+                targetValue = 360f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(durationMillis = 800, easing = LinearEasing),
+                    repeatMode = RepeatMode.Restart,
+                ),
+                label = "refreshRotationValue",
+            )
+            rotation
+        } else {
+            0f
         }
 
         Row(
@@ -135,7 +124,7 @@ private fun FeedContent(
                     contentDescription = stringResource(R.string.feed_refresh),
                     tint = StreamLauncherTheme.colors.accentPrimary,
                     modifier = Modifier.graphicsLayer {
-                        rotationZ = refreshRotation.value
+                        rotationZ = refreshRotation
                     },
                 )
             }
@@ -211,6 +200,7 @@ private fun ChannelProfileCard(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    val appContext = remember(context) { context.applicationContext }
     Surface(
         modifier = modifier
             .fillMaxWidth()
@@ -236,9 +226,8 @@ private fun ChannelProfileCard(
 
             // 원형 아바타
             AsyncImage(
-                model = ImageRequest.Builder(context)
+                model = ImageRequest.Builder(appContext)
                     .data(profile.avatarUrl)
-                    .crossfade(300)
                     .transformations(CircleCropTransformation())
                     .build(),
                 contentDescription = profile.name,

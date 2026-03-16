@@ -2,6 +2,95 @@
 
 ---
 
+## [2026-03-16] fix(leak): 홈 이미지/아이콘 경량화 및 잔여 회전 누수 보강
+
+### 목표
+
+- 회전 후 남는 `AndroidComposeView -> MainActivity` retain을 추가로 줄인다
+- 홈 배경/앱 아이콘/피드 로딩 애니메이션처럼 retain 크기에 직접 기여할 수 있는 경로를 경량화한다
+- 위젯 호스트 detach/Activity 종료 시 cleanup을 보강한다
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `feature/launcher/.../ui/HomeScreen.kt` | 셀 배경 이미지 요청을 `applicationContext` 기반으로 변경, `crossfade` 제거, 셀 크기 기반 `size()` 지정 |
+| `core/ui/.../component/AppIcon.kt` | `SubcomposeAsyncImage` 제거, `rememberAsyncImagePainter` 기반 단순화, 아이콘 요청을 `applicationContext` + no crossfade로 변경 |
+| `feature/launcher/.../ui/FeedScreen.kt` | refresh 회전 루프를 infinite transition으로 대체하고 `isVisible`일 때만 회전, 채널 아바타 요청도 `applicationContext` 기반으로 변경 |
+| `feature/widget/.../ui/WidgetScreen.kt` | `WidgetContainerView.onDetachedFromWindow()`에서 hosted view를 추가 해제 |
+| `app/.../MainActivity.kt` | `onDestroy()`에서 `AppWidgetHost.stopListening()` 재호출 및 미완료 `pendingWidgetId` 정리 |
+
+### 검증 결과
+
+- 구현 후 빌드/린트 검증 예정
+
+### 설계 결정 및 근거
+
+- **이미지 요청의 Activity 의존 축소**: 홈 배경/앱 아이콘/피드 아바타 요청에 `applicationContext`를 사용해 회전 시 old Activity가 이미지 요청 컨텍스트로 남을 가능성을 줄임
+- **비트맵 retain 축소**: 홈 셀 배경은 실제 셀 크기에 맞춰 decode size를 제한해 대형 비트맵이 retain size를 키우는 것을 완화
+- **무한 루프 제거**: `while(true)` 코루틴을 Compose animation API로 치환해 old composition이 남아도 코루틴이 subtree를 오래 붙잡지 않도록 조정
+- **WidgetHost 방어적 정리**: 회전 detach와 Activity 종료 모두에서 `AppWidgetHostView`/`AppWidgetHost` 정리를 한 번 더 수행해 widget 경로의 잔여 참조 가능성을 줄임
+
+---
+
+## [2026-03-16] experiment(leak): Pager precompose 축소 및 마켓 SharedTransition 범위 분리
+
+### 목표
+
+- 회전 시 발생하는 `AndroidComposeView -> MainActivity` retain을 줄이기 위해 오프스크린 pager 유지 범위를 축소한다
+- `SharedTransitionLayout`을 루트 `NavHost`에서 제거하고 프리셋 마켓 내부로 한정해 홈 회전 시 마켓 transition machinery가 루트 composition에 남지 않게 한다
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `app/.../navigation/CrossPagerNavigation.kt` | 세로/가로 pager의 `beyondViewportPageCount`를 `1 -> 0`으로 조정 |
+| `feature/preset-market/.../navigation/MarketRoute.kt` | 마켓 외부 진입용 `HOST` route 추가 |
+| `feature/preset-market/.../ui/PresetMarketHost.kt` | 신규. 마켓 전용 `NavHost` + `SharedTransitionLayout` 구성, `HOME/SEARCH/DETAIL`을 내부 네비게이션으로 이동 |
+| `app/.../MainActivity.kt` | 루트 `SharedTransitionLayout` 제거, 마켓 진입을 `MarketRoute.HOST`로 변경, 시스템바의 opaque route 판별도 호스트 기준으로 조정 |
+
+### 검증 결과
+
+- `ReadLints` 기준 신규 오류 없음
+- 빌드 검증 예정
+
+### 설계 결정 및 근거
+
+- **Pager 실험 우선**: 변경량이 작고 홈 회전 시 남는 오프스크린 subtree(`Feed`/`Widget`)를 직접 줄일 수 있어 1차 분리 실험에 적합
+- **마켓 호스트 분리**: 실제 shared transition 사용은 검색바 전환 한 쌍뿐이라, 루트 전체가 아니라 마켓 내부 navigation 범위에서만 `SharedTransitionLayout`을 유지하도록 축소
+- **루트 route 단순화**: `MainActivity`는 마켓을 하나의 불투명 화면(`HOST`)으로 취급하고, 내부 `HOME/SEARCH/DETAIL`은 마켓 feature가 자체적으로 관리하도록 정리
+
+---
+
+## [2026-03-16] fix(leak): AdMob 수명주기 보강 및 AndroidView cleanup 정리
+
+### 목표
+
+- LeakCanary가 보고한 `MainActivity` retain 이슈 중 AdMob 배너 관련 누수 가능성을 줄인다
+- 광고 on/off 비교 재현을 위해 코드 수정 없이 배너를 비활성화할 수 있는 디버그 플래그를 추가한다
+- `AndroidView` 기반 위젯/콜백 cleanup을 보강해 잔여 참조를 줄인다
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `feature/preset-market/.../ui/AdmobBanner.kt` | `AdView`를 Compose release 시점뿐 아니라 `Lifecycle`의 `ON_PAUSE`/`ON_RESUME`/`ON_DESTROY`에도 연동. 해제 시 parent detach 후 `destroy()` 호출 |
+| `feature/preset-market/build.gradle.kts` | `local.properties`의 `debug.enable.banner.ads` 값을 읽어 `BuildConfig.ENABLE_BANNER_ADS` 생성. 광고 on/off 비교 재현 지원 |
+| `app/.../navigation/CrossPagerNavigation.kt` | `dragDropState.onScrollToHome` 등록을 `DisposableEffect`로 변경하고 dispose 시 null 정리 |
+| `feature/widget/.../ui/WidgetScreen.kt` | `WidgetContainerView`에 hosted `AppWidgetHostView` attach/release helper 추가, `AndroidView.onRelease`에서 cleanup 수행 |
+
+### 검증 결과
+
+- 구현 후 빌드/린트 검증 예정
+
+### 설계 결정 및 근거
+
+- **AdMob 조기 해제**: `onRelease`만으로는 액티비티 파괴 타이밍보다 늦을 수 있어 `ON_DESTROY`에서도 parent detach + `destroy()`를 실행해 SDK 내부 참조가 오래 남는 시간을 줄인다
+- **비교 재현 플래그**: 배너 코드를 다시 수정하지 않고도 `local.properties`에서 `debug.enable.banner.ads=false`로 꺼서 Ads 누수와 Compose 2차 증상을 분리 관찰할 수 있게 함
+- **AndroidView cleanup 일관화**: 위젯 뷰와 드래그 콜백 모두 compose dispose 시 명시적으로 참조를 끊어 `MainActivity` 루트가 오래 유지될 가능성을 줄임
+
+---
+
 ## [2026-03-14] fix+perf(market): 프리뷰 이미지 업로드 누락 수정 및 해상도 축소
 
 ### 목표
