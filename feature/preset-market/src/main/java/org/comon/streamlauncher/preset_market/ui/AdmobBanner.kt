@@ -24,10 +24,7 @@ private const val TEST_BANNER_AD_UNIT_ID = "ca-app-pub-3940256099942544/63009781
 fun AdmobBanner(
     modifier: Modifier = Modifier,
     adUnitId: String = TEST_BANNER_AD_UNIT_ID,
-    enabled: Boolean = BuildConfig.ENABLE_BANNER_ADS,
 ) {
-    if (!enabled) return
-
     val lifecycleOwner = LocalLifecycleOwner.current
     var adView by remember { mutableStateOf<AdView?>(null) }
 
@@ -53,7 +50,7 @@ fun AdmobBanner(
         factory = { context ->
             AdView(context).apply {
                 setAdSize(AdSize.BANNER)
-                setAdUnitId(adUnitId)
+                setAdUnitId(BuildConfig.ADMOB_APP_ID)
                 loadAd(AdRequest.Builder().build())
             }
         },

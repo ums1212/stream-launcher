@@ -17,10 +17,10 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -60,7 +60,9 @@ import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.res.stringResource
 import org.comon.streamlauncher.launcher.R
@@ -72,11 +74,8 @@ import org.comon.streamlauncher.domain.model.GridCellImage
 import org.comon.streamlauncher.launcher.HomeIntent
 import org.comon.streamlauncher.launcher.HomeState
 import org.comon.streamlauncher.ui.component.AppIcon
+import org.comon.streamlauncher.ui.component.calculateAdaptiveHomeGridMetrics
 import org.comon.streamlauncher.ui.dragdrop.LocalDragDropState
-
-private const val MAX_APPS_PER_CELL = 6
-private const val GRID_COLUMNS = 2
-private const val GRID_ROWS = 3
 
 @Composable
 fun HomeScreen(
@@ -88,10 +87,10 @@ fun HomeScreen(
     // 드래그 중에는 hoveredCell(대상 셀)을 확장하여 시각적 피드백 제공.
     // 소스 셀이 수축해도 GridCellContent 내부에서 GridAppItem을 트리에 유지하여
     // pointerInput coroutine이 dispose되지 않도록 별도 처리함.
-    val expandedCell = if (dragDropState.isDragging) {
-        dragDropState.hoveredCell
-    } else {
-        state.expandedCell
+    val expandedCell = when {
+        dragDropState.isDragging && dragDropState.dragSourceCell != null -> dragDropState.dragSourceCell
+        dragDropState.isDragging -> dragDropState.hoveredCell
+        else -> state.expandedCell
     }
     val editingCell = state.editingCell
 
@@ -144,6 +143,7 @@ fun HomeScreen(
                 gridCellImage = state.gridCellImages[GridCell.TOP_LEFT],
                 pinnedPackages = state.pinnedPackages,
                 editingCell = editingCell,
+                iconSizeRatio = state.appDrawerIconSizeRatio,
                 onIntent = onIntent,
                 modifier = Modifier.padding(end = 4.dp),
             )
@@ -155,6 +155,7 @@ fun HomeScreen(
                 gridCellImage = state.gridCellImages[GridCell.TOP_RIGHT],
                 pinnedPackages = state.pinnedPackages,
                 editingCell = editingCell,
+                iconSizeRatio = state.appDrawerIconSizeRatio,
                 onIntent = onIntent,
                 modifier = Modifier.padding(start = 4.dp),
             )
@@ -173,6 +174,7 @@ fun HomeScreen(
                 gridCellImage = state.gridCellImages[GridCell.BOTTOM_LEFT],
                 pinnedPackages = state.pinnedPackages,
                 editingCell = editingCell,
+                iconSizeRatio = state.appDrawerIconSizeRatio,
                 onIntent = onIntent,
                 modifier = Modifier.padding(end = 4.dp),
             )
@@ -184,6 +186,7 @@ fun HomeScreen(
                 gridCellImage = state.gridCellImages[GridCell.BOTTOM_RIGHT],
                 pinnedPackages = state.pinnedPackages,
                 editingCell = editingCell,
+                iconSizeRatio = state.appDrawerIconSizeRatio,
                 onIntent = onIntent,
                 modifier = Modifier.padding(start = 4.dp),
             )
@@ -200,6 +203,7 @@ private fun RowScope.GridCellContent(
     gridCellImage: GridCellImage?,
     pinnedPackages: Set<String>,
     editingCell: GridCell?,
+    iconSizeRatio: Float,
     onIntent: (HomeIntent) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -325,48 +329,91 @@ private fun RowScope.GridCellContent(
                             .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.6f)),
                     )
                 }
-                val displayApps = apps.take(MAX_APPS_PER_CELL)
-                Column(
+                BoxWithConstraints(
                     modifier = Modifier
                         .fillMaxSize()
                         .alpha(contentAlpha)
                         .padding(5.dp),
                 ) {
-                    for (row in 0 until GRID_ROWS) {
-                        Row(
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxWidth(),
-                        ) {
-                            for (col in 0 until GRID_COLUMNS) {
-                                val index = row * GRID_COLUMNS + col
-                                val app = displayApps.getOrNull(index)
-                                
-                                // 드래그 앤 드롭 로컬 상태
-                                val isDragged = dragDropState.draggedApp == app && dragDropState.isDragging
-                                val alphaVal = if (isDragged) 0.5f else 1f
+                    val gridMetrics = calculateAdaptiveHomeGridMetrics(
+                        maxWidth = maxWidth,
+                        maxHeight = maxHeight,
+                        iconSizeRatio = iconSizeRatio,
+                    )
+                    val displayApps = apps.take(gridMetrics.capacity)
+                    val labelFontSize = if (gridMetrics.itemWidth < 72.dp) 10.sp else 11.sp
+                    val hiddenDraggedApp = if (
+                        isDragSource &&
+                        dragDropState.dragSourceIndex >= 0 &&
+                        dragDropState.draggedApp != null &&
+                        dragDropState.dragSourceIndex >= displayApps.size
+                    ) {
+                        dragDropState.draggedApp
+                    } else {
+                        null
+                    }
 
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .fillMaxHeight()
-                                        .padding(5.dp)
-                                        .alpha(alphaVal),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    if (app != null) {
-                                        GridAppItem(
-                                            app = app,
-                                            cell = cell,
-                                            appIndex = index,
-                                            isPinned = app.packageName in pinnedPackages,
-                                            isEditing = editingCell == cell,
-                                            onIntent = onIntent,
-                                        )
+                    LaunchedEffect(cell, gridMetrics.capacity) {
+                        onIntent(HomeIntent.UpdateCellCapacity(cell, gridMetrics.capacity))
+                    }
+
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        for (row in 0 until gridMetrics.rows) {
+                            Row(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxWidth(),
+                            ) {
+                                for (col in 0 until gridMetrics.columns) {
+                                    val index = row * gridMetrics.columns + col
+                                    val app = displayApps.getOrNull(index)
+                                    val isDragged = dragDropState.draggedApp == app && dragDropState.isDragging
+                                    val alphaVal = if (isDragged) 0.5f else 1f
+
+                                    GridSlot(
+                                        cell = cell,
+                                        slotIndex = index,
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .fillMaxHeight()
+                                            .padding(5.dp)
+                                            .alpha(alphaVal),
+                                    ) {
+                                        if (app != null) {
+                                            GridAppItem(
+                                                app = app,
+                                                cell = cell,
+                                                appIndex = index,
+                                                iconSize = gridMetrics.iconSize,
+                                                labelFontSize = labelFontSize,
+                                                isPinned = app.packageName in pinnedPackages,
+                                                isEditing = editingCell == cell,
+                                                onIntent = onIntent,
+                                            )
+                                        }
                                     }
                                 }
                             }
                         }
+                    }
+
+                    // 소스 셀이 축소되며 dynamic capacity 밖으로 밀린 앱도 드래그 중에는
+                    // 트리에 남겨 pointerInput coroutine이 취소되지 않게 유지한다.
+                    if (hiddenDraggedApp != null) {
+                        GridAppItem(
+                            app = hiddenDraggedApp,
+                            cell = cell,
+                            appIndex = dragDropState.dragSourceIndex,
+                            iconSize = gridMetrics.iconSize,
+                            labelFontSize = labelFontSize,
+                            isPinned = hiddenDraggedApp.packageName in pinnedPackages,
+                            isEditing = true,
+                            onIntent = onIntent,
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .size(1.dp)
+                                .alpha(0f),
+                        )
                     }
                 }
             }
@@ -397,26 +444,53 @@ private fun RowScope.GridCellContent(
     }
 }
 
+@Composable
+private fun GridSlot(
+    cell: GridCell,
+    slotIndex: Int,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    val dragDropState = LocalDragDropState.current
+
+    DisposableEffect(cell, slotIndex) {
+        onDispose { dragDropState.unregisterSlotBounds(cell, slotIndex) }
+    }
+
+    Box(
+        modifier = modifier.onGloballyPositioned { coords ->
+            val pos = coords.positionInRoot()
+            val size = coords.size
+            dragDropState.registerSlotBounds(
+                cell = cell,
+                index = slotIndex,
+                rect = Rect(pos.x, pos.y, pos.x + size.width, pos.y + size.height),
+            )
+        },
+        contentAlignment = Alignment.Center,
+    ) {
+        content()
+    }
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun GridAppItem(
     app: AppEntity,
     cell: GridCell,
     appIndex: Int,
+    iconSize: Dp,
+    labelFontSize: androidx.compose.ui.unit.TextUnit,
     isPinned: Boolean,
     isEditing: Boolean,
     onIntent: (HomeIntent) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val haptic = LocalHapticFeedback.current
     val dragDropState = LocalDragDropState.current
     var itemRootOffset by remember { mutableStateOf(Offset.Zero) }
     // 편집 모드 탭 소비용 (indication 없이 이벤트만 막음)
     val noOpInteractionSource = remember { MutableInteractionSource() }
-
-    // 슬롯 bounds 등록 (드래그 중 정밀 슬롯 감지용)
-    DisposableEffect(cell, appIndex) {
-        onDispose { dragDropState.unregisterSlotBounds(cell, appIndex) }
-    }
 
     // 흔들림 애니메이션 효과 (편집 모드 시, 드래그 중에는 정지)
     val isDragged = dragDropState.isDragging && dragDropState.draggedApp == app
@@ -442,7 +516,7 @@ private fun GridAppItem(
     )
 
     Box(
-        modifier = Modifier.fillMaxSize(),
+        modifier = modifier,
         contentAlignment = Alignment.Center,
     ) {
         Column(
@@ -451,13 +525,7 @@ private fun GridAppItem(
                 .fillMaxSize()
                 .graphicsLayer { rotationZ = rotation }
                 .onGloballyPositioned { coords ->
-                    val pos = coords.positionInRoot()
-                    itemRootOffset = pos
-                    val size = coords.size
-                    dragDropState.registerSlotBounds(
-                        cell, appIndex,
-                        Rect(pos.x, pos.y, pos.x + size.width, pos.y + size.height),
-                    )
+                    itemRootOffset = coords.positionInRoot()
                 }
                 // 편집 모드가 아닐 때: 탭(앱 실행) + 길게 누름(편집 모드 진입)
                 .then(
@@ -540,15 +608,14 @@ private fun GridAppItem(
         ) {
             AppIcon(
                 packageName = app.packageName,
-                modifier = Modifier
-                    .weight(1f)
-                    .aspectRatio(1f),
+                modifier = Modifier.size(iconSize),
             )
             Text(
                 text = app.label,
-                style = MaterialTheme.typography.labelSmall,
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = labelFontSize),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth(0.9f),
             )
         }
 

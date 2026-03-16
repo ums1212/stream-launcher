@@ -126,7 +126,9 @@ fun CrossPagerNavigation(
         VerticalPager(
             state = verticalPagerState,
             modifier = Modifier.fillMaxSize(),
-            beyondViewportPageCount = 0,
+            // 앱 드로어에서 홈으로 자동 이동하는 동안 소스 drag gesture가 끊기지 않도록
+            // 인접 페이지를 유지한다.
+            beyondViewportPageCount = if (dragDropState.isDragging) 1 else 0,
             userScrollEnabled = !horizontalPagerState.isScrollInProgress
                 && !dragDropState.isDragging
                 && !isHomeEditMode

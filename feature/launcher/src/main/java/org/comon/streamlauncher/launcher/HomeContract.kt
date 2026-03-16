@@ -12,6 +12,7 @@ data class HomeState(
     val editingCell: GridCell? = null,
     val allApps: List<AppEntity> = emptyList(),
     val appsInCells: Map<GridCell, List<AppEntity>> = emptyMap(),
+    val cellCapacities: Map<GridCell, Int> = GridCell.entries.associateWith { DEFAULT_HOME_CELL_CAPACITY },
     val isLoading: Boolean = false,
     val searchQuery: String = "",
     val filteredApps: List<AppEntity> = emptyList(),
@@ -34,6 +35,7 @@ sealed interface HomeIntent : UiIntent {
     data class AssignAppToCell(val app: AppEntity, val cell: GridCell) : HomeIntent
     data class UnassignApp(val app: AppEntity) : HomeIntent
     data class SetEditingCell(val cell: GridCell?) : HomeIntent
+    data class UpdateCellCapacity(val cell: GridCell, val capacity: Int) : HomeIntent
     data class MoveAppInCell(val cell: GridCell, val fromIndex: Int, val toIndex: Int) : HomeIntent
     data class MoveAppBetweenCells(val app: AppEntity, val fromCell: GridCell, val toCell: GridCell, val toIndex: Int = -1) : HomeIntent
 }
@@ -43,3 +45,5 @@ sealed interface HomeSideEffect : UiSideEffect {
     data class ShowError(val message: String) : HomeSideEffect
     data object SetDefaultHomeApp : HomeSideEffect
 }
+
+const val DEFAULT_HOME_CELL_CAPACITY = 6

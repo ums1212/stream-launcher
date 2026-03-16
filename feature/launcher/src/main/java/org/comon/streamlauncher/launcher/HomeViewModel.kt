@@ -72,6 +72,7 @@ class HomeViewModel @Inject constructor(
             is HomeIntent.AssignAppToCell -> assignAppToCell(intent.app, intent.cell)
             is HomeIntent.UnassignApp -> unassignApp(intent.app)
             is HomeIntent.SetEditingCell -> updateState { copy(editingCell = intent.cell) }
+            is HomeIntent.UpdateCellCapacity -> updateCellCapacity(intent.cell, intent.capacity)
             is HomeIntent.MoveAppInCell -> moveAppInCell(intent.cell, intent.fromIndex, intent.toIndex)
             is HomeIntent.MoveAppBetweenCells -> moveAppBetweenCells(intent.app, intent.fromCell, intent.toCell, intent.toIndex)
         }
@@ -137,15 +138,21 @@ class HomeViewModel @Inject constructor(
 
     private fun assignAppToCell(app: AppEntity, cell: GridCell) {
         val pkg = app.packageName
+        val targetCapacity = resolveCellCapacity(cell)
+        val currentAssignments = currentState.cellAssignments
+        val currentTargetList = currentAssignments[cell]?.toMutableList() ?: mutableListOf()
+        val alreadyAssignedToTarget = currentTargetList.contains(pkg)
+        if (!alreadyAssignedToTarget && currentTargetList.size >= targetCapacity) return
+
         // 다른 셀의 할당에서 해당 앱 제거 후 대상 셀에 추가
-        val newAssignments = currentState.cellAssignments.toMutableMap()
+        val newAssignments = currentAssignments.toMutableMap()
         GridCell.entries.forEach { c ->
             val current = newAssignments[c]?.toMutableList() ?: mutableListOf()
             current.remove(pkg)
             newAssignments[c] = current
         }
         val targetList = newAssignments[cell]?.toMutableList() ?: mutableListOf()
-        if (targetList.size >= MAX_APPS_PER_CELL) return
+        if (targetList.size >= targetCapacity) return
         if (!targetList.contains(pkg)) {
             targetList.add(pkg)
         }
@@ -163,6 +170,18 @@ class HomeViewModel @Inject constructor(
             GridCell.entries.forEach { c ->
                 saveCellAssignmentUseCase(c, newAssignments[c] ?: emptyList())
             }
+        }
+    }
+
+    private fun updateCellCapacity(cell: GridCell, capacity: Int) {
+        val safeCapacity = capacity.coerceAtLeast(1)
+        if (currentState.cellCapacities[cell] == safeCapacity) return
+        updateState {
+            copy(
+                cellCapacities = cellCapacities.toMutableMap().apply {
+                    this[cell] = safeCapacity
+                },
+            )
         }
     }
 
@@ -190,20 +209,20 @@ class HomeViewModel @Inject constructor(
 
     private fun moveAppBetweenCells(app: AppEntity, fromCell: GridCell, toCell: GridCell, toIndex: Int = -1) {
         val pkg = app.packageName
+        val targetCapacity = resolveCellCapacity(toCell)
         val newAssignments = currentState.cellAssignments.toMutableMap()
-
         val fromList = newAssignments[fromCell]?.toMutableList() ?: mutableListOf()
+        val toList = newAssignments[toCell]?.toMutableList() ?: mutableListOf()
+        if (toList.size >= targetCapacity || toList.contains(pkg)) return
+
         fromList.remove(pkg)
         newAssignments[fromCell] = fromList
 
-        val toList = newAssignments[toCell]?.toMutableList() ?: mutableListOf()
-        if (toList.size < MAX_APPS_PER_CELL && !toList.contains(pkg)) {
-            // toIndex가 유효하면 해당 위치에 삽입(끼어들기), 아니면 끝에 추가
-            if (toIndex in 0..toList.size) {
-                toList.add(toIndex, pkg)
-            } else {
-                toList.add(pkg)
-            }
+        // toIndex가 유효하면 해당 위치에 삽입(끼어들기), 아니면 끝에 추가
+        if (toIndex in 0..toList.size) {
+            toList.add(toIndex, pkg)
+        } else {
+            toList.add(pkg)
         }
         newAssignments[toCell] = toList
 
@@ -261,7 +280,7 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    companion object {
-        const val MAX_APPS_PER_CELL = 6
+    private fun resolveCellCapacity(cell: GridCell): Int {
+        return currentState.cellCapacities[cell] ?: DEFAULT_HOME_CELL_CAPACITY
     }
 }

@@ -45,11 +45,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
-import androidx.compose.ui.unit.coerceAtLeast
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.comon.streamlauncher.domain.model.AppEntity
 import org.comon.streamlauncher.domain.model.GridCell
+import org.comon.streamlauncher.ui.component.calculateFixedAppGridMetrics
 import org.comon.streamlauncher.ui.component.AppIcon
 import org.comon.streamlauncher.ui.dragdrop.LocalDragDropState
 import org.comon.streamlauncher.ui.theme.StreamLauncherTheme
@@ -191,24 +191,25 @@ private fun AppGridPage(
             .fillMaxSize()
             .padding(horizontal = 12.dp, vertical = 8.dp),
     ) {
-        val itemWidth = maxWidth / columns
-        val itemHeight = maxHeight / rows
-
-        val baseIconSize = minOf(64.dp, minOf(itemWidth * 0.6f, itemHeight * 0.45f)).coerceAtLeast(36.dp)
-        val iconSize = baseIconSize * iconSizeRatio
-        val textWidth = itemWidth * 0.9f
+        val gridMetrics = calculateFixedAppGridMetrics(
+            maxWidth = maxWidth,
+            maxHeight = maxHeight,
+            columns = columns,
+            rows = rows,
+            iconSizeRatio = iconSizeRatio,
+        )
         val fontSize = if (maxWidth < 360.dp) 10.sp else 11.sp
 
         Column(modifier = Modifier.fillMaxSize()) {
-            for (rowIndex in 0 until rows) {
+            for (rowIndex in 0 until gridMetrics.rows) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f),
                     horizontalArrangement = Arrangement.SpaceEvenly,
                 ) {
-                    for (colIndex in 0 until columns) {
-                        val appIndex = rowIndex * columns + colIndex
+                    for (colIndex in 0 until gridMetrics.columns) {
+                        val appIndex = rowIndex * gridMetrics.columns + colIndex
                         Box(
                             modifier = Modifier
                                 .weight(1f)
@@ -218,8 +219,8 @@ private fun AppGridPage(
                             if (appIndex < apps.size) {
                                 AppDrawerGridItem(
                                     app = apps[appIndex],
-                                    iconSize = iconSize,
-                                    textWidth = textWidth,
+                                    iconSize = gridMetrics.iconSize,
+                                    textWidth = gridMetrics.textWidth,
                                     fontSize = fontSize,
                                     onClick = { onAppClick(apps[appIndex]) },
                                     onAppAssigned = onAppAssigned,

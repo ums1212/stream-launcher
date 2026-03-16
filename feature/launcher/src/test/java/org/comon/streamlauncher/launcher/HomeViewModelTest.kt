@@ -93,7 +93,7 @@ class HomeViewModelTest {
         val initialState = freshVm.uiState.value
         assertNull(initialState.expandedCell)
         assertFalse(initialState.isLoading)
-        assertTrue(initialState.appsInCells is Map<*, *>)
+        assertEquals(0, initialState.appsInCells.size)
     }
 
     // 2. LoadApps → allApps 저장, appsInCells 비어있음
@@ -444,9 +444,9 @@ class HomeViewModelTest {
         coVerify { saveCellAssignmentUseCase(GridCell.TOP_LEFT, any()) }
     }
 
-    // 25. AssignAppToCell → 셀당 최대 6개 제한
+    // 25. AssignAppToCell → 동적 셀 용량 제한
     @Test
-    fun `AssignAppToCell 처리 시 셀에 이미 6개 앱이 있으면 7번째 앱이 추가되지 않음`() = runTest {
+    fun `AssignAppToCell 처리 시 셀 용량을 초과하는 앱은 추가되지 않음`() = runTest {
         testDispatcher.scheduler.advanceUntilIdle()
 
         val manyApps = (1..8).map { i ->
@@ -457,20 +457,74 @@ class HomeViewModelTest {
         val vm = makeViewModel(appsUseCase = manyAppsUseCase)
         testDispatcher.scheduler.advanceUntilIdle()
 
-        for (i in 0 until HomeViewModel.MAX_APPS_PER_CELL) {
+        vm.handleIntent(HomeIntent.UpdateCellCapacity(GridCell.TOP_LEFT, 2))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        for (i in 0 until 2) {
             vm.handleIntent(HomeIntent.AssignAppToCell(manyApps[i], GridCell.TOP_LEFT))
             testDispatcher.scheduler.advanceUntilIdle()
         }
 
         val assignmentsBefore = vm.uiState.value.cellAssignments[GridCell.TOP_LEFT]
-        assertEquals(HomeViewModel.MAX_APPS_PER_CELL, assignmentsBefore?.size)
+        assertEquals(2, assignmentsBefore?.size)
 
-        val overflowApp = manyApps[HomeViewModel.MAX_APPS_PER_CELL]
+        val overflowApp = manyApps[2]
         vm.handleIntent(HomeIntent.AssignAppToCell(overflowApp, GridCell.TOP_LEFT))
         testDispatcher.scheduler.advanceUntilIdle()
 
         val assignmentsAfter = vm.uiState.value.cellAssignments[GridCell.TOP_LEFT]
-        assertEquals(HomeViewModel.MAX_APPS_PER_CELL, assignmentsAfter?.size)
+        assertEquals(2, assignmentsAfter?.size)
         assertFalse(assignmentsAfter?.contains(overflowApp.packageName) == true)
+    }
+
+    @Test
+    fun `MoveAppBetweenCells 처리 시 대상 셀 용량이 가득 차면 원본 셀을 유지하고 이동을 스킵함`() = runTest {
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.handleIntent(HomeIntent.UpdateCellCapacity(GridCell.TOP_LEFT, 1))
+        viewModel.handleIntent(HomeIntent.UpdateCellCapacity(GridCell.TOP_RIGHT, 1))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val sourceApp = sampleApps[0]
+        val targetApp = sampleApps[1]
+        viewModel.handleIntent(HomeIntent.AssignAppToCell(sourceApp, GridCell.TOP_LEFT))
+        viewModel.handleIntent(HomeIntent.AssignAppToCell(targetApp, GridCell.TOP_RIGHT))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.handleIntent(
+            HomeIntent.MoveAppBetweenCells(
+                app = sourceApp,
+                fromCell = GridCell.TOP_LEFT,
+                toCell = GridCell.TOP_RIGHT,
+                toIndex = 0,
+            ),
+        )
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(listOf(sourceApp.packageName), state.cellAssignments[GridCell.TOP_LEFT])
+        assertEquals(listOf(targetApp.packageName), state.cellAssignments[GridCell.TOP_RIGHT])
+    }
+
+    @Test
+    fun `AssignAppToCell 처리 시 대상 셀 용량이 가득 차면 기존 셀 배치를 유지함`() = runTest {
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.handleIntent(HomeIntent.UpdateCellCapacity(GridCell.TOP_LEFT, 1))
+        viewModel.handleIntent(HomeIntent.UpdateCellCapacity(GridCell.TOP_RIGHT, 1))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val sourceApp = sampleApps[0]
+        val targetApp = sampleApps[1]
+        viewModel.handleIntent(HomeIntent.AssignAppToCell(sourceApp, GridCell.TOP_LEFT))
+        viewModel.handleIntent(HomeIntent.AssignAppToCell(targetApp, GridCell.TOP_RIGHT))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.handleIntent(HomeIntent.AssignAppToCell(sourceApp, GridCell.TOP_RIGHT))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(listOf(sourceApp.packageName), state.cellAssignments[GridCell.TOP_LEFT])
+        assertEquals(listOf(targetApp.packageName), state.cellAssignments[GridCell.TOP_RIGHT])
     }
 }

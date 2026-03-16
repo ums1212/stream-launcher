@@ -1,5 +1,72 @@
 # StreamLauncher 개발 로그
 
+## [2026-03-16] fix(dragdrop): 앱 드로어에서 홈 셀 드롭 누락 보정
+
+### 목표
+
+- 앱 드로어에서 홈으로 자동 스크롤된 직후 드롭해도 대상 그리드 셀이 정상 감지되게 한다
+- 홈 셀 bounds가 늦게 등록되는 타이밍 문제로 드롭이 취소되는 현상을 막는다
+- 홈 전환 중에도 앱 드로어 소스 드래그 제스처가 끊기지 않게 한다
+- 홈 셀 간 이동 시 축소된 소스 셀에서 드래그 아이템이 dispose되어 드래그가 끊기지 않게 한다
+- 홈 셀 간 이동 중 타깃 셀 접촉으로 확장 셀이 즉시 바뀌며 드래그가 취소되지 않게 한다
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `core/ui/.../dragdrop/DragDropState.kt` | `endDrag()` 직전에 마지막 `dragOffset`으로 한 번 더 히트 테스트를 수행해 최신 셀 bounds를 반영하도록 수정 |
+| `core/ui/.../dragdrop/DragDropStateTest.kt` | 자동 스크롤 뒤 늦게 등록된 셀 bounds도 드롭 결과에 반영되는 회귀 테스트 추가 |
+| `app/.../navigation/CrossPagerNavigation.kt` | 드래그 중에는 `VerticalPager`가 인접 페이지를 유지하도록 `beyondViewportPageCount`를 `1`로 올려 앱 드로어 source `pointerInput`이 dispose되지 않게 수정 |
+| `feature/launcher/.../ui/HomeScreen.kt` | dynamic capacity 밖으로 밀린 드래그 소스 앱도 숨김 상태로 트리에 유지하고, 홈 내부 드래그 중에는 확장 셀을 소스 셀로 고정해 타깃 접촉 시 레이아웃 급변으로 드래그가 취소되지 않도록 수정 |
+
+### 검증 결과
+
+- `ReadLints` 기준 수정 파일 신규 오류 없음
+- `JAVA_HOME=\"C:/Program Files/Java/jdk-17\" .\\gradlew.bat :core:ui:testDebugUnitTest :app:compileDebugKotlin` → **BUILD SUCCESSFUL**
+
+### 설계 결정 및 근거
+
+- **종료 시점 재평가**: 앱 드로어에서 홈으로 넘어가는 동안 레이아웃 composition이 늦게 끝날 수 있으므로, 드래그 중간 상태가 아니라 드롭 직전 좌표로 최종 타깃을 다시 계산하는 편이 더 안정적임
+- **상태 구조 유지**: 드롭 경로 전체를 바꾸지 않고 `DragDropState` 내부에서 마지막 히트 테스트만 보강해 기존 홈 내부 이동 동작에 영향 범위를 최소화함
+- **소스 제스처 유지**: 앱 드로어에서 홈으로 자동 이동할 때 인접 페이지를 계속 compose 상태로 유지해 long press drag coroutine이 페이지 전환으로 끊기지 않게 함
+- **소스 아이템 생존 보장**: 홈 내부 드래그에서는 소스 셀이 축소되며 dynamic capacity가 줄 수 있으므로, 드래그 중인 앱이 보이는 슬롯에서 빠져도 별도 hidden item으로 composition을 유지함
+- **홈 내부 레이아웃 고정**: 같은 홈 안에서 셀 간 이동할 때는 호버 셀을 즉시 확장하지 않고 소스 셀 확장을 유지해, 셀 접촉 순간 전체 레이아웃이 다시 계산되며 pointerInput이 흔들리는 문제를 줄임
+
+---
+
+## [2026-03-16] feat(home): 확장 셀 아이콘 크기와 수용 개수 동기화
+
+### 목표
+
+- 홈 확장 셀의 앱 아이콘 크기를 앱 드로어와 동일한 계산 기준으로 맞춘다
+- 앱 드로어 설정의 `iconSizeRatio`가 홈 확장 셀에도 그대로 반영되도록 한다
+- 확장 셀 크기에 따라 표시 가능한 슬롯 수를 동적으로 계산하고, 초과 배치는 기존처럼 스킵한다
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `core/ui/.../component/AppGridSizing.kt` | 앱 드로어/홈 화면이 함께 쓰는 공용 아이콘 크기 및 그리드 계산 함수를 추가 |
+| `feature/apps-drawer/.../ui/AppDrawerScreen.kt` | 앱 드로어가 공용 계산식을 사용하도록 정리해 홈과 동일한 아이콘 크기 정책을 사용 |
+| `feature/launcher/.../HomeContract.kt` | 셀별 동적 수용 개수를 상태로 보관하고 UI에서 갱신할 수 있는 intent를 추가 |
+| `feature/launcher/.../HomeViewModel.kt` | 앱 배치/셀 간 이동 시 고정 6개 대신 셀별 동적 capacity를 참조하고, 가득 찬 셀로 이동 시 원본 유지 후 스킵하도록 보강 |
+| `feature/launcher/.../ui/HomeScreen.kt` | 확장 셀을 `BoxWithConstraints` 기반 동적 그리드로 바꾸고, 빈 슬롯도 드롭 타깃으로 등록하며 공용 아이콘 크기 계산을 적용 |
+| `feature/launcher/.../HomeViewModelTest.kt` | 동적 capacity 초과 추가 스킵 및 가득 찬 대상 셀 이동 스킵 테스트를 추가/갱신 |
+
+### 검증 결과
+
+- `ReadLints` 기준 수정 파일 신규 오류 없음
+- `JAVA_HOME=\"C:/Program Files/Java/jdk-17\" .\\gradlew.bat :feature:launcher:testDebugUnitTest :app:compileDebugKotlin` → **BUILD SUCCESSFUL**
+
+### 설계 결정 및 근거
+
+- **설정값 재사용**: 홈 전용 아이콘 크기 설정을 새로 만들지 않고, 기존 `appDrawerIconSizeRatio`를 공통 계산식에 반영해 설정 의미를 일관되게 유지함
+- **공용 계산식 사용**: 앱 드로어와 홈이 같은 최소/최대 아이콘 정책을 쓰도록 계산을 한 곳에 모아 화면 간 체감 크기 차이를 줄임
+- **동적 capacity 반영**: 홈 셀의 실제 확장 크기에서 계산한 슬롯 수를 ViewModel에도 전달해, 보이는 개수와 배치 가능 개수가 어긋나지 않도록 맞춤
+- **빈 슬롯 드롭 보강**: 슬롯 bounds를 빈 칸까지 등록해 동적 그리드에서도 드래그 타깃 인덱스가 안정적으로 계산되도록 정리함
+
+---
+
 ## [2026-03-16] fix(app-drawer): 가로 모드에서 앱 드로어 행/열 전환
 
 ### 목표

@@ -34,6 +34,11 @@ android {
             "ENABLE_BANNER_ADS",
             enableBannerAds.toString()
         )
+        buildConfigField(
+            "String",
+            "ADMOB_APP_ID",
+            "\"${localProperties.getProperty("admob.app.id", "")}\""
+        )
     }
 
     buildTypes {

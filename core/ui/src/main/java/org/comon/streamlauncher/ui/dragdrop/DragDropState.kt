@@ -75,6 +75,9 @@ class DragDropState {
 
     fun endDrag(): DragResult? {
         val app = draggedApp ?: return null
+        // 앱 드로어 -> 홈 자동 스크롤 중에는 셀 bounds가 늦게 등록될 수 있어
+        // 마지막 포인터 위치로 종료 직전에 한 번 더 히트 테스트한다.
+        updateDrag(dragOffset)
         val targetCell = hoveredCell
         val targetSlot = hoveredSlotIndex
         val sourceCell = dragSourceCell
