@@ -4,36 +4,23 @@ import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.provider.Settings
 import android.widget.Toast
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -44,21 +31,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
 import kotlin.math.roundToInt
-import org.comon.streamlauncher.domain.model.GridCell
 import org.comon.streamlauncher.settings.R
 import org.comon.streamlauncher.settings.SettingsIntent
 import org.comon.streamlauncher.settings.SettingsState
-import org.comon.streamlauncher.settings.model.ImageType
 import org.comon.streamlauncher.settings.model.SettingsActionType
 import org.comon.streamlauncher.settings.model.settingMenuList
 import org.comon.streamlauncher.settings.navigation.SettingsMenu
@@ -129,297 +110,6 @@ private fun MainSettingsContent(
     } else {
         // 그외 나머지 화면일 경우
         PortraitSettingsScreen(settingMenuList, handleItemClick)
-    }
-}
-
-@Composable
-internal fun ImageSettingsContent(
-    state: SettingsState,
-    onIntent: (SettingsIntent) -> Unit,
-) {
-    val haptic = LocalHapticFeedback.current
-    val context = LocalContext.current
-    val accentPrimary = StreamLauncherTheme.colors.accentPrimary
-    val cellShape = RoundedCornerShape(8.dp)
-
-    var selectedCell by remember { mutableStateOf(GridCell.TOP_LEFT) }
-    var showResetDialog by remember { mutableStateOf(false) }
-
-    val idleImageLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickVisualMedia(),
-    ) { uri ->
-        uri ?: return@rememberLauncherForActivityResult
-        context.contentResolver.takePersistableUriPermission(
-            uri,
-            Intent.FLAG_GRANT_READ_URI_PERMISSION,
-        )
-        onIntent(SettingsIntent.SetGridImage(selectedCell, ImageType.IDLE, uri.toString()))
-    }
-
-    val expandedImageLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickVisualMedia(),
-    ) { uri ->
-        uri ?: return@rememberLauncherForActivityResult
-        context.contentResolver.takePersistableUriPermission(
-            uri,
-            Intent.FLAG_GRANT_READ_URI_PERMISSION,
-        )
-        onIntent(SettingsIntent.SetGridImage(selectedCell, ImageType.EXPANDED, uri.toString()))
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-    ) {
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // 2×2 미니 그리드 — 셀 선택
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            listOf(
-                GridCell.TOP_LEFT to GridCell.TOP_RIGHT,
-                GridCell.BOTTOM_LEFT to GridCell.BOTTOM_RIGHT,
-            ).forEach { (left, right) ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    listOf(left, right).forEach { cell ->
-                        val isSelected = selectedCell == cell
-                        val cellImage = state.gridCellImages[cell]
-
-                        Surface(
-                            shape = cellShape,
-                            modifier = Modifier
-                                .weight(1f)
-                                .aspectRatio(1f)
-                                .border(
-                                    width = if (isSelected) 2.dp else 1.dp,
-                                    color = if (isSelected) accentPrimary else MaterialTheme.colorScheme.outlineVariant,
-                                    shape = cellShape,
-                                )
-                                .clickable {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    selectedCell = cell
-                                },
-                        ) {
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier.fillMaxSize(),
-                            ) {
-                                val hasIdle = cellImage?.idleImageUri != null
-                                val hasExpanded = cellImage?.expandedImageUri != null
-
-                                if (hasIdle && hasExpanded) {
-                                    Row(modifier = Modifier.fillMaxSize()) {
-                                        Box(
-                                            modifier = Modifier.weight(1f).fillMaxHeight(),
-                                            contentAlignment = Alignment.Center,
-                                        ) {
-                                            AsyncImage(
-                                                model = ImageRequest.Builder(context)
-                                                    .data(cellImage.idleImageUri)
-                                                    .crossfade(300)
-                                                    .build(),
-                                                contentDescription = null,
-                                                contentScale = ContentScale.Crop,
-                                                modifier = Modifier.fillMaxSize(),
-                                            )
-                                            Box(
-                                                modifier = Modifier
-                                                    .fillMaxSize()
-                                                    .background(Color.Black.copy(alpha = 0.3f)),
-                                            )
-                                            Text(
-                                                text = stringResource(R.string.settings_idle_label),
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = Color.White,
-                                                modifier = Modifier
-                                                    .align(Alignment.TopCenter)
-                                                    .padding(top = 4.dp)
-                                                    .background(
-                                                        color = accentPrimary.copy(alpha = 0.8f),
-                                                        shape = RoundedCornerShape(4.dp)
-                                                    )
-                                                    .padding(horizontal = 6.dp, vertical = 2.dp),
-                                            )
-                                        }
-                                        Box(
-                                            modifier = Modifier.weight(1f).fillMaxHeight(),
-                                            contentAlignment = Alignment.Center,
-                                        ) {
-                                            AsyncImage(
-                                                model = ImageRequest.Builder(context)
-                                                    .data(cellImage.expandedImageUri)
-                                                    .crossfade(300)
-                                                    .build(),
-                                                contentDescription = null,
-                                                contentScale = ContentScale.Crop,
-                                                modifier = Modifier.fillMaxSize(),
-                                            )
-                                            Box(
-                                                modifier = Modifier
-                                                    .fillMaxSize()
-                                                    .background(Color.Black.copy(alpha = 0.3f)),
-                                            )
-                                            Text(
-                                                text = stringResource(R.string.settings_expanded_label),
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = Color.White,
-                                                modifier = Modifier
-                                                    .align(Alignment.TopCenter)
-                                                    .padding(top = 4.dp)
-                                                    .background(
-                                                        color = StreamLauncherTheme.colors.accentSecondary.copy(alpha = 0.8f),
-                                                        shape = RoundedCornerShape(4.dp)
-                                                    )
-                                                    .padding(horizontal = 6.dp, vertical = 2.dp),
-                                            )
-                                        }
-                                    }
-                                } else if (hasIdle) {
-                                    AsyncImage(
-                                        model = ImageRequest.Builder(context)
-                                            .data(cellImage.idleImageUri)
-                                            .crossfade(300)
-                                            .build(),
-                                        contentDescription = null,
-                                        contentScale = ContentScale.Crop,
-                                        modifier = Modifier.fillMaxSize(),
-                                    )
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .background(Color.Black.copy(alpha = 0.3f)),
-                                    )
-                                    Text(
-                                        text = stringResource(R.string.settings_idle_label),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = Color.White,
-                                        modifier = Modifier
-                                            .align(Alignment.TopCenter)
-                                            .padding(top = 4.dp)
-                                            .background(
-                                                color = accentPrimary.copy(alpha = 0.8f),
-                                                shape = RoundedCornerShape(4.dp)
-                                            )
-                                            .padding(horizontal = 6.dp, vertical = 2.dp),
-                                    )
-                                } else if (hasExpanded) {
-                                    AsyncImage(
-                                        model = ImageRequest.Builder(context)
-                                            .data(cellImage.expandedImageUri)
-                                            .crossfade(300)
-                                            .build(),
-                                        contentDescription = null,
-                                        contentScale = ContentScale.Crop,
-                                        modifier = Modifier.fillMaxSize(),
-                                    )
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .background(Color.Black.copy(alpha = 0.3f)),
-                                    )
-                                    Text(
-                                        text = stringResource(R.string.settings_expanded_label),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = Color.White,
-                                        modifier = Modifier
-                                            .align(Alignment.TopCenter)
-                                            .padding(top = 4.dp)
-                                            .background(
-                                                color = StreamLauncherTheme.colors.accentSecondary.copy(alpha = 0.8f),
-                                                shape = RoundedCornerShape(4.dp)
-                                            )
-                                            .padding(horizontal = 6.dp, vertical = 2.dp),
-                                    )
-                                }
-                                Text(
-                                    text = when (cell) {
-                                        GridCell.TOP_LEFT -> stringResource(R.string.grid_cell_top_left)
-                                        GridCell.TOP_RIGHT -> stringResource(R.string.grid_cell_top_right)
-                                        GridCell.BOTTOM_LEFT -> stringResource(R.string.grid_cell_bottom_left)
-                                        GridCell.BOTTOM_RIGHT -> stringResource(R.string.grid_cell_bottom_right)
-                                    },
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = Color.White,
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Button(
-                onClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    idleImageLauncher.launch(
-                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
-                    )
-                },
-                modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(containerColor = accentPrimary),
-            ) {
-                Text(text = stringResource(R.string.settings_idle_image))
-            }
-            Button(
-                onClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    expandedImageLauncher.launch(
-                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
-                    )
-                },
-                modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(containerColor = StreamLauncherTheme.colors.accentSecondary),
-            ) {
-                Text(text = stringResource(R.string.settings_expanded_image))
-            }
-        }
-
-        OutlinedButton(
-            onClick = {
-                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                showResetDialog = true
-            },
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(text = stringResource(R.string.settings_image_reset))
-        }
-    }
-
-    if (showResetDialog) {
-        AlertDialog(
-            onDismissRequest = { showResetDialog = false },
-            text = {
-                Text(text = stringResource(R.string.settings_image_reset_dialog_message))
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        onIntent(SettingsIntent.ResetAllGridImages)
-                        showResetDialog = false
-                    },
-                ) {
-                    Text(text = stringResource(R.string.preset_confirm))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showResetDialog = false }) {
-                    Text(text = stringResource(R.string.cancel))
-                }
-            },
-        )
     }
 }
 
