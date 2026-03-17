@@ -9,6 +9,7 @@ import org.comon.streamlauncher.domain.model.preset.Preset
 import org.comon.streamlauncher.domain.repository.MarketPresetRepository
 import org.comon.streamlauncher.domain.repository.PresetRepository
 import org.comon.streamlauncher.domain.repository.PresetUnpackager
+import org.comon.streamlauncher.domain.util.WallpaperHelper
 import java.io.IOException
 import java.net.UnknownHostException
 import javax.inject.Inject
@@ -21,6 +22,7 @@ class DownloadMarketPresetUseCase @Inject constructor(
     private val saveFeedSettingsUseCase: SaveFeedSettingsUseCase,
     private val saveAppDrawerSettingsUseCase: SaveAppDrawerSettingsUseCase,
     private val saveColorPresetUseCase: SaveColorPresetUseCase,
+    private val wallpaperHelper: WallpaperHelper,
 ) {
     suspend operator fun invoke(marketPreset: MarketPreset): Result<Unit> = runCatching {
         if (marketPreset.slpStorageUrl != null) {
@@ -57,6 +59,7 @@ class DownloadMarketPresetUseCase @Inject constructor(
             saveAppDrawerSettingsUseCase(localPreset.appDrawerColumns, localPreset.appDrawerRows, localPreset.appDrawerIconSizeRatio)
         }
         if (marketPreset.hasThemeSettings) localPreset.themeColorHex?.toIntOrNull()?.let { saveColorPresetUseCase(it) }
+        if (marketPreset.hasWallpaperSettings) localPreset.wallpaperUri?.let { wallpaperHelper.setWallpaperFromPreset(it) }
     }
 
     fun downloadWithProgress(marketPreset: MarketPreset): Flow<DownloadProgress> = flow {

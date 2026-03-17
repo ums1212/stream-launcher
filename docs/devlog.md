@@ -34,6 +34,32 @@
 
 ---
 
+## [2026-03-17] fix(market): 프리셋 마켓 다운로드 후 배경화면 미적용 버그 수정
+
+### 목표
+
+- 프리셋 마켓에서 프리셋을 다운로드했을 때 시스템 배경화면(wallpaper)이 즉시 적용되도록 한다
+- 로컬 프리셋 로드 시 적용되는 wallpaper와 동일한 경로로 마켓 다운로드도 처리한다
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `core/domain/.../usecase/DownloadMarketPresetUseCase.kt` | 생성자에 `WallpaperHelper` 주입 추가; `applySettings()`에 `hasWallpaperSettings` 조건부 `wallpaperHelper.setWallpaperFromPreset(wallpaperUri)` 호출 추가 |
+
+### 검증 결과
+
+- `assembleDebug` → **BUILD SUCCESSFUL**
+- `./gradlew test` → **BUILD SUCCESSFUL** (실패 0건)
+
+### 설계 결정 및 근거
+
+- **누락 위치**: `SettingsViewModel`에서 로컬 프리셋을 적용할 때는 `wallpaperHelper.setWallpaperFromPreset()` 호출이 존재했으나, `DownloadMarketPresetUseCase.applySettings()`에는 동일 로직이 없어 마켓 다운로드 시 wallpaper만 건너뛰어지던 문제
+- **`core:domain` 원칙 유지**: `WallpaperHelper`는 `core:domain`에 정의된 인터페이스이므로 Android 의존성 없이 주입 가능 — 순수 JVM 모듈 원칙 위반 없음
+- **영향 범위 최소화**: `applySettings()` 내부에 한 줄 추가로 V1/V2 양쪽 경로(`invokeV1`, `invokeV2`, `downloadWithProgressV1`, `downloadWithProgressV2`) 모두 자동 적용
+
+---
+
 ## [2026-03-17] feat(market): Google 로그인 안내 다이얼로그 추가
 
 ### 목표
