@@ -42,7 +42,7 @@
         <!-- AdMob 앱 ID (테스트용 - 실제 배포 시 실제 ID로 교체) -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-3940256099942544~3347511713" />
+            android:value="${admobId}" />
 
         <service
             android:name=".service.PresetUploadService"

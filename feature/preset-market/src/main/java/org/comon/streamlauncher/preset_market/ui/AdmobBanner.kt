@@ -17,13 +17,9 @@ import com.google.android.gms.ads.AdSize
 import com.google.android.gms.ads.AdView
 import org.comon.streamlauncher.preset_market.BuildConfig
 
-// TODO: 실제 배포 시 아래 TEST_BANNER_AD_UNIT_ID를 실제 AdUnit ID로 교체
-private const val TEST_BANNER_AD_UNIT_ID = "ca-app-pub-3940256099942544/6300978111"
-
 @Composable
 fun AdmobBanner(
     modifier: Modifier = Modifier,
-    adUnitId: String = TEST_BANNER_AD_UNIT_ID,
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
     var adView by remember { mutableStateOf<AdView?>(null) }
@@ -50,7 +46,7 @@ fun AdmobBanner(
         factory = { context ->
             AdView(context).apply {
                 setAdSize(AdSize.BANNER)
-                setAdUnitId(BuildConfig.ADMOB_APP_ID)
+                adUnitId = BuildConfig.ADMOB_BANNER_ID
                 loadAd(AdRequest.Builder().build())
             }
         },
