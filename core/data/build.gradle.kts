@@ -40,6 +40,9 @@ android {
 kotlin {
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+        // hilt 등 의존성 주입 도구 사용 시
+        // 생성자 파라미터에 @Inject와 같은 어노테이션을 붙이는 경우
+        freeCompilerArgs.add("-Xannotation-default-target=param-property")
     }
 }
 
