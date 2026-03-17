@@ -1,7 +1,9 @@
 package org.comon.streamlauncher.preset_market.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -21,14 +23,18 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import kotlinx.coroutines.launch
 import coil.compose.AsyncImage
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import org.comon.streamlauncher.preset_market.*
 import org.comon.streamlauncher.preset_market.R
 
@@ -36,9 +42,9 @@ import org.comon.streamlauncher.preset_market.R
 @Composable
 fun PresetDetailScreen(
     onBack: () -> Unit,
+    modifier: Modifier = Modifier,
     onStartDownloadService: (String) -> Unit = {},
     onStopDownloadService: () -> Unit = {},
-    modifier: Modifier = Modifier,
     viewModel: PresetDetailViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -159,6 +165,18 @@ fun PresetDetailScreen(
                     // 프리뷰 이미지 HorizontalPager
                     if (preset.previewImageUrls.isNotEmpty()) {
                         val pagerState = rememberPagerState { preset.previewImageUrls.size }
+                        var fullScreenImageIndex by remember { mutableStateOf<Int?>(null) }
+
+                        // 10초 자동 스크롤
+                        LaunchedEffect(pagerState.pageCount) {
+                            if (pagerState.pageCount <= 1) return@LaunchedEffect
+                            while (true) {
+                                delay(10_000L)
+                                val next = (pagerState.currentPage + 1) % pagerState.pageCount
+                                pagerState.animateScrollToPage(next)
+                            }
+                        }
+
                         HorizontalPager(
                             state = pagerState,
                             modifier = Modifier
@@ -172,7 +190,8 @@ fun PresetDetailScreen(
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .padding(horizontal = 16.dp)
-                                    .clip(RoundedCornerShape(12.dp)),
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickable { fullScreenImageIndex = page },
                             )
                         }
                         // 페이지 인디케이터
@@ -194,6 +213,15 @@ fun PresetDetailScreen(
                                     color = color,
                                 ) {}
                             }
+                        }
+
+                        // 전체화면 이미지 뷰어
+                        fullScreenImageIndex?.let { startIndex ->
+                            FullScreenImagePager(
+                                imageUrls = preset.previewImageUrls,
+                                initialPage = startIndex,
+                                onDismiss = { fullScreenImageIndex = null },
+                            )
                         }
                     }
 
@@ -415,6 +443,59 @@ fun PresetDetailScreen(
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FullScreenImagePager(
+    imageUrls: List<String>,
+    initialPage: Int,
+    onDismiss: () -> Unit,
+) {
+    BackHandler(onBack = onDismiss)
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        val pagerState = rememberPagerState(initialPage = initialPage) { imageUrls.size }
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black)
+                .clickable(onClick = onDismiss),
+        ) {
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize(),
+            ) { page ->
+                AsyncImage(
+                    model = imageUrls[page],
+                    contentDescription = null,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clickable(onClick = onDismiss),
+                )
+            }
+            // 페이지 인디케이터
+            Row(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 24.dp),
+                horizontalArrangement = Arrangement.Center,
+            ) {
+                repeat(imageUrls.size) { idx ->
+                    val color = if (pagerState.currentPage == idx) Color.White else Color.White.copy(alpha = 0.4f)
+                    Surface(
+                        modifier = Modifier
+                            .padding(horizontal = 4.dp)
+                            .size(8.dp),
+                        shape = RoundedCornerShape(4.dp),
+                        color = color,
+                    ) {}
                 }
             }
         }
