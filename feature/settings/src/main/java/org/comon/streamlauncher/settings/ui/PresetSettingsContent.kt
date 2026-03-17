@@ -84,12 +84,13 @@ fun PresetSettingsContent(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Row {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             // 프리셋 마켓 진입 버튼
             GlassSettingsTile(
                 label = stringResource(R.string.preset_market),
                 icon = Icons.Default.Store,
-                lerpFraction = 0f,
                 onClick = onNavigateToMarket,
             )
 
@@ -97,7 +98,6 @@ fun PresetSettingsContent(
             GlassSettingsTile(
                 label = stringResource(R.string.title_add_preset),
                 icon = Icons.Default.Add,
-                lerpFraction = 0f,
                 onClick = {
                     if (state.presets.size >= 10) {
                         showLimitDialog = true
