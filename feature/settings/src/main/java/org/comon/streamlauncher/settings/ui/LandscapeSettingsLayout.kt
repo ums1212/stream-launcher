@@ -20,7 +20,7 @@ import kotlin.collections.chunked
 import kotlin.collections.forEach
 
 @Composable
-fun LandScapeSettingsScreen(
+internal fun LandScapeSettingsScreen(
     settingMenuList: List<SettingMenuItem>,
     onItemClick: (SettingsActionType) -> Unit
 ) {

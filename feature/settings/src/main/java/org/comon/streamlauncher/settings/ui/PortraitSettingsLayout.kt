@@ -16,7 +16,7 @@ import org.comon.streamlauncher.settings.model.SettingMenuItem
 import org.comon.streamlauncher.settings.model.SettingsActionType
 
 @Composable
-fun PortraitSettingsScreen(
+internal fun PortraitSettingsScreen(
     settingMenuList: List<SettingMenuItem>,
     onItemClick: (SettingsActionType) -> Unit
 ) {
