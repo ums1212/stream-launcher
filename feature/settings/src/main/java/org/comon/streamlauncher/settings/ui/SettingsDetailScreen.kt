@@ -71,7 +71,6 @@ fun SettingsDetailScreen(
                 ),
             )
         },
-        containerColor = Color.Transparent,
         modifier = Modifier
             .fillMaxSize()
             .glassEffect(overlayColor = glassSurface),

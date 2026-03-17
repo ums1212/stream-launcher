@@ -20,6 +20,8 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.material3.SnackbarHostState
@@ -374,7 +376,11 @@ class MainActivity : ComponentActivity() {
                     navController = navController,
                     startDestination = SettingsRoute.LAUNCHER,
                 ) {
-                    composable(route = SettingsRoute.LAUNCHER) {
+                    composable(
+                        route = SettingsRoute.LAUNCHER,
+                        exitTransition = { ExitTransition.None },
+                        popEnterTransition = { EnterTransition.None },
+                    ) {
                         val configuration = LocalConfiguration.current
                         val isLandscape =
                             configuration.orientation == Configuration.ORIENTATION_LANDSCAPE

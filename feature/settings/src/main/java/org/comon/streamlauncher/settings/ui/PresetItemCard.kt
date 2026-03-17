@@ -1,5 +1,6 @@
 package org.comon.streamlauncher.settings.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -94,9 +95,10 @@ internal fun PresetItemCard(
             containerColor = if (isUploading) {
                 MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
             } else {
-                MaterialTheme.colorScheme.surface
+                MaterialTheme.colorScheme.secondary.copy(alpha = 0.08f)
             }
-        )
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)),
     ) {
         Column {
             Row(
