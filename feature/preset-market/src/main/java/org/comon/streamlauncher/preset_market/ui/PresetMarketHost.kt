@@ -1,6 +1,5 @@
 package org.comon.streamlauncher.preset_market.ui
 
-import android.net.Uri
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.ExperimentalSharedTransitionApi
@@ -14,8 +13,10 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import androidx.navigation.navArgument
-import org.comon.streamlauncher.preset_market.navigation.MarketRoute
+import androidx.navigation.toRoute
+import org.comon.streamlauncher.preset_market.navigation.MarketDetail
+import org.comon.streamlauncher.preset_market.navigation.MarketHome
+import org.comon.streamlauncher.preset_market.navigation.MarketSearch
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
@@ -31,41 +32,37 @@ fun PresetMarketHost(
         val sharedTransitionScope = this
         NavHost(
             navController = navController,
-            startDestination = MarketRoute.HOME,
+            startDestination = MarketHome,
             modifier = modifier,
         ) {
-            composable(
-                route = MarketRoute.HOME,
+            composable<MarketHome>(
                 exitTransition = { ExitTransition.None },
                 popEnterTransition = { EnterTransition.None },
             ) {
                 MarketHomeScreen(
-                    onNavigateToDetail = { navController.navigate(MarketRoute.detail(it)) },
-                    onNavigateToSearch = { navController.navigate(MarketRoute.search()) },
+                    onNavigateToDetail = { navController.navigate(MarketDetail(presetId = it)) },
+                    onNavigateToSearch = { navController.navigate(MarketSearch()) },
                     onBack = onBack,
                     sharedTransitionScope = sharedTransitionScope,
                     animatedVisibilityScope = this,
                 )
             }
-            composable(
-                route = MarketRoute.SEARCH,
-                arguments = listOf(navArgument("query") { defaultValue = "" }),
+            composable<MarketSearch>(
                 enterTransition = { fadeIn() },
                 exitTransition = { slideOutHorizontally(targetOffsetX = { it }) },
                 popEnterTransition = { slideInHorizontally(initialOffsetX = { -it }) },
                 popExitTransition = { fadeOut() },
             ) { backStackEntry ->
-                val query = Uri.decode(backStackEntry.arguments?.getString("query") ?: "")
+                val route = backStackEntry.toRoute<MarketSearch>()
                 MarketSearchScreen(
-                    initialQuery = query,
-                    onNavigateToDetail = { navController.navigate(MarketRoute.detail(it)) },
+                    initialQuery = route.query,
+                    onNavigateToDetail = { navController.navigate(MarketDetail(presetId = it)) },
                     onBack = { navController.popBackStack() },
                     sharedTransitionScope = sharedTransitionScope,
                     animatedVisibilityScope = this,
                 )
             }
-            composable(
-                route = MarketRoute.DETAIL,
+            composable<MarketDetail>(
                 enterTransition = { slideInHorizontally(initialOffsetX = { it }) },
                 exitTransition = { slideOutHorizontally(targetOffsetX = { it }) },
                 popEnterTransition = { slideInHorizontally(initialOffsetX = { -it }) },

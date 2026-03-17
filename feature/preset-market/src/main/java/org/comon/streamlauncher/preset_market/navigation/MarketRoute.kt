@@ -1,13 +1,14 @@
 package org.comon.streamlauncher.preset_market.navigation
 
-import android.net.Uri
+import kotlinx.serialization.Serializable
 
-object MarketRoute {
-    const val HOST = "preset_market_host"
-    const val HOME = "preset_market"
-    const val DETAIL = "preset_market_detail/{presetId}"
-    const val SEARCH = "preset_market_search?query={query}"
+sealed interface MarketRoute
 
-    fun detail(presetId: String) = "preset_market_detail/$presetId"
-    fun search(query: String = "") = "preset_market_search?query=${Uri.encode(query)}"
-}
+@Serializable
+object MarketHome: MarketRoute
+
+@Serializable
+data class MarketDetail(val presetId: String): MarketRoute
+
+@Serializable
+data class MarketSearch(val query: String = ""): MarketRoute

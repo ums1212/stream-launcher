@@ -37,6 +37,7 @@ credentials = "1.5.0"
 googleid = "1.1.1"
 
 [libraries]
+androidx-compose-material-material-icons-extended = { module = "androidx.compose.material:material-icons-extended" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-material-icons-extended = { module = "androidx.compose.material:material-icons-extended" }
 coil = { module = "io.coil-kt:coil", version.ref = "coilVersion" }

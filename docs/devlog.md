@@ -1,5 +1,43 @@
 # StreamLauncher 개발 로그
 
+## [2026-03-17] refactor(nav): Navigation Type-Safe 리팩토링
+
+### 목표
+
+- 문자열 기반 route 상수 (`SettingsRoute`, `MarketRoute`)를 `@Serializable` 클래스/객체 방식으로 전환한다
+- `navArgument()` / 수동 `Uri.decode` 파싱을 제거하고 `toRoute<T>()`로 대체한다
+- sealed interface로 route 그룹을 묶어 `(Any)` 대신 타입 안전한 콜백 시그니처를 사용한다
+- 컴파일 타임 타입 안전성을 확보해 라우트 오타·파라미터 불일치를 빌드 시점에 검출한다
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `app/build.gradle.kts` | `alias(libs.plugins.kotlin.serialization)` + `kotlinx-serialization-json` 의존성 추가 |
+| `feature/settings/build.gradle.kts` | 동일 (serialization 플러그인 + 의존성) |
+| `feature/preset-market/build.gradle.kts` | 동일 |
+| `feature/settings/.../navigation/SettingsRoute.kt` | 기존 `object SettingsRoute` 문자열 상수 삭제 → `sealed interface LauncherRoute` + `@Serializable object Launcher`, `@Serializable data class SettingsDetail(val menu: String)`, `@Serializable object PresetMarketHost` (모두 `LauncherRoute` 구현) |
+| `feature/preset-market/.../navigation/MarketRoute.kt` | 기존 `object MarketRoute` 문자열 상수 삭제 → `sealed interface MarketRoute` + `@Serializable object MarketHome`, `@Serializable data class MarketDetail(val presetId: String)`, `@Serializable data class MarketSearch(val query: String = "")` (모두 `MarketRoute` 구현) |
+| `feature/settings/.../ui/SettingsScreen.kt` | `onNavigate: (String) -> Unit` → `(LauncherRoute) -> Unit`; `SettingsRoute.detail(menu)` → `SettingsDetail(menu)` 직접 전달 |
+| `feature/preset-market/.../ui/PresetMarketHost.kt` | `composable<MarketHome/MarketSearch/MarketDetail>` 전환; `navArgument` / `Uri.decode` 제거; `backStackEntry.toRoute<MarketSearch>()` 로 query 추출; `navigate(MarketDetail(presetId = it))` 등 타입 안전 navigate |
+| `app/.../MainActivity.kt` | `startDestination = Launcher`; `composable<Launcher/SettingsDetail/PresetMarketRoute>`; `backStackEntry.toRoute<SettingsDetail>()`; `popBackStack(Launcher, inclusive = false)` (객체 인스턴스 직접 전달); `isOpaqueRoute(String?)` → `isOpaqueDestination(NavDestination)` (`qualifiedName` 문자열 비교); `currentRoute: String?` → `isCurrentScreenOpaque: Boolean` |
+
+### 검증 결과
+
+- `JAVA_HOME="C:/Program Files/Java/jdk-17" ./gradlew assembleDebug` → **BUILD SUCCESSFUL**
+- `JAVA_HOME="C:/Program Files/Java/jdk-17" ./gradlew test` → **BUILD SUCCESSFUL** (실패 0건)
+
+### 설계 결정 및 근거
+
+- **sealed interface로 route 그룹화**: `LauncherRoute` / `MarketRoute` sealed interface를 두어 콜백 타입을 `(Any)` 대신 `(LauncherRoute)` 로 좁힘. 잘못된 route 객체 전달을 컴파일 타임에 차단하고 when 분기 exhaustive 검사도 가능해짐
+- **`popBackStack` 객체 인스턴스 전달**: `Launcher::class` (KClass Reflection) 대신 `Launcher` 인스턴스를 직접 전달. Navigation 2.8+ `popBackStack(route: Any, ...)` API를 활용해 Reflection 없이 동작함
+- **`PresetMarketHost` 네이밍 충돌 해소**: `feature:settings` 의 route 객체 `PresetMarketHost` 와 `feature:preset-market` 의 Composable `PresetMarketHost` 가 동일 이름이므로, `MainActivity` 에서 `import ... PresetMarketHost as PresetMarketRoute` 별칭을 사용해 두 식별자를 구분함
+- **`NavDestination.hasRoute(KClass<T>)` 미지원**: Navigation 2.9.7 에서 KClass 기반 `hasRoute` 확장이 제공되지 않아, `dest.route?.startsWith(T::class.qualifiedName)` 방식으로 불투명 화면 판별. qualifiedName은 패키지+클래스명이므로 prefix 충돌 위험 없음
+- **`currentRoute: String?` 제거**: 불투명 여부 판별에만 사용되던 문자열 상태를 `isCurrentScreenOpaque: Boolean` 으로 단순화해 `updateSystemBarStyle` 시그니처를 명확히 함
+- **ViewModel 무변경**: type-safe 전환 후에도 `savedStateHandle["presetId"]` 방식은 여전히 동작하므로 ViewModel 수정 범위를 최소화함
+
+---
+
 ## [2026-03-16] fix(dragdrop): 앱 드로어에서 홈 셀 드롭 누락 보정
 
 ### 목표

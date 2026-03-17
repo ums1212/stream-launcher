@@ -43,9 +43,11 @@ import androidx.core.graphics.ColorUtils
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import androidx.navigation.NavDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.toRoute
 import dagger.hilt.android.AndroidEntryPoint
 import org.comon.streamlauncher.apps_drawer.ui.AppDrawerScreen
 import org.comon.streamlauncher.domain.model.ColorPresets
@@ -60,8 +62,10 @@ import org.comon.streamlauncher.navigation.CrossPagerNavigation
 import org.comon.streamlauncher.settings.SettingsIntent
 import org.comon.streamlauncher.settings.SettingsSideEffect
 import org.comon.streamlauncher.settings.SettingsViewModel
+import org.comon.streamlauncher.settings.navigation.Launcher
+import org.comon.streamlauncher.settings.navigation.SettingsDetail
 import org.comon.streamlauncher.settings.navigation.SettingsMenu
-import org.comon.streamlauncher.settings.navigation.SettingsRoute
+import org.comon.streamlauncher.settings.navigation.PresetMarketHost as PresetMarketRoute
 import org.comon.streamlauncher.settings.ui.NoticeDialog
 import org.comon.streamlauncher.settings.ui.SettingsDetailScreen
 import org.comon.streamlauncher.settings.ui.SettingsScreen
@@ -71,7 +75,6 @@ import org.comon.streamlauncher.ui.theme.StreamLauncherTheme
 import org.comon.streamlauncher.widget.WidgetViewModel
 import org.comon.streamlauncher.widget.ui.WidgetScreen
 import androidx.core.net.toUri
-import org.comon.streamlauncher.preset_market.navigation.MarketRoute
 import org.comon.streamlauncher.preset_market.ui.PresetMarketHost
 import org.comon.streamlauncher.service.PresetDownloadService
 import org.comon.streamlauncher.service.PresetUploadService
@@ -94,14 +97,14 @@ class MainActivity : ComponentActivity() {
     // 월페이퍼 밝기 상태 (true = 어두운 월페이퍼 → 시스템바 아이콘 밝게)
     private var isWallpaperDark = mutableStateOf(false)
 
-    // 현재 NavController 라우트 (불투명 화면 판별에 사용)
-    private var currentRoute = mutableStateOf<String?>(null)
+    // 현재 화면이 불투명 배경(Material3)인지 여부
+    private var isCurrentScreenOpaque = mutableStateOf(false)
 
     private val wallpaperColorsChangedListener =
         WallpaperManager.OnColorsChangedListener { colors, _ ->
             val dark = isDarkFromColors(colors)
             isWallpaperDark.value = dark
-            updateSystemBarStyle(dark, currentRoute.value)
+            updateSystemBarStyle(dark, isCurrentScreenOpaque.value)
         }
 
     companion object {
@@ -132,14 +135,14 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * 현재 라우트가 불투명 배경(Material3)을 가진 화면인지 판별합니다.
-     * - settings_detail/ 로 시작하는 설정 상세 화면
-     * - 마켓 호스트 화면
+     * NavDestination이 불투명 배경(Material3)을 가진 화면인지 판별합니다.
+     * - 설정 상세 화면 (SettingsDetail)
+     * - 프리셋 마켓 호스트 화면 (PresetMarketRoute)
      */
-    private fun isOpaqueRoute(route: String?): Boolean {
-        if (route == null) return false
-        return route.startsWith("settings_detail/") ||
-            route == MarketRoute.HOST
+    private fun isOpaqueDestination(dest: NavDestination): Boolean {
+        val route = dest.route ?: return false
+        return route.startsWith(SettingsDetail::class.qualifiedName ?: "") ||
+            route.startsWith(PresetMarketRoute::class.qualifiedName ?: "")
     }
 
     /**
@@ -147,9 +150,9 @@ class MainActivity : ComponentActivity() {
      * - 불투명 화면(설정 상세, 프리셋 마켓): 시스템 다크/라이트 모드 기준
      * - 런처 홈 화면: 월페이퍼 밝기 기준
      */
-    private fun updateSystemBarStyle(isWallpaperDark: Boolean, route: String?) {
+    private fun updateSystemBarStyle(isWallpaperDark: Boolean, isOpaqueRoute: Boolean) {
         val transparent = android.graphics.Color.TRANSPARENT
-        val useDarkIcons = if (isOpaqueRoute(route)) {
+        val useDarkIcons = if (isOpaqueRoute) {
             // 불투명 화면: 시스템 다크모드 기준 (라이트모드 → 검은 아이콘)
             val nightMode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
             nightMode != Configuration.UI_MODE_NIGHT_YES
@@ -224,7 +227,7 @@ class MainActivity : ComponentActivity() {
         val initialColors = wallpaperManager.getWallpaperColors(WallpaperManager.FLAG_SYSTEM)
         val initialDark = isDarkFromColors(initialColors)
         isWallpaperDark.value = initialDark
-        updateSystemBarStyle(initialDark, null)
+        updateSystemBarStyle(initialDark, false)
 
         // 월페이퍼 변경 리스너 등록
         wallpaperManager.addOnColorsChangedListener(
@@ -248,8 +251,9 @@ class MainActivity : ComponentActivity() {
 
             DisposableEffect(navController) {
                 val listener = NavController.OnDestinationChangedListener { _, dest, _ ->
-                    currentRoute.value = dest.route
-                    updateSystemBarStyle(isWallpaperDark.value, dest.route)
+                    val isOpaque = isOpaqueDestination(dest)
+                    isCurrentScreenOpaque.value = isOpaque
+                    updateSystemBarStyle(isWallpaperDark.value, isOpaque)
                 }
                 navController.addOnDestinationChangedListener(listener)
                 onDispose { navController.removeOnDestinationChangedListener(listener) }
@@ -346,7 +350,7 @@ class MainActivity : ComponentActivity() {
                     settingsViewModel.effect.collect { effect ->
                         when (effect) {
                             is SettingsSideEffect.NavigateToMain ->
-                                navController.popBackStack(SettingsRoute.LAUNCHER, false)
+                                navController.popBackStack(Launcher, inclusive = false)
                             is SettingsSideEffect.StartUploadService -> {
                                 val serviceIntent = Intent(this@MainActivity, PresetUploadService::class.java)
                                     .putExtra(PresetUploadService.EXTRA_PRESET_NAME, effect.presetName)
@@ -374,10 +378,9 @@ class MainActivity : ComponentActivity() {
 
                 NavHost(
                     navController = navController,
-                    startDestination = SettingsRoute.LAUNCHER,
+                    startDestination = Launcher,
                 ) {
-                    composable(
-                        route = SettingsRoute.LAUNCHER,
+                    composable<Launcher>(
                         exitTransition = { ExitTransition.None },
                         popEnterTransition = { EnterTransition.None },
                     ) {
@@ -442,23 +445,21 @@ class MainActivity : ComponentActivity() {
                             HomeScreen(state = uiState, onIntent = viewModel::handleIntent)
                         }
                     }
-                    composable(
-                        route = SettingsRoute.DETAIL,
+                    composable<SettingsDetail>(
                         enterTransition = { slideInHorizontally(initialOffsetX = { it }) },
                         exitTransition = { slideOutHorizontally(targetOffsetX = { it }) },
                         popEnterTransition = { slideInHorizontally(initialOffsetX = { -it }) },
                         popExitTransition = { slideOutHorizontally(targetOffsetX = { it }) },
                     ) { backStackEntry ->
-                        val menuStr = backStackEntry.arguments?.getString("menu")
-                            ?: return@composable
-                        val menu = runCatching { SettingsMenu.valueOf(menuStr) }.getOrNull()
+                        val route = backStackEntry.toRoute<SettingsDetail>()
+                        val menu = runCatching { SettingsMenu.valueOf(route.menu) }.getOrNull()
                             ?: return@composable
                         SettingsDetailScreen(
                             menu = menu,
                             state = settingsState,
                             onIntent = settingsViewModel::handleIntent,
                             onBack = { navController.popBackStack() },
-                            onNavigateToMarket = { navController.navigate(MarketRoute.HOST) },
+                            onNavigateToMarket = { navController.navigate(PresetMarketRoute) },
                             onShowSnackbar = { message ->
                                 settingsScope.launch {
                                     settingsSnackbarHostState.showSnackbar(message)
@@ -467,8 +468,7 @@ class MainActivity : ComponentActivity() {
                             onRequireSignIn = { showSettingsSignIn = true },
                         )
                     }
-                    composable(
-                        route = MarketRoute.HOST,
+                    composable<PresetMarketRoute>(
                         enterTransition = { slideInHorizontally(initialOffsetX = { it }) },
                         popExitTransition = { slideOutHorizontally(targetOffsetX = { it }) },
                     ) {
@@ -509,7 +509,7 @@ class MainActivity : ComponentActivity() {
         val isDark = isDarkFromColors(colors)
         if (isDark != isWallpaperDark.value) {
             isWallpaperDark.value = isDark
-            updateSystemBarStyle(isDark, currentRoute.value)
+            updateSystemBarStyle(isDark, isCurrentScreenOpaque.value)
         }
     }
 

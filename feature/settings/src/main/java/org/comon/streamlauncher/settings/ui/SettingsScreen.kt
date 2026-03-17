@@ -16,14 +16,15 @@ import org.comon.streamlauncher.settings.R
 import org.comon.streamlauncher.settings.SettingsIntent
 import org.comon.streamlauncher.settings.model.SettingsActionType
 import org.comon.streamlauncher.settings.model.settingMenuList
+import org.comon.streamlauncher.settings.navigation.LauncherRoute
+import org.comon.streamlauncher.settings.navigation.SettingsDetail
 import org.comon.streamlauncher.settings.navigation.SettingsMenu
-import org.comon.streamlauncher.settings.navigation.SettingsRoute
 import org.comon.streamlauncher.ui.util.calculateIsCompactHeight
 
 @Composable
 fun SettingsScreen(
     onIntent: (SettingsIntent) -> Unit,
-    onNavigate: (String) -> Unit,
+    onNavigate: (LauncherRoute) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Box(
@@ -39,7 +40,7 @@ fun SettingsScreen(
 
 @Composable
 private fun MainSettingsContent(
-    onNavigate: (String) -> Unit,
+    onNavigate: (LauncherRoute) -> Unit,
     onIntent: (SettingsIntent) -> Unit,
 ) {
     val context = LocalContext.current
@@ -48,10 +49,10 @@ private fun MainSettingsContent(
     val settingMenuList = remember { settingMenuList }
     val handleItemClick: (SettingsActionType) -> Unit = { actionType ->
         when (actionType) {
-            SettingsActionType.COLOR -> onNavigate(SettingsRoute.detail(SettingsMenu.COLOR.name))
-            SettingsActionType.IMAGE -> onNavigate(SettingsRoute.detail(SettingsMenu.IMAGE.name))
-            SettingsActionType.APP_DRAWER -> onNavigate(SettingsRoute.detail(SettingsMenu.APP_DRAWER.name))
-            SettingsActionType.FEED -> onNavigate(SettingsRoute.detail(SettingsMenu.FEED.name))
+            SettingsActionType.COLOR -> onNavigate(SettingsDetail(SettingsMenu.COLOR.name))
+            SettingsActionType.IMAGE -> onNavigate(SettingsDetail(SettingsMenu.IMAGE.name))
+            SettingsActionType.APP_DRAWER -> onNavigate(SettingsDetail(SettingsMenu.APP_DRAWER.name))
+            SettingsActionType.FEED -> onNavigate(SettingsDetail(SettingsMenu.FEED.name))
             SettingsActionType.NOTICE -> onIntent(SettingsIntent.ShowNotice)
             SettingsActionType.WALLPAPER -> {
                 try {
@@ -73,7 +74,7 @@ private fun MainSettingsContent(
                     context.startActivity(settingsIntent)
                 }
             }
-            SettingsActionType.PRESET -> onNavigate(SettingsRoute.detail(SettingsMenu.PRESET.name))
+            SettingsActionType.PRESET -> onNavigate(SettingsDetail(SettingsMenu.PRESET.name))
         }
     }
 
