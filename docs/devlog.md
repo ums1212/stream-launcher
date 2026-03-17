@@ -34,6 +34,36 @@
 
 ---
 
+## [2026-03-17] feat(market): Google 로그인 안내 다이얼로그 추가
+
+### 목표
+
+- 다운로드·업로드·좋아요 등 로그인이 필요한 기능 실행 시, 바로 Google 로그인 시트가 뜨지 않고 먼저 안내 다이얼로그를 표시한다
+- 사용자가 왜 로그인이 필요한지 이해하고 선택적으로 진행할 수 있도록 UX를 개선한다
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `core/ui/src/main/res/values/strings.xml` | **신규** — 로그인 안내 다이얼로그용 문자열 4개 추가 (`sign_in_required_title/message/confirm/cancel`) |
+| `core/ui/.../component/GoogleSignInRequiredDialog.kt` | **신규** — `AlertDialog` 기반 재사용 컴포저블. 확인 시 `onConfirm`, 취소 시 `onDismiss` 콜백 |
+| `feature/preset-market/.../ui/PresetDetailScreen.kt` | `showSignInDialog` 상태 추가; `RequireSignIn` → `showSignInDialog = true`; 다이얼로그 confirm 시 `showSignInHandler = true` |
+| `feature/preset-market/.../ui/MarketHomeScreen.kt` | `showSignInDialog` 상태 추가; `RequireSignIn` 핸들러 및 수동 로그인 버튼 → `showSignInDialog = true`; 다이얼로그 confirm 시 `showSignIn = true` |
+| `app/.../MainActivity.kt` | `showSettingsSignInDialog` 상태 추가; `RequireSignIn` → `showSettingsSignInDialog = true`; 다이얼로그 confirm 시 `showSettingsSignIn = true` |
+
+### 검증 결과
+
+- `assembleDebug` → **BUILD SUCCESSFUL**
+- `./gradlew test` → **BUILD SUCCESSFUL** (실패 0건)
+
+### 설계 결정 및 근거
+
+- **`core:ui`에 다이얼로그 배치**: `PresetDetailScreen`, `MarketHomeScreen`, `MainActivity` 세 곳 모두에서 동일한 다이얼로그가 필요하므로 공용 컴포넌트로 추출해 중복 구현을 방지
+- **Contract/ViewModel 무변경**: 로그인 트리거 흐름(`RequireSignIn` side effect → `GoogleSignInHandler`)은 그대로 유지하고, UI 레이어에서만 중간 상태를 추가해 변경 범위를 최소화
+- **수동 로그인 버튼도 동일 다이얼로그 경유**: `MarketHomeScreen` TopAppBar의 로그인 아이콘 버튼도 `showSignInDialog = true`로 전환해 진입 경로에 상관없이 일관된 안내 UX를 제공
+
+---
+
 ## [2026-03-16] feat(home): 확장 셀 아이콘 크기와 수용 개수 동기화
 
 ### 목표

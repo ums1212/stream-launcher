@@ -29,6 +29,7 @@ import kotlinx.coroutines.launch
 import org.comon.streamlauncher.domain.model.preset.MarketPreset
 import org.comon.streamlauncher.preset_market.*
 import org.comon.streamlauncher.preset_market.R
+import org.comon.streamlauncher.ui.component.GoogleSignInRequiredDialog
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
 @Composable
@@ -44,6 +45,7 @@ fun MarketHomeScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val recentPresets = viewModel.recentPresetsPaging.collectAsLazyPagingItems()
     var showSignIn by remember { mutableStateOf(false) }
+    var showSignInDialog by remember { mutableStateOf(false) }
     var showSignOutDialog by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -56,10 +58,20 @@ fun MarketHomeScreen(
                 is PresetMarketSideEffect.NavigateToDetail -> onNavigateToDetail(effect.presetId)
                 is PresetMarketSideEffect.NavigateToSearch -> onNavigateToSearch()
                 is PresetMarketSideEffect.ShowError -> snackbarHostState.showSnackbar(effect.message)
-                is PresetMarketSideEffect.RequireSignIn -> showSignIn = true
+                is PresetMarketSideEffect.RequireSignIn -> showSignInDialog = true
                 is PresetMarketSideEffect.SignInSuccess -> snackbarHostState.showSnackbar(signInSuccessMessage)
             }
         }
+    }
+
+    if (showSignInDialog) {
+        GoogleSignInRequiredDialog(
+            onConfirm = {
+                showSignInDialog = false
+                showSignIn = true
+            },
+            onDismiss = { showSignInDialog = false },
+        )
     }
 
     if (showSignOutDialog) {
@@ -117,7 +129,7 @@ fun MarketHomeScreen(
                             Icon(Icons.Default.AccountCircle, contentDescription = stringResource(R.string.preset_market_logout))
                         }
                     } else {
-                        IconButton(onClick = { showSignIn = true }) {
+                        IconButton(onClick = { showSignInDialog = true }) {
                             Icon(Icons.Default.Person, contentDescription = stringResource(R.string.preset_market_login))
                         }
                     }

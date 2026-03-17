@@ -36,6 +36,7 @@ import org.comon.streamlauncher.domain.model.preset.UploadProgress
 import org.comon.streamlauncher.settings.SettingsIntent
 import org.comon.streamlauncher.settings.SettingsState
 import org.comon.streamlauncher.settings.R
+import org.comon.streamlauncher.ui.component.GoogleSignInRequiredDialog
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -48,12 +49,23 @@ fun PresetSettingsContent(
     modifier: Modifier = Modifier,
     onNavigateToMarket: () -> Unit = {},
     onShowSnackbar: (String) -> Unit = {},
+    onRequireSignIn: () -> Unit = {},
 ) {
     var showSaveDialog by remember { mutableStateOf(false) }
     var showLimitDialog by remember { mutableStateOf(false) }
     var presetToLoad by remember { mutableStateOf<Preset?>(null) }
     var presetToDelete by remember { mutableStateOf<Preset?>(null) }
     var presetToUpload by remember { mutableStateOf<Preset?>(null) }
+    var pendingSharePreset by remember { mutableStateOf<Preset?>(null) }
+    var showSignInDialog by remember { mutableStateOf(false) }
+
+    // 로그인 완료 후 업로드 다이얼로그를 보여준다
+    LaunchedEffect(state.isSignedIn) {
+        if (state.isSignedIn && pendingSharePreset != null) {
+            presetToUpload = pendingSharePreset
+            pendingSharePreset = null
+        }
+    }
 
     val isUploadInProgress = state.uploadProgress != null || state.pendingUploadPresetName != null
 
@@ -154,7 +166,14 @@ fun PresetSettingsContent(
                             preset = preset,
                             onClick = { if (!isUploadInProgress) presetToLoad = preset },
                             onShare = if (!isUploadInProgress) {
-                                { presetToUpload = preset }
+                                {
+                                    if (state.isSignedIn) {
+                                        presetToUpload = preset
+                                    } else {
+                                        pendingSharePreset = preset
+                                        showSignInDialog = true
+                                    }
+                                }
                             } else null,
                             isPending = isPendingForThisPreset,
                             uploadProgress = thisPresetProgress,
@@ -166,6 +185,20 @@ fun PresetSettingsContent(
                 )
             }
         }
+    }
+
+    // Sign-In Required Dialog (업로드 전 로그인 안내)
+    if (showSignInDialog) {
+        GoogleSignInRequiredDialog(
+            onConfirm = {
+                showSignInDialog = false
+                onRequireSignIn()
+            },
+            onDismiss = {
+                showSignInDialog = false
+                pendingSharePreset = null
+            },
+        )
     }
 
     // Preset Limit Dialog

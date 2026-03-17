@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sign_in_required_title">로그인이 필요합니다</string>
+    <string name="sign_in_required_message">이 기능을 사용하려면 Google 계정으로 로그인해야 합니다.</string>
+    <string name="sign_in_required_confirm">Google로 로그인</string>
+    <string name="sign_in_required_cancel">취소</string>
+</resources>

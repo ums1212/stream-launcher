@@ -79,6 +79,7 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             observeAuthStateUseCase().collect { user ->
                 cachedMarketUser = user
+                updateState { copy(isSignedIn = user != null) }
             }
         }
         viewModelScope.launch {

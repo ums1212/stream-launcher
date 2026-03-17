@@ -37,6 +37,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.comon.streamlauncher.preset_market.*
 import org.comon.streamlauncher.preset_market.R
+import org.comon.streamlauncher.ui.component.GoogleSignInRequiredDialog
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -52,6 +53,7 @@ fun PresetDetailScreen(
     val scope = rememberCoroutineScope()
 
     var showSignInHandler by remember { mutableStateOf(false) }
+    var showSignInDialog by remember { mutableStateOf(false) }
     var showLimitDialog by remember { mutableStateOf(false) }
     var showCancelDownloadDialog by remember { mutableStateOf(false) }
 
@@ -65,7 +67,7 @@ fun PresetDetailScreen(
                 is PresetDetailSideEffect.ShowError ->
                     snackbarHostState.showSnackbar(message = effect.message)
                 is PresetDetailSideEffect.RequireSignIn ->
-                    showSignInHandler = true
+                    showSignInDialog = true
                 is PresetDetailSideEffect.PresetLimitExceeded ->
                     showLimitDialog = true
                 is PresetDetailSideEffect.StartDownloadService ->
@@ -74,6 +76,16 @@ fun PresetDetailScreen(
                     onStopDownloadService()
             }
         }
+    }
+
+    if (showSignInDialog) {
+        GoogleSignInRequiredDialog(
+            onConfirm = {
+                showSignInDialog = false
+                showSignInHandler = true
+            },
+            onDismiss = { showSignInDialog = false },
+        )
     }
 
     if (showLimitDialog) {

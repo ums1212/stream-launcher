@@ -24,6 +24,7 @@ data class SettingsState(
     val presets: List<Preset> = emptyList(),
     val uploadProgress: UploadProgress? = null,
     val pendingUploadPresetName: String? = null,
+    val isSignedIn: Boolean = false,
 ) : UiState
 
 sealed interface SettingsIntent : UiIntent {

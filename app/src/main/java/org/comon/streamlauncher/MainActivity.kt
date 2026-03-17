@@ -35,6 +35,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalConfiguration
 import kotlinx.coroutines.launch
 import org.comon.streamlauncher.preset_market.ui.GoogleSignInHandler
+import org.comon.streamlauncher.ui.component.GoogleSignInRequiredDialog
 import androidx.compose.ui.graphics.Color
 import androidx.core.graphics.ColorUtils
 import androidx.lifecycle.Lifecycle
@@ -309,8 +310,19 @@ class MainActivity : ComponentActivity() {
                 }
 
                 var showSettingsSignIn by remember { mutableStateOf(false) }
+                var showSettingsSignInDialog by remember { mutableStateOf(false) }
                 val settingsSnackbarHostState = remember { SnackbarHostState() }
                 val settingsScope = rememberCoroutineScope()
+
+                if (showSettingsSignInDialog) {
+                    GoogleSignInRequiredDialog(
+                        onConfirm = {
+                            showSettingsSignInDialog = false
+                            showSettingsSignIn = true
+                        },
+                        onDismiss = { showSettingsSignInDialog = false },
+                    )
+                }
 
                 if (showSettingsSignIn) {
                     GoogleSignInHandler(
@@ -351,7 +363,7 @@ class MainActivity : ComponentActivity() {
                                     settingsSnackbarHostState.showSnackbar("업로드 실패: ${effect.message}")
                                 }
                             is SettingsSideEffect.RequireSignIn ->
-                                showSettingsSignIn = true
+                                showSettingsSignInDialog = true
                             is SettingsSideEffect.StopUploadService ->
                                 stopService(Intent(this@MainActivity, PresetUploadService::class.java))
                         }
@@ -446,6 +458,7 @@ class MainActivity : ComponentActivity() {
                                     settingsSnackbarHostState.showSnackbar(message)
                                 }
                             },
+                            onRequireSignIn = { showSettingsSignIn = true },
                         )
                     }
                     composable(
