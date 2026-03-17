@@ -1,6 +1,8 @@
 package org.comon.streamlauncher.preset_market.ui
 
 import android.net.Uri
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.fadeIn
@@ -32,7 +34,11 @@ fun PresetMarketHost(
             startDestination = MarketRoute.HOME,
             modifier = modifier,
         ) {
-            composable(route = MarketRoute.HOME) {
+            composable(
+                route = MarketRoute.HOME,
+                exitTransition = { ExitTransition.None },
+                popEnterTransition = { EnterTransition.None },
+            ) {
                 MarketHomeScreen(
                     onNavigateToDetail = { navController.navigate(MarketRoute.detail(it)) },
                     onNavigateToSearch = { navController.navigate(MarketRoute.search()) },
