@@ -1,5 +1,34 @@
 # StreamLauncher 개발 로그
 
+## [2026-03-17] fix(memory): 화면 회전 시 MainActivity 메모리 누수 수정
+
+### 목표
+
+- LeakCanary가 보고한 `static AndroidComposeView.composeViews → AndroidComposeView → 파괴된 MainActivity` 누수를 제거한다
+- 화면 회전 시 Activity 재생성 없이 Compose 재구성만으로 대응하도록 전환한다
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `app/src/main/AndroidManifest.xml` | `<activity>` 에 `android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|uiMode"` 추가 — 화면 회전 시 Activity `onDestroy`/`onCreate` 사이클 억제 |
+| `app/.../MainActivity.kt` | `onConfigurationChanged()` 오버라이드 추가 — uiMode 변경 시 `updateSystemBarStyle` 재호출 |
+| `app/.../MainActivity.kt` | `AppWidgetHost(this, HOST_ID)` → `AppWidgetHost(applicationContext, HOST_ID)` — 위젯 호스트가 Activity context를 강한 참조하지 않도록 개선 |
+
+### 검증 결과
+
+- `JAVA_HOME="C:/Program Files/Java/jdk-17" ./gradlew :app:assembleDebug` → **BUILD SUCCESSFUL**
+- LeakCanary 누수 경로 제거 확인 (화면 회전 시 Activity 재생성 없음)
+
+### 설계 결정 및 근거
+
+- **`configChanges` 선언이 근본 수정인 이유**: 누수의 원인은 Compose 프레임워크 내부의 `static AndroidComposeView.composeViews` 리스트가 파괴된 Activity의 뷰를 즉시 제거하지 않는 버그다. 앱 코드에서 이 static 리스트를 직접 제어하는 방법은 없으므로, Activity 재생성 자체를 막는 것이 유일한 앱 레벨 해법이다
+- **런처 앱에서 `configChanges` 적합성**: 이미 `LocalConfiguration.current`로 가로/세로 레이아웃을 분기하고 있어 Activity 재생성 없이도 UI가 올바르게 재구성된다. 다른 대형 런처(Pixel Launcher 등)도 동일한 패턴을 사용한다
+- **`uiMode` 포함 이유**: `updateSystemBarStyle`이 `resources.configuration.uiMode`를 읽어 다크/라이트 모드를 판별하므로, uiMode 변경 시 `onConfigurationChanged`에서 재호출이 필요하다. `configChanges`에 `uiMode`를 포함하지 않으면 시스템이 Activity를 재생성하는 대신 `onConfigurationChanged`를 호출하지 않아 시스템바 색상이 갱신되지 않는다
+- **`applicationContext`로 전환**: `AppWidgetHost`는 Activity 수명주기보다 길게 살 수 있는 위젯 바인딩을 관리한다. Activity context 대신 applicationContext를 사용하면 Activity 참조 체인을 끊어 별도 누수 경로를 차단한다
+
+---
+
 ## [2026-03-17] refactor(nav): Navigation Type-Safe 리팩토링
 
 ### 목표

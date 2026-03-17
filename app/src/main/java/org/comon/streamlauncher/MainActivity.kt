@@ -235,7 +235,7 @@ class MainActivity : ComponentActivity() {
             Handler(Looper.getMainLooper()),
         )
 
-        appWidgetHost = AppWidgetHost(this, HOST_ID)
+        appWidgetHost = AppWidgetHost(applicationContext, HOST_ID)
         appWidgetManager = AppWidgetManager.getInstance(this)
 
         viewModel.handleIntent(HomeIntent.CheckFirstLaunch)
@@ -536,6 +536,12 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
         WallpaperManager.getInstance(this)
             .removeOnColorsChangedListener(wallpaperColorsChangedListener)
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        // uiMode(다크/라이트) 변경에 따라 시스템바 스타일 재적용
+        updateSystemBarStyle(isWallpaperDark.value, isCurrentScreenOpaque.value)
     }
 
     override fun onNewIntent(intent: Intent) {
