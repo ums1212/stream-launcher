@@ -2,6 +2,39 @@
 
 ---
 
+## [2026-03-18] fix(upload-dialog): UploadToMarketDialog 태그·이미지 입력 UX 개선
+
+### 목표
+
+- 태그 입력 시 쉼표를 입력하는 즉시 태그가 등록되도록 즉시 처리 수정
+- 태그 글자 수 제한 (10글자 미만) 추가
+- 입력된 태그·이미지에 빨간 원형 X 아이콘을 표시해 삭제 가능함을 명시
+- 이미지 목록이 많아질 경우를 대비해 가로 스크롤 적용
+- 이미지피커를 닫아도 기존 선택 이미지가 초기화되지 않도록 수정
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `feature/settings/.../ui/UploadToMarketDialog.kt` | `endsWith(","\|"\n")` 조건 추가 — 쉼표 입력 즉시 태그 확정 + `tagInput = ""` 초기화 |
+| `feature/settings/.../ui/UploadToMarketDialog.kt` | 태그 입력 `take(9)` + `filter { it.length < 10 }` — 10글자 미만 제한 |
+| `feature/settings/.../ui/UploadToMarketDialog.kt` | 태그 Row → `LazyRow(items)` 교체, 각 태그를 `Box`로 감싸 우상단 빨간 원형 X 배지 추가 |
+| `feature/settings/.../ui/UploadToMarketDialog.kt` | 이미지 Row → `LazyRow(items)` 교체, 각 이미지를 `Box`로 감싸 우상단 빨간 원형 X 배지 추가 |
+| `feature/settings/.../ui/UploadToMarketDialog.kt` | `imagePicker` 콜백에 `uris.isNotEmpty()` 조건 추가 — 피커 취소 시 기존 선택 유지 |
+
+### 검증 결과
+
+- `./gradlew :feature:settings:assembleDebug` → **BUILD SUCCESSFUL** (전 항목)
+
+### 설계 결정 및 근거
+
+- **쉼표 즉시 처리**: 기존 `size > 1` 로직은 `"hello,"` → split → filter isNotBlank → `["hello"]`(size=1)로 else 분기에 빠지는 버그. `endsWith` 선행 체크로 분기를 명확히 분리
+- **`size > 1` 로직 유지**: 중간에 쉼표가 있는 경우(`"a,b"`) 처리용으로 여전히 필요하므로 제거하지 않음
+- **X 배지 패턴**: `Box` + `Alignment.TopEnd` 오버레이로 기존 `SuggestionChip`/`AsyncImage` 레이아웃을 변경 없이 뱃지 추가. `padding(top, end)` 으로 배지가 잘리지 않도록 공간 확보
+- **피커 취소 유지**: `PickMultipleVisualMedia` 계약상 취소 시 빈 리스트를 반환하므로 `isNotEmpty` 조건만으로 충분히 구분 가능
+
+---
+
 ## [2026-03-18] feat(preset-market): 부분 검색(Substring Search) 구현
 
 ### 목표

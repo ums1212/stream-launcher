@@ -4,11 +4,20 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts.PickMultipleVisualMedia
 import androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.Icon
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -22,7 +31,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
@@ -44,7 +55,9 @@ internal fun UploadToMarketDialog(
     val imagePicker = rememberLauncherForActivityResult(
         contract = PickMultipleVisualMedia(maxItems = 4),
     ) { uris ->
-        previewUris = uris.map { it.toString() }
+        if (uris.isNotEmpty()) {
+            previewUris = uris.map { it.toString() }
+        }
     }
 
     AlertDialog(
@@ -65,12 +78,16 @@ internal fun UploadToMarketDialog(
                 OutlinedTextField(
                     value = tagInput,
                     onValueChange = { input ->
+                        val endsWithSeparator = input.endsWith(",") || input.endsWith("\n")
                         val separated = input.split(",", "\n").map { it.trim() }.filter { it.isNotBlank() }
-                        if (separated.size > 1) {
-                            tags = (tags + separated.dropLast(1)).distinct().take(5)
-                            tagInput = separated.last()
+                        if (endsWithSeparator) {
+                            tags = (tags + separated.filter { it.length < 10 }).distinct().take(5)
+                            tagInput = ""
+                        } else if (separated.size > 1) {
+                            tags = (tags + separated.dropLast(1).filter { it.length < 10 }).distinct().take(5)
+                            tagInput = separated.last().take(9)
                         } else {
-                            tagInput = input
+                            tagInput = input.take(9)
                         }
                     },
                     label = { Text(stringResource(R.string.preset_upload_tag_label)) },
@@ -78,9 +95,30 @@ internal fun UploadToMarketDialog(
                     singleLine = true,
                 )
                 if (tags.isNotEmpty()) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        tags.forEach { tag ->
-                            SuggestionChip(onClick = { tags = tags - tag }, label = { Text(tag) })
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        items(tags) { tag ->
+                            Box {
+                                SuggestionChip(
+                                    onClick = { tags = tags - tag },
+                                    label = { Text(tag) },
+                                    modifier = Modifier.padding(end = 6.dp),
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .size(16.dp)
+                                        .background(Color.Red, CircleShape)
+                                        .clickable { tags = tags - tag },
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(10.dp),
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -95,13 +133,32 @@ internal fun UploadToMarketDialog(
                     Text(stringResource(R.string.preset_upload_preview_button, previewUris.size))
                 }
                 if (previewUris.isNotEmpty()) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        previewUris.forEach { uri ->
-                            AsyncImage(
-                                model = uri,
-                                contentDescription = null,
-                                modifier = Modifier.size(64.dp),
-                            )
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        items(previewUris) { uri ->
+                            Box {
+                                AsyncImage(
+                                    model = uri,
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .size(64.dp)
+                                        .clickable { previewUris = previewUris - uri },
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .size(16.dp)
+                                        .background(Color.Red, CircleShape)
+                                        .clickable { previewUris = previewUris - uri },
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(10.dp),
+                                    )
+                                }
+                            }
                         }
                     }
                 }
