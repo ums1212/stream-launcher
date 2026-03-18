@@ -161,6 +161,8 @@ fun MarketSearchScreen(
                                         onClick = {
                                             viewModel.handleIntent(MarketSearchIntent.ClickPreset(preset.id))
                                         },
+                                        sharedTransitionScope = sharedTransitionScope,
+                                        animatedVisibilityScope = animatedVisibilityScope,
                                     )
                                 }
                             }

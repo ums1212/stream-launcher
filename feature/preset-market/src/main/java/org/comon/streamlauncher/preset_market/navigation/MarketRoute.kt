@@ -8,7 +8,7 @@ sealed interface MarketRoute
 object MarketHome: MarketRoute
 
 @Serializable
-data class MarketDetail(val presetId: String): MarketRoute
+data class MarketDetail(val presetId: String, val fromCard: Boolean = false): MarketRoute
 
 @Serializable
 data class MarketSearch(val query: String = ""): MarketRoute

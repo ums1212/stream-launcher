@@ -1,9 +1,8 @@
 package org.comon.streamlauncher.preset_market.ui
 
-import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -36,11 +35,12 @@ fun PresetMarketHost(
             modifier = modifier,
         ) {
             composable<MarketHome>(
-                exitTransition = { ExitTransition.None },
-                popEnterTransition = { EnterTransition.None },
+                exitTransition = { fadeOut(tween(300)) },
+                popEnterTransition = { fadeIn(tween(300)) },
             ) {
                 MarketHomeScreen(
-                    onNavigateToDetail = { navController.navigate(MarketDetail(presetId = it)) },
+                    onNavigateToDetail = { navController.navigate(MarketDetail(presetId = it, fromCard = false)) },
+                    onNavigateToDetailFromCard = { navController.navigate(MarketDetail(presetId = it, fromCard = true)) },
                     onNavigateToSearch = { navController.navigate(MarketSearch()) },
                     onBack = onBack,
                     sharedTransitionScope = sharedTransitionScope,
@@ -63,13 +63,17 @@ fun PresetMarketHost(
                 )
             }
             composable<MarketDetail>(
-                enterTransition = { slideInHorizontally(initialOffsetX = { it }) },
-                exitTransition = { slideOutHorizontally(targetOffsetX = { it }) },
-                popEnterTransition = { slideInHorizontally(initialOffsetX = { -it }) },
-                popExitTransition = { slideOutHorizontally(targetOffsetX = { it }) },
-            ) {
+                enterTransition = { fadeIn(tween(300)) },
+                exitTransition = { fadeOut(tween(300)) },
+                popEnterTransition = { fadeIn(tween(300)) },
+                popExitTransition = { fadeOut(tween(300)) },
+            ) { backStackEntry ->
+                val route = backStackEntry.toRoute<MarketDetail>()
                 PresetDetailScreen(
                     onBack = { navController.popBackStack() },
+                    sharedTransitionScope = sharedTransitionScope,
+                    animatedVisibilityScope = this,
+                    fromCard = route.fromCard,
                     onStartDownloadService = onStartDownloadService,
                     onStopDownloadService = onStopDownloadService,
                 )

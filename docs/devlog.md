@@ -36,6 +36,49 @@
 
 ---
 
+## [2026-03-18] feat(preset-market): 썸네일 Shared Element Transition 구현
+
+### 목표
+
+- 마켓 홈 → 상세 화면 이동 시 썸네일 이미지가 자연스럽게 위치·크기가 변하는 Shared Element Transition 애니메이션 추가
+- Top 10 카드(HorizontalPager)와 최근 업로드 리스트(LazyColumn) 각각에서 상세 화면 pager 영역으로 부드럽게 모핑
+- 동일 프리셋이 두 섹션에 동시 노출될 때 키 충돌로 인한 애니메이션 오작동 방지
+- AdMob 광고 늦은 로딩으로 인한 레이아웃 이동(layout shift) 및 애니메이션 위치 오류 방지
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `feature/preset-market/.../navigation/MarketRoute.kt` | `MarketDetail`에 `fromCard: Boolean = false` 파라미터 추가 — 진입 섹션(카드/리스트) 구분용 |
+| `feature/preset-market/.../ui/PresetMarketHost.kt` | `MarketDetail` 트랜지션 `None→fadeIn/fadeOut(tween(300))` 변경; `MarketHome` 동일 적용; `fromCard` 라우트 파라미터 읽어 `PresetDetailScreen`에 전달; `onNavigateToDetailFromCard` 콜백 추가 |
+| `feature/preset-market/.../ui/MarketPresetCard.kt` | `sharedTransitionScope`/`animatedVisibilityScope` 파라미터 추가; 카드 전체 Box에 `sharedBounds(key="preset-card-thumb-{id}")` 적용 (clip 이전, `with(sharedTransitionScope)` 래핑) |
+| `feature/preset-market/.../ui/MarketPresetListItem.kt` | 동일 파라미터 추가; 썸네일 AsyncImage에 `sharedBounds(key="preset-list-thumb-{id}")` 적용 (size 이후, clip 이전) |
+| `feature/preset-market/.../ui/PresetDetailScreen.kt` | `sharedTransitionScope`/`animatedVisibilityScope`/`fromCard` 파라미터 추가; 별도 히어로 이미지 없이 기존 `HorizontalPager`에 `sharedBounds` 직접 적용 (key는 `fromCard` 기반으로 선택) |
+| `feature/preset-market/.../ui/MarketHomeScreen.kt` | `onNavigateToDetailFromCard` 파라미터 추가; Top 10 카드 클릭 시 ViewModel 우회 → `onNavigateToDetailFromCard` 직접 호출; AdMob 배너를 `Box(height=58.dp)`로 감싸 광고 로딩 전 공간 예약 |
+| `feature/preset-market/.../ui/MarketSearchScreen.kt` | 검색 결과 `MarketPresetListItem`에 `sharedTransitionScope`/`animatedVisibilityScope` 전달 |
+
+### 검증 결과
+
+- `JAVA_HOME="C:/Program Files/Java/jdk-17" ./gradlew :feature:preset-market:assembleDebug` → **BUILD SUCCESSFUL**
+- 마켓 홈 Top 10 카드 탭 → 해당 카드 이미지가 상세 pager로 모핑 ✓
+- 마켓 홈 최근 업로드 리스트 탭 → 80dp 썸네일이 상세 pager로 확대 ✓
+- 검색 결과 리스트 탭 → 동일 트랜지션 ✓
+- 뒤로가기 → 역방향 트랜지션으로 원위치 복귀 ✓
+- 동일 프리셋이 Top 10 + 최근 업로드 동시 노출 시 각 섹션 키 독립 → 충돌 없음 ✓
+- AdMob 공간 예약으로 광고 로딩 후 레이아웃 이동 없음 ✓
+
+### 설계 결정 및 근거
+
+- **`sharedBounds` vs `sharedElement`**: 카드(Box+텍스트오버레이)→pager, 리스트썸네일→pager는 source/destination 컨텐츠가 다르므로 `sharedBounds` 사용. `sharedElement`는 동일 컨텐츠 leaf 요소에 적합하나 여기서는 컨테이너 크기·내용물 모두 달라 `sharedBounds`가 올바른 API
+- **modifier 순서 (size → sharedBounds → clip)**: `clip` 이전에 `sharedBounds` 적용해야 overlay 드로잉 시 clip이 transition에 간섭하지 않음. Android 공식 docs 권장 순서 준수
+- **카드 Box 전체에 sharedBounds 적용**: 내부 AsyncImage에만 적용하면 부모 Box의 `clip(RoundedCornerShape)` 제약을 받아 위치 계산 오류 발생. Box 자체를 shared element로 만들어 clip을 sharedBounds 이후에 위치시킴
+- **섹션별 독립 키 분리 (`preset-card-thumb-` / `preset-list-thumb-`)**: 동일 프리셋이 Top 10과 최근 업로드에 동시에 노출될 때 같은 키 사용 시 SharedTransitionLayout이 소스 요소를 잘못 선택하는 버그 발생. `fromCard` boolean을 `MarketDetail` 라우트에 추가해 상세 화면이 올바른 키를 사용하도록 함
+- **Top 10 카드 클릭 ViewModel 우회**: `PresetMarketIntent.ClickPreset`에 `fromCard` 정보를 추가하는 대신, Top 10 pager의 `onClick`을 `onNavigateToDetailFromCard` 콜백으로 직접 연결. ViewModel 내부 로직(네비게이션 SideEffect만 emit)이 단순해 우회 비용이 낮고 Contract 변경을 최소화함
+- **AdMob 공간 예약 (`Box(height=58.dp)`)**: 표준 BANNER 규격(50dp) + 수직 패딩(4dp×2=8dp) = 58dp를 고정 높이로 미리 확보. 광고 로딩 완료 전 레이아웃 이동으로 인해 shared element 소스 좌표가 어긋나는 문제를 근본 해결
+- **`MarketHome` 트랜지션도 None→fade 변경**: 홈 화면이 instant하게 나타나면 back 시 pager→썸네일 역방향 애니메이션 시간이 없어짐. 홈/상세 양쪽 모두 `fadeIn/fadeOut(tween(300))`으로 300ms 트랜지션 윈도우를 확보해 shared element가 부드럽게 움직일 수 있도록 함
+
+---
+
 ## [2026-03-18] fix(proguard): 릴리즈 빌드 R8 난독화 위험 지점 전체 수정
 
 ### 목표

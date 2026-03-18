@@ -1,5 +1,8 @@
 package org.comon.streamlauncher.preset_market.ui
 
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -20,10 +23,13 @@ import coil.compose.AsyncImage
 import org.comon.streamlauncher.domain.model.preset.MarketPreset
 import org.comon.streamlauncher.preset_market.R
 
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun MarketPresetListItem(
     preset: MarketPreset,
     onClick: () -> Unit,
+    sharedTransitionScope: SharedTransitionScope,
+    animatedVisibilityScope: AnimatedVisibilityScope,
     modifier: Modifier = Modifier,
 ) {
     Card(
@@ -38,14 +44,20 @@ fun MarketPresetListItem(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // 썸네일
-            AsyncImage(
-                model = preset.thumbnailUrl.ifEmpty { null },
-                contentDescription = preset.name,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .size(80.dp)
-                    .clip(RoundedCornerShape(8.dp)),
-            )
+            with(sharedTransitionScope) {
+                AsyncImage(
+                    model = preset.thumbnailUrl.ifEmpty { null },
+                    contentDescription = preset.name,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .size(80.dp)
+                        .sharedBounds(
+                            sharedContentState = rememberSharedContentState(key = "preset-list-thumb-${preset.id}"),
+                            animatedVisibilityScope = animatedVisibilityScope,
+                        )
+                        .clip(RoundedCornerShape(8.dp)),
+                )
+            }
 
             // 정보 영역
             Column(

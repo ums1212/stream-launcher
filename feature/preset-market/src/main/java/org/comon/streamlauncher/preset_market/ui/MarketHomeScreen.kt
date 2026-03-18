@@ -35,6 +35,7 @@ import org.comon.streamlauncher.ui.component.GoogleSignInRequiredDialog
 @Composable
 fun MarketHomeScreen(
     onNavigateToDetail: (String) -> Unit,
+    onNavigateToDetailFromCard: (String) -> Unit,
     onNavigateToSearch: () -> Unit,
     onBack: () -> Unit,
     sharedTransitionScope: SharedTransitionScope,
@@ -175,13 +176,19 @@ fun MarketHomeScreen(
                 }
             }
 
-            // AdMob 배너
+            // AdMob 배너 (광고 로딩 전에도 고정 높이 확보 → 레이아웃 이동 방지)
             item {
-                AdmobBanner(
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 4.dp),
-                )
+                        .height(58.dp), // BANNER(50dp) + 수직 패딩 4dp×2
+                ) {
+                    AdmobBanner(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                    )
+                }
             }
 
             // 탭 (다운로드 / 좋아요)
@@ -210,7 +217,9 @@ fun MarketHomeScreen(
                 if (topPresets.isNotEmpty()) {
                     TopPresetPager(
                         presets = topPresets,
-                        onClick = { viewModel.handleIntent(PresetMarketIntent.ClickPreset(it)) },
+                        onClick = onNavigateToDetailFromCard,
+                        sharedTransitionScope = sharedTransitionScope,
+                        animatedVisibilityScope = animatedVisibilityScope,
                     )
                 } else if (state.isLoading) {
                     Box(
@@ -244,6 +253,8 @@ fun MarketHomeScreen(
                     MarketPresetListItem(
                         preset = preset,
                         onClick = { viewModel.handleIntent(PresetMarketIntent.ClickPreset(preset.id)) },
+                        sharedTransitionScope = sharedTransitionScope,
+                        animatedVisibilityScope = animatedVisibilityScope,
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                     )
                 }
@@ -253,10 +264,13 @@ fun MarketHomeScreen(
     } // with(sharedTransitionScope)
 }
 
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 private fun TopPresetPager(
     presets: List<MarketPreset>,
     onClick: (String) -> Unit,
+    sharedTransitionScope: SharedTransitionScope,
+    animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
     val pagerState = rememberPagerState { presets.size }
 
@@ -280,6 +294,8 @@ private fun TopPresetPager(
         MarketPresetCard(
             preset = presets[page],
             onClick = { onClick(presets[page].id) },
+            sharedTransitionScope = sharedTransitionScope,
+            animatedVisibilityScope = animatedVisibilityScope,
             rank = page + 1,
         )
     }

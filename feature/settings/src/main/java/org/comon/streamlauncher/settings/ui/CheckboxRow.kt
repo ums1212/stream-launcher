@@ -1,5 +1,6 @@
 package org.comon.streamlauncher.settings.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -22,6 +23,7 @@ internal fun CheckboxRow(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
+            .clickable { onCheckedChange(!checked) }
             .padding(vertical = 4.dp)
     ) {
         Checkbox(checked = checked, onCheckedChange = onCheckedChange)

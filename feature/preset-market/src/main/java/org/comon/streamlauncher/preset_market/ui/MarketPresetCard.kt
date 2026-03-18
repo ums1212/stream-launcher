@@ -1,5 +1,8 @@
 package org.comon.streamlauncher.preset_market.ui
 
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -21,17 +24,25 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import org.comon.streamlauncher.domain.model.preset.MarketPreset
 
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun MarketPresetCard(
     preset: MarketPreset,
     onClick: () -> Unit,
+    sharedTransitionScope: SharedTransitionScope,
+    animatedVisibilityScope: AnimatedVisibilityScope,
     modifier: Modifier = Modifier,
     rank: Int? = null,
 ) {
+    with(sharedTransitionScope) {
     Box(
         modifier = modifier
             .fillMaxWidth()
             .height(200.dp)
+            .sharedBounds(
+                sharedContentState = rememberSharedContentState(key = "preset-card-thumb-${preset.id}"),
+                animatedVisibilityScope = animatedVisibilityScope,
+            )
             .clip(RoundedCornerShape(16.dp))
             .clickable(onClick = onClick),
     ) {
@@ -141,4 +152,5 @@ fun MarketPresetCard(
             }
         }
     }
+    } // with(sharedTransitionScope)
 }

@@ -1,6 +1,9 @@
 package org.comon.streamlauncher.preset_market.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -39,10 +42,13 @@ import org.comon.streamlauncher.preset_market.*
 import org.comon.streamlauncher.preset_market.R
 import org.comon.streamlauncher.ui.component.GoogleSignInRequiredDialog
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class, ExperimentalSharedTransitionApi::class)
 @Composable
 fun PresetDetailScreen(
     onBack: () -> Unit,
+    sharedTransitionScope: SharedTransitionScope,
+    animatedVisibilityScope: AnimatedVisibilityScope,
+    fromCard: Boolean = false,
     modifier: Modifier = Modifier,
     onStartDownloadService: (String) -> Unit = {},
     onStopDownloadService: () -> Unit = {},
@@ -307,7 +313,9 @@ fun PresetDetailScreen(
                         .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    // 프리뷰 이미지 HorizontalPager
+                    val sharedKey = if (fromCard) "preset-card-thumb-${preset.id}" else "preset-list-thumb-${preset.id}"
+
+                    // 프리뷰 이미지 HorizontalPager (shared element 대상)
                     if (preset.previewImageUrls.isNotEmpty()) {
                         val pagerState = rememberPagerState { preset.previewImageUrls.size }
                         var fullScreenImageIndex by remember { mutableStateOf<Int?>(null) }
@@ -322,23 +330,29 @@ fun PresetDetailScreen(
                             }
                         }
 
-                        HorizontalPager(
-                            state = pagerState,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(240.dp),
-                        ) { page ->
-                            AsyncImage(
-                                model = preset.previewImageUrls[page],
-                                contentDescription = null,
-                                contentScale = ContentScale.Crop,
+                        with(sharedTransitionScope) {
+                            HorizontalPager(
+                                state = pagerState,
                                 modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(horizontal = 16.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .clickable { fullScreenImageIndex = page },
-                            )
-                        }
+                                    .fillMaxWidth()
+                                    .height(240.dp)
+                                    .sharedBounds(
+                                        sharedContentState = rememberSharedContentState(key = sharedKey),
+                                        animatedVisibilityScope = animatedVisibilityScope,
+                                    ),
+                            ) { page ->
+                                AsyncImage(
+                                    model = preset.previewImageUrls[page],
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(horizontal = 16.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .clickable { fullScreenImageIndex = page },
+                                )
+                            }
+                        } // with(sharedTransitionScope)
                         // 페이지 인디케이터
                         Row(
                             modifier = Modifier.fillMaxWidth(),

@@ -29,19 +29,26 @@ android {
             "WEB_CLIENT_ID",
             "\"${localProperties.getProperty("google.web.client.id", "")}\""
         )
-        buildConfigField(
-            "String",
-            "ADMOB_BANNER_ID",
-            "\"${localProperties.getProperty("admob.banner.id", "")}\""
-        )
     }
 
     buildTypes {
+        debug {
+            buildConfigField(
+                "String",
+                "ADMOB_BANNER_ID",
+                "\"${localProperties.getProperty("admob.banner.id.test", "")}\""
+            )
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
+            )
+            buildConfigField(
+                "String",
+                "ADMOB_BANNER_ID",
+                "\"${localProperties.getProperty("admob.banner.id", "")}\""
             )
         }
     }
