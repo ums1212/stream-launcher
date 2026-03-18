@@ -17,14 +17,14 @@ class SearchMarketPresetPagingSource(
 
     override suspend fun load(params: LoadParams<DocumentSnapshot>): LoadResult<DocumentSnapshot, MarketPreset> {
         return try {
-            val firstKeyword = query.lowercase().trim().split(" ").firstOrNull() ?: ""
-            if (firstKeyword.isEmpty()) {
+            val searchTerm = query.lowercase().trim().replace(" ", "")
+            if (searchTerm.isEmpty()) {
                 return LoadResult.Page(data = emptyList(), prevKey = null, nextKey = null)
             }
 
             val collection = firestore.collection("presets")
             var firestoreQuery = collection
-                .whereArrayContains("searchKeywords", firstKeyword)
+                .whereArrayContains("searchKeywords", searchTerm)
                 .orderBy("createdAt", Query.Direction.DESCENDING)
                 .limit(params.loadSize.toLong())
 
@@ -33,28 +33,15 @@ class SearchMarketPresetPagingSource(
             }
 
             val snapshot = firestoreQuery.get().await()
-            val allPresets = snapshot.documents.mapNotNull {
+            val presets = snapshot.documents.mapNotNull {
                 it.toObject(MarketPresetDto::class.java)?.toDomain()
-            }
-
-            // 복수 키워드 클라이언트 필터링
-            val extraKeywords = query.lowercase().trim().split(" ").drop(1).filter { it.isNotBlank() }
-            val filtered = if (extraKeywords.isEmpty()) {
-                allPresets
-            } else {
-                allPresets.filter { preset ->
-                    extraKeywords.all { kw ->
-                        preset.name.lowercase().contains(kw) ||
-                            preset.tags.any { tag -> tag.lowercase().contains(kw) }
-                    }
-                }
             }
 
             val nextKey = if (snapshot.documents.size < params.loadSize) null
             else snapshot.documents.lastOrNull()
 
             LoadResult.Page(
-                data = filtered,
+                data = presets,
                 prevKey = null,
                 nextKey = nextKey,
             )

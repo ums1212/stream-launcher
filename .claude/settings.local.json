@@ -66,7 +66,10 @@
       "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew :app:compileDebugKotlin 2>&1 | tail -15)",
       "Bash(handle.exe \"D:\\\\comon\\\\StreamLauncher\\\\feature\\\\settings\\\\build\\\\intermediates\\\\compile_library_classes_jar\\\\debug\\\\bundleLibCompileToJarDebug\\\\classes.jar\" 2>/dev/null || echo \"handle.exe not found\")",
       "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew :core:domain:compileKotlin :core:data:compileDebugKotlin :feature:settings:compileDebugKotlin :feature:preset-market:compileDebugKotlin)",
-      "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew :feature:settings:compileReleaseUnitTestKotlin)"
+      "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew :feature:settings:compileReleaseUnitTestKotlin)",
+      "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew assembleDebug test)",
+      "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew --stop)",
+      "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew :core:data:clean)"
     ]
   }
 }

@@ -148,7 +148,18 @@ fun MarketPreset.toDto(): MarketPresetDto = MarketPresetDto(
 )
 
 private fun buildSearchKeywords(name: String, tags: List<String>): List<String> {
-    val nameTokens = name.lowercase().split(" ").filter { it.isNotBlank() }
-    val tagTokens = tags.map { it.lowercase() }
-    return (nameTokens + tagTokens).distinct()
+    val nameNoSpaces = name.lowercase().replace(" ", "")
+    val tagTokens = tags.map { it.lowercase().replace(" ", "") }.filter { it.isNotBlank() }
+    val allTokens = (listOf(nameNoSpaces) + tagTokens).filter { it.isNotBlank() }
+    return allTokens.flatMap { generateSubstrings(it) }.distinct()
+}
+
+private fun generateSubstrings(token: String): List<String> {
+    val result = mutableListOf<String>()
+    for (start in token.indices) {
+        for (end in (start + 1)..token.length) {
+            result.add(token.substring(start, end))
+        }
+    }
+    return result
 }

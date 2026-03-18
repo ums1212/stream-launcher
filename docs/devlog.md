@@ -1,5 +1,32 @@
 # StreamLauncher 개발 로그
 
+---
+
+## [2026-03-18] feat(preset-market): 부분 검색(Substring Search) 구현
+
+### 목표
+
+- 프리셋 마켓에서 이름의 일부만 입력해도 검색 결과가 나오도록 개선
+- 기존 `buildSearchKeywords()`는 완전한 단어만 저장했고, `whereArrayContains`가 정확한 일치만 매칭하여 "다크 테마"를 "다"로 검색하면 결과가 나오지 않는 문제 해결
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `core/data/.../firestore/MarketPresetDto.kt` | `buildSearchKeywords()` 교체 — 공백 제거 후 모든 부분 문자열(substring) 생성; `generateSubstrings()` 헬퍼 추가 |
+| `core/data/.../paging/SearchMarketPresetPagingSource.kt` | 검색어 공백 제거 후 단일 `whereArrayContains` 쿼리로 단순화; 클라이언트 필터링 코드 제거 |
+| `core/data/.../repository/MarketPresetRepositoryImpl.kt` | `searchPresets()`를 PagingSource와 동일 로직으로 동기화; 클라이언트 필터링 코드 제거 |
+
+### 설계 결정 및 근거
+
+- **Substring 토큰 방식 채택**: Firestore는 `array-contains-any`로 OR 검색은 가능하지만 LIKE 연산이 없음. 업로드 시점에 모든 부분 문자열을 `searchKeywords` 배열에 사전 생성해두면 `whereArrayContains` 단일 쿼리로 전방/중방/후방 매칭을 모두 처리 가능
+- **공백 제거 기준 매칭**: "다크 테마"를 "다크테마"로 정규화하면 검색어 "크테"가 단어 경계를 넘어 매칭됨. 검색어도 동일하게 공백 제거하므로 "크 테"로 검색해도 "크테"로 매칭
+- **클라이언트 필터 제거**: 기존 복수 키워드 클라이언트 필터는 substring 토큰이 모든 경우를 포함하므로 불필요. 서버 단일 쿼리로 완결되어 네트워크 트래픽과 클라이언트 CPU 모두 절약
+- **쿼리 비용 동일**: `whereArrayContains`는 배열 크기와 무관하게 문서당 1회 읽기 — 토큰 수 증가가 Firestore 비용에 영향 없음
+- **기존 데이터 마이그레이션 필요**: 기존 업로드 문서는 완전한 단어만 저장되어 있으므로 Firebase Console 또는 Admin SDK 스크립트로 `searchKeywords` 필드 재생성 필요 (신규 업로드부터는 즉시 동작)
+
+---
+
 ## [2026-03-18] refactor(arch): Clean Architecture 위반 3건 수정 + README 작성
 
 ### 목표

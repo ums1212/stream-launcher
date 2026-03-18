@@ -121,9 +121,9 @@ class MarketPresetRepositoryImpl @Inject constructor(
         pageSize: Int,
         lastDocId: String?,
     ): Result<List<MarketPreset>> = runCatching {
-        val firstKeyword = query.lowercase().trim().split(" ").firstOrNull() ?: ""
+        val searchTerm = query.lowercase().trim().replace(" ", "")
         var q = presetsCollection
-            .whereArrayContains("searchKeywords", firstKeyword)
+            .whereArrayContains("searchKeywords", searchTerm)
             .orderBy("createdAt", Query.Direction.DESCENDING)
             .limit(pageSize.toLong())
 
@@ -132,21 +132,8 @@ class MarketPresetRepositoryImpl @Inject constructor(
             q = q.startAfter(lastDoc)
         }
 
-        val results = q.get().await().documents
+        q.get().await().documents
             .mapNotNull { it.toObject(MarketPresetDto::class.java)?.toDomain() }
-
-        // 복수 키워드 클라이언트 필터링
-        val extraKeywords = query.lowercase().trim().split(" ").drop(1).filter { it.isNotBlank() }
-        if (extraKeywords.isEmpty()) {
-            results
-        } else {
-            results.filter { preset ->
-                extraKeywords.all { kw ->
-                    preset.name.lowercase().contains(kw) ||
-                        preset.tags.any { tag -> tag.lowercase().contains(kw) }
-                }
-            }
-        }
     }
 
     override suspend fun uploadPreset(preset: MarketPreset): Result<String> = runCatching {
