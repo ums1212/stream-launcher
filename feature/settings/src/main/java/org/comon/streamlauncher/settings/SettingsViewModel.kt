@@ -6,7 +6,6 @@ import kotlinx.coroutines.launch
 import org.comon.streamlauncher.domain.model.GridCell
 import org.comon.streamlauncher.domain.model.GridCellImage
 import org.comon.streamlauncher.domain.model.preset.Preset
-import org.comon.streamlauncher.domain.model.preset.MarketPreset
 import org.comon.streamlauncher.domain.usecase.CheckNoticeUseCase
 import org.comon.streamlauncher.domain.usecase.DeletePresetUseCase
 import org.comon.streamlauncher.domain.usecase.DismissNoticeUseCase
@@ -25,7 +24,6 @@ import org.comon.streamlauncher.settings.upload.UploadDataHolder
 import org.comon.streamlauncher.settings.upload.UploadProgressTracker
 import org.comon.streamlauncher.settings.model.ImageType
 import org.comon.streamlauncher.ui.BaseViewModel
-import java.util.UUID
 import javax.inject.Inject
 
 @HiltViewModel
@@ -52,7 +50,6 @@ class SettingsViewModel @Inject constructor(
     private var pendingUploadIntent: SettingsIntent.UploadPreset? = null
     private var cachedMarketUser: MarketUser? = null
     private var pendingUploadLocalPresetId: Int = 0
-    private var pendingUploadMarketPresetId: String = ""
 
     init {
         viewModelScope.launch {
@@ -87,8 +84,8 @@ class SettingsViewModel @Inject constructor(
                 updateState { copy(uploadProgress = progress, pendingUploadPresetName = null) }
                 if (progress?.isCompleted == true) {
                     val localId = pendingUploadLocalPresetId
-                    val marketId = pendingUploadMarketPresetId
-                    if (localId != 0 && marketId.isNotEmpty()) {
+                    val marketId = progress.marketPresetId
+                    if (localId != 0 && marketId != null) {
                         updateMarketPresetIdUseCase(localId, marketId)
                     }
                     sendEffect(SettingsSideEffect.UploadSuccess)
@@ -133,7 +130,6 @@ class SettingsViewModel @Inject constructor(
         uploadProgressTracker.clear()
         updateState { copy(uploadProgress = null, pendingUploadPresetName = null) }
         pendingUploadLocalPresetId = 0
-        pendingUploadMarketPresetId = ""
         sendEffect(SettingsSideEffect.StopUploadService)
     }
 
@@ -298,52 +294,18 @@ class SettingsViewModel @Inject constructor(
         }
         pendingUploadIntent = null
 
-        val authorUser = cachedMarketUser
         val p = intent.preset
-        val marketPresetId = UUID.randomUUID().toString()
         pendingUploadLocalPresetId = p.id
-        pendingUploadMarketPresetId = marketPresetId
-        val marketPreset = MarketPreset(
-            id = marketPresetId,
-            authorUid = authorUser?.uid ?: "",
-            authorDisplayName = authorUser?.displayName ?: "",
-            name = p.name,
-            description = intent.description,
-            tags = intent.tags,
-            hasTopLeftImage = p.hasTopLeftImage,
-            hasTopRightImage = p.hasTopRightImage,
-            hasBottomLeftImage = p.hasBottomLeftImage,
-            hasBottomRightImage = p.hasBottomRightImage,
-            topLeftIdleUrl      = p.topLeftIdleUri,
-            topLeftExpandedUrl  = p.topLeftExpandedUri,
-            topRightIdleUrl     = p.topRightIdleUri,
-            topRightExpandedUrl = p.topRightExpandedUri,
-            bottomLeftIdleUrl      = p.bottomLeftIdleUri,
-            bottomLeftExpandedUrl  = p.bottomLeftExpandedUri,
-            bottomRightIdleUrl     = p.bottomRightIdleUri,
-            bottomRightExpandedUrl = p.bottomRightExpandedUri,
-            hasFeedSettings = p.hasFeedSettings,
-            useFeed = p.useFeed,
-            youtubeChannelId = p.youtubeChannelId,
-            chzzkChannelId = p.chzzkChannelId,
-            hasAppDrawerSettings = p.hasAppDrawerSettings,
-            appDrawerColumns = p.appDrawerColumns,
-            appDrawerRows = p.appDrawerRows,
-            appDrawerIconSizeRatio = p.appDrawerIconSizeRatio,
-            hasWallpaperSettings = p.hasWallpaperSettings,
-            wallpaperUrl = p.wallpaperUri,
-            enableParallax = p.enableParallax,
-            hasThemeSettings = p.hasThemeSettings,
-            themeColorHex = p.themeColorHex,
-        )
 
-        // 데이터 홀더에 preset 저장 후 서비스 시작 요청
-        uploadDataHolder.pendingPreset = marketPreset
+        // 데이터 홀더에 로컬 preset + 메타데이터 저장 후 서비스 시작 요청
+        uploadDataHolder.pendingPreset = p
         uploadDataHolder.pendingPreviewUris = intent.previewUris
+        uploadDataHolder.pendingDescription = intent.description
+        uploadDataHolder.pendingTags = intent.tags
 
-        updateState { copy(pendingUploadPresetName = marketPreset.name) }
+        updateState { copy(pendingUploadPresetName = p.name) }
 
-        sendEffect(SettingsSideEffect.StartUploadService(marketPreset.name))
-        sendEffect(SettingsSideEffect.UploadStarted(marketPreset.name))
+        sendEffect(SettingsSideEffect.StartUploadService(p.name))
+        sendEffect(SettingsSideEffect.UploadStarted(p.name))
     }
 }

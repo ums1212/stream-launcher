@@ -1,6 +1,7 @@
 package org.comon.streamlauncher.domain.repository
 
 import org.comon.streamlauncher.domain.model.preset.MarketPreset
+import org.comon.streamlauncher.domain.model.preset.Preset
 
 data class PackedPresetResult(
     val slpFilePath: String,
@@ -8,6 +9,14 @@ data class PackedPresetResult(
 )
 
 interface PresetPackager {
-    fun packPreset(preset: MarketPreset, previewUris: List<String>, presetId: String): PackedPresetResult
+    fun packPreset(
+        localPreset: Preset,
+        previewUris: List<String>,
+        presetId: String,
+        description: String = "",
+        tags: List<String> = emptyList(),
+        authorUid: String = "",
+        authorDisplayName: String = "",
+    ): PackedPresetResult
     fun deleteTempFile(filePath: String)
 }

@@ -36,6 +36,8 @@ class PresetUploadService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val preset = uploadDataHolder.pendingPreset
         val previewUris = uploadDataHolder.pendingPreviewUris
+        val description = uploadDataHolder.pendingDescription
+        val tags = uploadDataHolder.pendingTags
 
         if (preset == null) {
             showErrorNotification("업로드 실패", "업로드 데이터를 찾을 수 없습니다")
@@ -58,7 +60,7 @@ class PresetUploadService : Service() {
         }
 
         scope.launch {
-            uploadPresetToMarketUseCase.uploadWithProgress(preset, previewUris)
+            uploadPresetToMarketUseCase.uploadWithProgress(preset, previewUris, description, tags)
                 .collect { progress ->
                     progressTracker.awaitResume()
                     progressTracker.update(progress)

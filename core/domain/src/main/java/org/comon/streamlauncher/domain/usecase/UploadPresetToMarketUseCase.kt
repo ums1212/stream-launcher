@@ -2,7 +2,7 @@ package org.comon.streamlauncher.domain.usecase
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
-import org.comon.streamlauncher.domain.model.preset.MarketPreset
+import org.comon.streamlauncher.domain.model.preset.Preset
 import org.comon.streamlauncher.domain.model.preset.UploadProgress
 import org.comon.streamlauncher.domain.repository.MarketPresetRepository
 import org.comon.streamlauncher.domain.repository.PresetPackager
@@ -21,14 +21,17 @@ class UploadPresetToMarketUseCase @Inject constructor(
     private val packager: PresetPackager,
 ) {
     suspend operator fun invoke(
-        preset: MarketPreset,
+        localPreset: Preset,
         previewUris: List<String> = emptyList(),
+        description: String = "",
+        tags: List<String> = emptyList(),
     ): Result<String> = runCatching {
-        val uid = repository.getCurrentUser()?.uid ?: error("로그인이 필요합니다")
-        val presetId = preset.id.ifEmpty { UUID.randomUUID().toString() }
+        val user = repository.getCurrentUser() ?: error("로그인이 필요합니다")
+        val uid = user.uid
+        val presetId = UUID.randomUUID().toString()
 
         // 1. .slp 패킹
-        val packed = packager.packPreset(preset, previewUris, presetId)
+        val packed = packager.packPreset(localPreset, previewUris, presetId, description, tags, uid, user.displayName)
 
         try {
             // 2. .slp Storage 업로드
@@ -36,12 +39,7 @@ class UploadPresetToMarketUseCase @Inject constructor(
             val slpStorageUrl = repository.uploadSlpFile(packed.slpFilePath, storagePath).getOrThrow()
 
             // 3. 썸네일 업로드 (목록 표시용)
-            val thumbnailUri = previewUris.firstOrNull()
-                ?: listOfNotNull(
-                    preset.topLeftIdleUrl, preset.topRightIdleUrl,
-                    preset.bottomLeftIdleUrl, preset.bottomRightIdleUrl,
-                ).firstOrNull { !it.startsWith("http") }
-            val thumbnailUrl = thumbnailUri?.let {
+            val thumbnailUrl = previewUris.firstOrNull()?.let {
                 repository.uploadImage(it, "presets/$uid/$presetId/thumbnail.webp", maxWidth = 480, quality = 70).getOrNull()
             } ?: ""
 
@@ -63,19 +61,22 @@ class UploadPresetToMarketUseCase @Inject constructor(
     }
 
     fun uploadWithProgress(
-        preset: MarketPreset,
+        localPreset: Preset,
         previewUris: List<String> = emptyList(),
+        description: String = "",
+        tags: List<String> = emptyList(),
     ): Flow<UploadProgress> = flow {
-        val presetName = preset.name
+        val presetName = localPreset.name
         val totalSteps = 3
         var completed = 0
 
         try {
-            val uid = repository.getCurrentUser()?.uid ?: error("로그인이 필요합니다")
-            val presetId = preset.id.ifEmpty { UUID.randomUUID().toString() }
+            val user = repository.getCurrentUser() ?: error("로그인이 필요합니다")
+            val uid = user.uid
+            val presetId = UUID.randomUUID().toString()
 
             // Step 1: 패킹
-            val packed = packager.packPreset(preset, previewUris, presetId)
+            val packed = packager.packPreset(localPreset, previewUris, presetId, description, tags, uid, user.displayName)
             emit(UploadProgress(presetName, ++completed, totalSteps))
 
             try {
@@ -85,12 +86,7 @@ class UploadPresetToMarketUseCase @Inject constructor(
                 emit(UploadProgress(presetName, ++completed, totalSteps))
 
                 // Step 3: 썸네일 업로드 + Firestore 문서
-                val thumbnailUri = previewUris.firstOrNull()
-                    ?: listOfNotNull(
-                        preset.topLeftIdleUrl, preset.topRightIdleUrl,
-                        preset.bottomLeftIdleUrl, preset.bottomRightIdleUrl,
-                    ).firstOrNull { !it.startsWith("http") }
-                val thumbnailUrl = thumbnailUri?.let {
+                val thumbnailUrl = previewUris.firstOrNull()?.let {
                     repository.uploadImage(it, "presets/$uid/$presetId/thumbnail.webp", maxWidth = 480, quality = 70).getOrNull()
                 } ?: ""
 
@@ -106,13 +102,13 @@ class UploadPresetToMarketUseCase @Inject constructor(
                 )
                 repository.uploadPreset(finalPreset).getOrThrow()
 
-                emit(UploadProgress(presetName, totalSteps, totalSteps, isCompleted = true))
+                emit(UploadProgress(presetName, totalSteps, totalSteps, isCompleted = true, marketPresetId = presetId))
             } finally {
                 packager.deleteTempFile(packed.slpFilePath)
             }
-        } catch (e: UnknownHostException) {
+        } catch (_: UnknownHostException) {
             emit(UploadProgress(presetName, completed, totalSteps, error = "네트워크 연결을 확인하세요"))
-        } catch (e: IOException) {
+        } catch (_: IOException) {
             emit(UploadProgress(presetName, completed, totalSteps, error = "네트워크 연결을 확인하세요"))
         } catch (e: Exception) {
             emit(UploadProgress(presetName, completed, totalSteps, error = e.message ?: "업로드 실패"))

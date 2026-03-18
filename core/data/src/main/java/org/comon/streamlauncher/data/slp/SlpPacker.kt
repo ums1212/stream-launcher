@@ -4,14 +4,14 @@ import android.content.Context
 import androidx.core.net.toUri
 import kotlinx.serialization.json.Json
 import org.comon.streamlauncher.data.util.ImageCompressor
-import org.comon.streamlauncher.domain.model.preset.MarketPreset
+import org.comon.streamlauncher.domain.model.preset.Preset
 import java.io.File
 import java.util.zip.CRC32
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
 /**
- * MarketPreset(로컬 URI 포함) + 프리뷰 URI 목록 → 단일 .slp 파일 생성
+ * Preset(로컬 URI 포함) + 프리뷰 URI 목록 → 단일 .slp 파일 생성
  *
  * .slp 구조:
  *   manifest.json  (DEFLATED)
@@ -22,18 +22,26 @@ object SlpPacker {
 
     /**
      * @param context  ContentResolver 접근용
-     * @param preset   로컬 URI/경로가 담긴 MarketPreset
+     * @param preset   로컬 URI/경로가 담긴 Preset
      * @param previewUris  프리뷰 이미지 URI 목록
      * @param outDir   .slp 파일을 저장할 디렉토리 (보통 cacheDir/slp_temp)
-     * @param presetId 파일명 및 manifest authorUid 용
+     * @param presetId 파일명용
+     * @param description  마켓 설명
+     * @param tags         마켓 태그
+     * @param authorUid    업로더 UID
+     * @param authorDisplayName  업로더 표시 이름
      * @return 생성된 .slp File
      */
     fun pack(
         context: Context,
-        preset: MarketPreset,
+        preset: Preset,
         previewUris: List<String>,
         outDir: File,
         presetId: String,
+        description: String = "",
+        tags: List<String> = emptyList(),
+        authorUid: String = "",
+        authorDisplayName: String = "",
     ): File {
         outDir.mkdirs()
         val outFile = File(outDir, "$presetId.slp")
@@ -41,7 +49,7 @@ object SlpPacker {
         val imageEntries = buildImageEntries(preset)
         val previewEntries = previewUris.mapIndexed { i, uri -> "previews/preview_$i.webp" to uri }
 
-        val manifest = buildManifest(preset, previewUris)
+        val manifest = buildManifest(preset, previewUris, description, tags, authorUid, authorDisplayName)
 
         ZipOutputStream(outFile.outputStream().buffered()).use { zos ->
             // manifest.json — DEFLATED
@@ -74,24 +82,31 @@ object SlpPacker {
      * [pack] 에서 내부적으로 사용하는 manifest 빌드 로직을 외부에서도 쓸 수 있도록 공개
      * (PresetPackagerImpl 에서 toMarketPreset 변환용으로 사용)
      */
-    fun buildManifest(preset: MarketPreset, previewUris: List<String>): SlpManifest {
+    fun buildManifest(
+        preset: Preset,
+        previewUris: List<String>,
+        description: String = "",
+        tags: List<String> = emptyList(),
+        authorUid: String = "",
+        authorDisplayName: String = "",
+    ): SlpManifest {
         val previewPaths = previewUris.mapIndexed { i, _ -> "previews/preview_$i.webp" }
         return SlpManifest(
             name              = preset.name,
-            description       = preset.description,
-            tags              = preset.tags,
-            authorUid         = preset.authorUid,
-            authorDisplayName = preset.authorDisplayName,
+            description       = description,
+            tags              = tags,
+            authorUid         = authorUid,
+            authorDisplayName = authorDisplayName,
             images = SlpImagePaths(
-                topLeftIdle         = if (preset.topLeftIdleUrl.isLocalUri()) "images/top_left_idle.webp" else null,
-                topLeftExpanded     = if (preset.topLeftExpandedUrl.isLocalUri()) "images/top_left_expanded.webp" else null,
-                topRightIdle        = if (preset.topRightIdleUrl.isLocalUri()) "images/top_right_idle.webp" else null,
-                topRightExpanded    = if (preset.topRightExpandedUrl.isLocalUri()) "images/top_right_expanded.webp" else null,
-                bottomLeftIdle      = if (preset.bottomLeftIdleUrl.isLocalUri()) "images/bottom_left_idle.webp" else null,
-                bottomLeftExpanded  = if (preset.bottomLeftExpandedUrl.isLocalUri()) "images/bottom_left_expanded.webp" else null,
-                bottomRightIdle     = if (preset.bottomRightIdleUrl.isLocalUri()) "images/bottom_right_idle.webp" else null,
-                bottomRightExpanded = if (preset.bottomRightExpandedUrl.isLocalUri()) "images/bottom_right_expanded.webp" else null,
-                wallpaper           = if (preset.wallpaperUrl.isLocalUri()) "images/wallpaper.webp" else null,
+                topLeftIdle         = preset.topLeftIdleUri?.takeIf { it.isLocalUri() }?.let { "images/top_left_idle.webp" },
+                topLeftExpanded     = preset.topLeftExpandedUri?.takeIf { it.isLocalUri() }?.let { "images/top_left_expanded.webp" },
+                topRightIdle        = preset.topRightIdleUri?.takeIf { it.isLocalUri() }?.let { "images/top_right_idle.webp" },
+                topRightExpanded    = preset.topRightExpandedUri?.takeIf { it.isLocalUri() }?.let { "images/top_right_expanded.webp" },
+                bottomLeftIdle      = preset.bottomLeftIdleUri?.takeIf { it.isLocalUri() }?.let { "images/bottom_left_idle.webp" },
+                bottomLeftExpanded  = preset.bottomLeftExpandedUri?.takeIf { it.isLocalUri() }?.let { "images/bottom_left_expanded.webp" },
+                bottomRightIdle     = preset.bottomRightIdleUri?.takeIf { it.isLocalUri() }?.let { "images/bottom_right_idle.webp" },
+                bottomRightExpanded = preset.bottomRightExpandedUri?.takeIf { it.isLocalUri() }?.let { "images/bottom_right_expanded.webp" },
+                wallpaper           = preset.wallpaperUri?.takeIf { it.isLocalUri() }?.let { "images/wallpaper.webp" },
             ),
             previews  = previewPaths,
             cellFlags = SlpCellFlags(
@@ -125,17 +140,17 @@ object SlpPacker {
 
     // ---------- internal ----------
 
-    private fun buildImageEntries(preset: MarketPreset): List<Pair<String, String>> =
+    private fun buildImageEntries(preset: Preset): List<Pair<String, String>> =
         listOfNotNull(
-            preset.topLeftIdleUrl?.takeIf { it.isLocalUri() }?.let { "images/top_left_idle.webp" to it },
-            preset.topLeftExpandedUrl?.takeIf { it.isLocalUri() }?.let { "images/top_left_expanded.webp" to it },
-            preset.topRightIdleUrl?.takeIf { it.isLocalUri() }?.let { "images/top_right_idle.webp" to it },
-            preset.topRightExpandedUrl?.takeIf { it.isLocalUri() }?.let { "images/top_right_expanded.webp" to it },
-            preset.bottomLeftIdleUrl?.takeIf { it.isLocalUri() }?.let { "images/bottom_left_idle.webp" to it },
-            preset.bottomLeftExpandedUrl?.takeIf { it.isLocalUri() }?.let { "images/bottom_left_expanded.webp" to it },
-            preset.bottomRightIdleUrl?.takeIf { it.isLocalUri() }?.let { "images/bottom_right_idle.webp" to it },
-            preset.bottomRightExpandedUrl?.takeIf { it.isLocalUri() }?.let { "images/bottom_right_expanded.webp" to it },
-            preset.wallpaperUrl?.takeIf { it.isLocalUri() }?.let { "images/wallpaper.webp" to it },
+            preset.topLeftIdleUri?.takeIf { it.isLocalUri() }?.let { "images/top_left_idle.webp" to it },
+            preset.topLeftExpandedUri?.takeIf { it.isLocalUri() }?.let { "images/top_left_expanded.webp" to it },
+            preset.topRightIdleUri?.takeIf { it.isLocalUri() }?.let { "images/top_right_idle.webp" to it },
+            preset.topRightExpandedUri?.takeIf { it.isLocalUri() }?.let { "images/top_right_expanded.webp" to it },
+            preset.bottomLeftIdleUri?.takeIf { it.isLocalUri() }?.let { "images/bottom_left_idle.webp" to it },
+            preset.bottomLeftExpandedUri?.takeIf { it.isLocalUri() }?.let { "images/bottom_left_expanded.webp" to it },
+            preset.bottomRightIdleUri?.takeIf { it.isLocalUri() }?.let { "images/bottom_right_idle.webp" to it },
+            preset.bottomRightExpandedUri?.takeIf { it.isLocalUri() }?.let { "images/bottom_right_expanded.webp" to it },
+            preset.wallpaperUri?.takeIf { it.isLocalUri() }?.let { "images/wallpaper.webp" to it },
         )
 
     private fun compressUri(context: Context, uri: String): ByteArray =

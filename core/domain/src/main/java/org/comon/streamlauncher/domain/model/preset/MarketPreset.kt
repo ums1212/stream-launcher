@@ -7,46 +7,23 @@ data class MarketPreset(
     val name: String = "",
     val description: String = "",
     val tags: List<String> = emptyList(),
-    val schemaVersion: Int = 1,
+    val schemaVersion: Int = 2,
     val previewImageUrls: List<String> = emptyList(),
     val thumbnailUrl: String = "",
     val downloadCount: Int = 0,
     val likeCount: Int = 0,
 
-    // 1. Home Image Settings (Storage URL 기반)
+    // Home Image flags (UI 칩 표시 + applySettings 결정)
     val hasTopLeftImage: Boolean = false,
     val hasTopRightImage: Boolean = false,
     val hasBottomLeftImage: Boolean = false,
     val hasBottomRightImage: Boolean = false,
-    val topLeftIdleUrl: String? = null,
-    val topLeftExpandedUrl: String? = null,
-    val topRightIdleUrl: String? = null,
-    val topRightExpandedUrl: String? = null,
-    val bottomLeftIdleUrl: String? = null,
-    val bottomLeftExpandedUrl: String? = null,
-    val bottomRightIdleUrl: String? = null,
-    val bottomRightExpandedUrl: String? = null,
 
-    // 2. Feed Settings
+    // Settings flags (UI 칩 표시 + applySettings 결정)
     val hasFeedSettings: Boolean = false,
-    val useFeed: Boolean = false,
-    val youtubeChannelId: String = "",
-    val chzzkChannelId: String = "",
-
-    // 3. App Drawer Settings
     val hasAppDrawerSettings: Boolean = false,
-    val appDrawerColumns: Int = 4,
-    val appDrawerRows: Int = 6,
-    val appDrawerIconSizeRatio: Float = 1.0f,
-
-    // 4. Wallpaper Settings (Storage URL 기반)
     val hasWallpaperSettings: Boolean = false,
-    val wallpaperUrl: String? = null,
-    val enableParallax: Boolean = false,
-
-    // 5. Theme Color Settings
     val hasThemeSettings: Boolean = false,
-    val themeColorHex: String? = null,
 
     // .slp 포맷 (schemaVersion=2) — Storage에 업로드된 단일 압축 파일 URL
     val slpStorageUrl: String? = null,

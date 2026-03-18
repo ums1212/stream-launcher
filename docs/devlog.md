@@ -2,6 +2,47 @@
 
 ---
 
+## [2026-03-19] refactor(preset-market): MarketPreset / MarketPresetDto V1 레거시 제거 및 필드 정리
+
+### 목표
+
+- `.slp` 포맷(schemaVersion=2)이 도입된 이후 더 이상 사용되지 않는 V1 전용 필드(개별 이미지 URL 9개 + 설정값 8개 = 17개) 삭제
+- V1 다운로드 경로(`invokeV1`, `downloadLegacyImages`) 제거
+- `SlpPacker` 입력 타입을 `MarketPreset` → `Preset`(로컬)으로 변경해 업로드 흐름을 명확히 분리
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `core/domain/.../model/preset/MarketPreset.kt` | 17개 필드 삭제 (`topLeft*Url`, `topRight*Url`, `bottomLeft*Url`, `bottomRight*Url`, `wallpaperUrl`, `useFeed`, `youtubeChannelId`, `chzzkChannelId`, `appDrawerColumns`, `appDrawerRows`, `appDrawerIconSizeRatio`, `enableParallax`, `themeColorHex`). `schemaVersion` 기본값 1→2 |
+| `core/data/.../firestore/MarketPresetDto.kt` | 동일 17개 필드 삭제. `toDomain()` / `toDto()` 매핑 간소화. `schemaVersion` 기본값 1→2 |
+| `core/domain/.../repository/PresetUnpackager.kt` | `downloadLegacyImages()` 인터페이스 메서드 삭제 |
+| `core/data/.../slp/PresetUnpackagerImpl.kt` | `downloadLegacyImages()` 구현 삭제. 불필요한 `Preset` import 제거 |
+| `core/domain/.../usecase/DownloadMarketPresetUseCase.kt` | `invokeV1()` / `downloadWithProgressV1()` 삭제. `invoke()` / `downloadWithProgress()` 단일 V2 경로로 통합. `applySettings(marketPreset, localPreset)` → `applySettings(localPreset)` (boolean flags를 localPreset에서 읽음) |
+| `core/data/.../slp/SlpMapper.kt` | `toMarketPreset()`: 설정값 8개 필드 매핑 제거 (boolean flags 유지) |
+| `core/domain/.../model/preset/UploadProgress.kt` | `marketPresetId: String? = null` 필드 추가 — 업로드 완료 시 생성된 ID를 ViewModel에 전달 |
+| `core/data/.../slp/SlpPacker.kt` | 입력 타입 `MarketPreset` → `Preset`. `buildManifest()` / `pack()` 에 `description`, `tags`, `authorUid`, `authorDisplayName` 파라미터 추가. 이미지 키 참조 `topLeftIdleUrl` → `topLeftIdleUri` 등으로 변경 |
+| `core/domain/.../repository/PresetPackager.kt` | `packPreset()` 시그니처 변경: `MarketPreset` → `Preset` + metadata 파라미터 |
+| `core/data/.../slp/PresetPackagerImpl.kt` | 변경된 `packPreset()` 시그니처에 맞춰 구현 업데이트 |
+| `core/domain/.../usecase/UploadPresetToMarketUseCase.kt` | 입력 타입 `MarketPreset` → `Preset`. `description`, `tags` 파라미터 추가. 사용자 정보(`uid`, `displayName`)를 `getCurrentUser()`로 직접 조회. 완료 이벤트에 `marketPresetId` 포함 |
+| `feature/settings/.../upload/UploadDataHolder.kt` | `pendingPreset` 타입 `MarketPreset` → `Preset`. `pendingDescription`, `pendingTags` 필드 추가 |
+| `feature/settings/.../SettingsViewModel.kt` | `uploadPreset()`: `MarketPreset` 생성 제거 → 로컬 `Preset` 직접 저장. `pendingUploadMarketPresetId` 제거 → `UploadProgress.marketPresetId`에서 읽음. 불필요한 `UUID`, `MarketPreset` import 제거 |
+| `app/.../service/PresetUploadService.kt` | `UploadDataHolder`에서 `description`, `tags` 추가 로드 → `uploadWithProgress()` 전달 |
+
+### 검증결과
+
+- `assembleDebug` BUILD SUCCESSFUL
+- `./gradlew test` BUILD SUCCESSFUL (실패 0건)
+- `MarketPreset` / `MarketPresetDto`에서 17개 V1 필드 grep 결과 0건 확인
+
+### 설계결정 및 근거
+
+- **SlpPacker 입력 타입 변경**: `MarketPreset`이 이미지 URL을 들고 다니는 패턴은 "마켓 메타데이터 모델이 로컬 파일 경로를 오염"시키는 구조였음. `Preset`(로컬)이 이미지/설정값을 갖고, `MarketPreset`은 Firestore 문서 표현에만 집중하도록 책임 분리
+- **UploadProgress.marketPresetId**: 업로드 사용 케이스 내부에서 UUID를 생성하므로 ViewModel이 외부에서 ID를 예측할 수 없음. 완료 이벤트에 ID를 실어서 ViewModel이 로컬 preset과 시장 preset을 연결(`updateMarketPresetIdUseCase`)할 수 있도록 함
+- **boolean flags 유지**: `hasTopLeftImage` 등의 flags는 다운로드 전 UI 칩 표시와 `applySettings` 분기에 계속 사용되므로 제거 대상에서 제외
+
+---
+
 ## [2026-03-18] feat(preset-market): 유저 정보 화면 추가
 
 ### 목표
