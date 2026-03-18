@@ -37,6 +37,7 @@ fun MarketHomeScreen(
     onNavigateToDetail: (String) -> Unit,
     onNavigateToDetailFromCard: (String) -> Unit,
     onNavigateToSearch: () -> Unit,
+    onNavigateToUserInfo: () -> Unit,
     onBack: () -> Unit,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
@@ -47,7 +48,6 @@ fun MarketHomeScreen(
     val recentPresets = viewModel.recentPresetsPaging.collectAsLazyPagingItems()
     var showSignIn by remember { mutableStateOf(false) }
     var showSignInDialog by remember { mutableStateOf(false) }
-    var showSignOutDialog by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
@@ -58,6 +58,7 @@ fun MarketHomeScreen(
             when (effect) {
                 is PresetMarketSideEffect.NavigateToDetail -> onNavigateToDetail(effect.presetId)
                 is PresetMarketSideEffect.NavigateToSearch -> onNavigateToSearch()
+                is PresetMarketSideEffect.NavigateToUserInfo -> onNavigateToUserInfo()
                 is PresetMarketSideEffect.ShowError -> snackbarHostState.showSnackbar(effect.message)
                 is PresetMarketSideEffect.RequireSignIn -> showSignInDialog = true
                 is PresetMarketSideEffect.SignInSuccess -> snackbarHostState.showSnackbar(signInSuccessMessage)
@@ -72,29 +73,6 @@ fun MarketHomeScreen(
                 showSignIn = true
             },
             onDismiss = { showSignInDialog = false },
-        )
-    }
-
-    if (showSignOutDialog) {
-        AlertDialog(
-            onDismissRequest = { showSignOutDialog = false },
-            title = { Text(stringResource(R.string.preset_market_logout)) },
-            text = { Text(stringResource(R.string.preset_market_logout_confirm)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showSignOutDialog = false
-                        viewModel.handleIntent(PresetMarketIntent.SignOut)
-                    }
-                ) {
-                    Text(stringResource(R.string.preset_market_logout))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showSignOutDialog = false }) {
-                    Text(stringResource(R.string.cancel))
-                }
-            },
         )
     }
 
@@ -126,8 +104,8 @@ fun MarketHomeScreen(
                 },
                 actions = {
                     if (state.currentUser != null) {
-                        IconButton(onClick = { showSignOutDialog = true }) {
-                            Icon(Icons.Default.AccountCircle, contentDescription = stringResource(R.string.preset_market_logout))
+                        IconButton(onClick = { viewModel.handleIntent(PresetMarketIntent.NavigateToUserInfo) }) {
+                            Icon(Icons.Default.AccountCircle, contentDescription = stringResource(R.string.preset_market_user_info_title))
                         }
                     } else {
                         IconButton(onClick = { showSignInDialog = true }) {

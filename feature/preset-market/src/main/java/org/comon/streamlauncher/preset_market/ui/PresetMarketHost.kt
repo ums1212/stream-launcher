@@ -16,6 +16,7 @@ import androidx.navigation.toRoute
 import org.comon.streamlauncher.preset_market.navigation.MarketDetail
 import org.comon.streamlauncher.preset_market.navigation.MarketHome
 import org.comon.streamlauncher.preset_market.navigation.MarketSearch
+import org.comon.streamlauncher.preset_market.navigation.MarketUserInfo
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
@@ -42,6 +43,7 @@ fun PresetMarketHost(
                     onNavigateToDetail = { navController.navigate(MarketDetail(presetId = it, fromCard = false)) },
                     onNavigateToDetailFromCard = { navController.navigate(MarketDetail(presetId = it, fromCard = true)) },
                     onNavigateToSearch = { navController.navigate(MarketSearch()) },
+                    onNavigateToUserInfo = { navController.navigate(MarketUserInfo) },
                     onBack = onBack,
                     sharedTransitionScope = sharedTransitionScope,
                     animatedVisibilityScope = this,
@@ -76,6 +78,17 @@ fun PresetMarketHost(
                     fromCard = route.fromCard,
                     onStartDownloadService = onStartDownloadService,
                     onStopDownloadService = onStopDownloadService,
+                )
+            }
+            composable<MarketUserInfo>(
+                enterTransition = { slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(300)) },
+                exitTransition = { slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(300)) },
+                popEnterTransition = { slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(300)) },
+                popExitTransition = { slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(300)) },
+            ) {
+                PresetMarketUserInfoScreen(
+                    onBack = { navController.popBackStack() },
+                    onNavigateToDetail = { navController.navigate(MarketDetail(presetId = it)) },
                 )
             }
         }

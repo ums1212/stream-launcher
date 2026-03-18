@@ -46,4 +46,8 @@
     <string name="preset_market_cancel_download_resume">Resume</string>
     <string name="preset_market_unsupported_auth">Unsupported authentication method.</string>
     <string name="preset_market_sign_in_error">Sign in failed: %s</string>
+    <string name="preset_market_user_info_title">My Profile</string>
+    <string name="preset_market_my_presets">My Uploaded Presets</string>
+    <string name="preset_market_no_presets">No uploaded presets</string>
+    <string name="preset_market_logout_success">Signed out</string>
 </resources>

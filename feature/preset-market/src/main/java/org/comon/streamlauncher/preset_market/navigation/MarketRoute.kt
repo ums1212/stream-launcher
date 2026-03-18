@@ -12,3 +12,6 @@ data class MarketDetail(val presetId: String, val fromCard: Boolean = false): Ma
 
 @Serializable
 data class MarketSearch(val query: String = ""): MarketRoute
+
+@Serializable
+object MarketUserInfo: MarketRoute

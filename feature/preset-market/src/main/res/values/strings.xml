@@ -46,4 +46,8 @@
     <string name="preset_market_cancel_download_resume">계속</string>
     <string name="preset_market_unsupported_auth">지원하지 않는 인증 방식입니다.</string>
     <string name="preset_market_sign_in_error">로그인에 실패했습니다: %s</string>
+    <string name="preset_market_user_info_title">내 정보</string>
+    <string name="preset_market_my_presets">내가 업로드한 프리셋</string>
+    <string name="preset_market_no_presets">업로드한 프리셋이 없습니다</string>
+    <string name="preset_market_logout_success">로그아웃되었습니다</string>
 </resources>

@@ -2,6 +2,40 @@
 
 ---
 
+## [2026-03-18] feat(preset-market): 유저 정보 화면 추가
+
+### 목표
+
+- MarketHomeScreen 상단바 AccountCircle 클릭 시 로그아웃 다이얼로그 대신 유저 정보 화면으로 네비게이션
+- 유저 프로필(이름, 이메일, 아바타) + 업로드한 프리셋 목록을 보여주는 새 화면 구현
+- portrait/landscape 레이아웃 자동 전환
+
+### 변경사항
+
+- `core/domain/.../repository/MarketPresetRepository.kt`: `getPresetsByAuthor(uid)` 메서드 추가
+- `core/domain/.../usecase/GetUserPresetsUseCase.kt` (신규): `getPresetsByAuthor` 호출
+- `core/data/.../repository/MarketPresetRepositoryImpl.kt`: `getPresetsByAuthor` 구현 (Firestore whereEqualTo + orderBy createdAt DESC)
+- `feature/preset-market/.../navigation/MarketRoute.kt`: `MarketUserInfo` object 추가
+- `feature/preset-market/.../PresetMarketUserInfoContract.kt` (신규): State/Intent/SideEffect
+- `feature/preset-market/.../PresetMarketUserInfoViewModel.kt` (신규): GetCurrentMarketUserUseCase, GetUserPresetsUseCase, SignOutUseCase 주입
+- `feature/preset-market/.../ui/PresetMarketUserInfoScreen.kt` (신규): portrait(LazyColumn)/landscape(Row) 분기 레이아웃
+- `feature/preset-market/.../ui/PresetMarketHost.kt`: MarketUserInfo composable 추가 (slide 트랜지션)
+- `feature/preset-market/.../PresetMarketContract.kt`: NavigateToUserInfo Intent/SideEffect 추가
+- `feature/preset-market/.../PresetMarketViewModel.kt`: NavigateToUserInfo 핸들러 추가
+- `feature/preset-market/.../ui/MarketHomeScreen.kt`: showSignOutDialog 제거, AccountCircle 클릭 → NavigateToUserInfo intent 발행
+
+### 검증결과
+
+- `assembleDebug` BUILD SUCCESSFUL
+
+### 설계결정 및 근거
+
+- 로그아웃은 유저 정보 화면에서만 가능하도록 변경 → 실수 로그아웃 방지 + 유저 정보 확인 기회 제공
+- `MarketPresetListItem`은 SharedTransition 의존이 있어 재사용 불가 → `SimplePresetListItem` 내부 private composable로 간소화
+- Landscape 감지: `LocalConfiguration.current.screenWidthDp > screenHeightDp` 비교
+
+---
+
 ## [2026-03-18] fix(upload-dialog): UploadToMarketDialog 태그·이미지 입력 UX 개선
 
 ### 목표

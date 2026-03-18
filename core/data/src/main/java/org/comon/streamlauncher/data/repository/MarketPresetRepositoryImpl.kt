@@ -214,4 +214,14 @@ class MarketPresetRepositoryImpl @Inject constructor(
             .update("downloadCount", com.google.firebase.firestore.FieldValue.increment(1))
             .await()
     }
+
+    override suspend fun getPresetsByAuthor(uid: String): Result<List<MarketPreset>> = runCatching {
+        presetsCollection
+            .whereEqualTo("authorUid", uid)
+            .orderBy("createdAt", Query.Direction.DESCENDING)
+            .get()
+            .await()
+            .documents
+            .mapNotNull { it.toObject(MarketPresetDto::class.java)?.toDomain() }
+    }
 }
