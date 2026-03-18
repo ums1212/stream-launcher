@@ -1,5 +1,41 @@
 # StreamLauncher 개발 로그
 
+## [2026-03-18] refactor(arch): Clean Architecture 위반 3건 수정 + README 작성
+
+### 목표
+
+- 프로젝트 전체에 걸쳐 Clean Architecture 원칙(UseCase 계층 우회 금지, data layer 타입 노출 금지)을 위반하는 코드를 탐지하고 수정한다
+- 채용 담당관용 README.md를 작성한다
+- RSS 미사용 확정에 따라 관련 잔재 코드를 제거한다
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `README.md` | **신규 생성** — 기능 설명(스크린샷 플레이스홀더 포함), 아키텍처, 모듈 구조, 기술 스택, Q&A 10개 |
+| `core/domain/.../usecase/UpdateMarketPresetIdUseCase.kt` | **신규 생성** — `PresetRepository.updateMarketPresetId` 래핑 UseCase |
+| `core/data/.../paging/MarketPresetPagingSourceFactory.kt` | **신규 생성** — `PagingSource` 생성 책임을 캡슐화하는 인터페이스 (`core:domain` 순수 JVM 원칙 유지) |
+| `core/data/.../repository/MarketPresetRepositoryImpl.kt` | `MarketPresetPagingSourceFactory` 추가 구현, `create()` 메서드 추가 |
+| `core/data/.../di/RepositoryModule.kt` | `MarketPresetPagingSourceFactory → MarketPresetRepositoryImpl` Hilt `@Binds` 추가 |
+| `feature/preset-market/.../PresetMarketViewModel.kt` | `FirebaseFirestore` + `MarketPresetPagingSource` 직접 참조 제거 → `MarketPresetPagingSourceFactory` 주입 |
+| `feature/settings/.../SettingsViewModel.kt` | `PresetRepository` 직접 주입 제거 → `UpdateMarketPresetIdUseCase` 주입 |
+| `feature/settings/.../SettingsViewModelTest.kt` | mock 대상 `presetRepository` → `updateMarketPresetIdUseCase` 교체 |
+| `feature/settings/.../model/SettingMenuItem.kt` | `Icons.Rounded.RssFeed` → `Icons.Rounded.LiveTv` (RSS 미사용 확정에 따른 잔재 아이콘 교체) |
+
+### 검증 결과
+
+- `JAVA_HOME="C:/Program Files/Java/jdk-17" ./gradlew assembleDebug` → **BUILD SUCCESSFUL**
+- `JAVA_HOME="C:/Program Files/Java/jdk-17" ./gradlew test` → **BUILD SUCCESSFUL** (실패 0건)
+
+### 설계 결정 및 근거
+
+- **`UpdateMarketPresetIdUseCase` 도입**: `SettingsViewModel`이 `PresetRepository`를 직접 주입받아 `updateMarketPresetId()`를 호출하는 것은 UseCase 계층을 우회하는 패턴. 단일 책임 UseCase를 신규 생성해 `PresetRepository`를 ViewModel 생성자에서 제거
+- **`MarketPresetPagingSourceFactory` 도입**: `PresetMarketViewModel`이 `FirebaseFirestore`를 직접 주입받아 `MarketPresetPagingSource`를 생성하던 구조를 개선. `PagingSource`의 키 타입이 `DocumentSnapshot`(Firebase 타입)이어서 domain 인터페이스에 노출할 수 없으므로, `core:data` 내부에 팩토리 인터페이스를 두고 `MarketPresetRepositoryImpl`이 구현. ViewModel은 팩토리 인터페이스만 알고 Firebase 타입에 의존하지 않음. `core:domain`의 순수 JVM 원칙도 유지됨
+- **RSS 아이콘 교체**: RSS 기능은 사용하지 않기로 확정. 코드베이스 전체를 검색한 결과 실제 RSS 파싱/URL 저장 코드는 이미 없었고, `SettingMenuItem.kt`의 `RssFeed` 아이콘만 잔재로 남아 있었음. 치지직/YouTube 스트리밍 피드 성격에 맞는 `LiveTv` 아이콘으로 교체
+- **README 아키텍처 다이어그램 수정**: 초안의 다이어그램이 `Repository Interface → Data Sources` 방향으로 잘못 표기됐음. `RepositoryImpl`이 인터페이스를 구현(↑)하고 Data Sources에 접근(↓)하는 올바른 의존성 역전(DIP) 구조로 재작성
+
+---
+
 ## [2026-03-17] fix(memory): 화면 회전 시 MainActivity 메모리 누수 수정
 
 ### 목표

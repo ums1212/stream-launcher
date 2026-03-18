@@ -18,8 +18,8 @@ import org.comon.streamlauncher.domain.usecase.SaveAppDrawerSettingsUseCase
 import org.comon.streamlauncher.domain.usecase.SaveColorPresetUseCase
 import org.comon.streamlauncher.domain.usecase.SaveFeedSettingsUseCase
 import org.comon.streamlauncher.domain.usecase.SaveGridCellImageUseCase
-import org.comon.streamlauncher.domain.repository.PresetRepository
 import org.comon.streamlauncher.domain.usecase.SavePresetUseCase
+import org.comon.streamlauncher.domain.usecase.UpdateMarketPresetIdUseCase
 import org.comon.streamlauncher.domain.usecase.SignInWithGoogleUseCase
 import org.comon.streamlauncher.settings.upload.UploadDataHolder
 import org.comon.streamlauncher.settings.upload.UploadProgressTracker
@@ -45,7 +45,7 @@ class SettingsViewModel @Inject constructor(
     private val observeAuthStateUseCase: ObserveAuthStateUseCase,
     private val uploadProgressTracker: UploadProgressTracker,
     private val uploadDataHolder: UploadDataHolder,
-    private val presetRepository: PresetRepository,
+    private val updateMarketPresetIdUseCase: UpdateMarketPresetIdUseCase,
 ) : BaseViewModel<SettingsState, SettingsIntent, SettingsSideEffect>(SettingsState()) {
 
     private var currentNoticeVersion: String = ""
@@ -89,7 +89,7 @@ class SettingsViewModel @Inject constructor(
                     val localId = pendingUploadLocalPresetId
                     val marketId = pendingUploadMarketPresetId
                     if (localId != 0 && marketId.isNotEmpty()) {
-                        presetRepository.updateMarketPresetId(localId, marketId)
+                        updateMarketPresetIdUseCase(localId, marketId)
                     }
                     sendEffect(SettingsSideEffect.UploadSuccess)
                 } else {

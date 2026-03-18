@@ -6,7 +6,7 @@ import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.Palette
-import androidx.compose.material.icons.rounded.RssFeed
+import androidx.compose.material.icons.rounded.LiveTv
 import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material.icons.rounded.Wallpaper
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -45,7 +45,7 @@ val settingMenuList = listOf(
     ),
     SettingMenuItem(
         labelId = R.string.settings_feed,
-        icon = Icons.Rounded.RssFeed,
+        icon = Icons.Rounded.LiveTv,
         lerpFraction = 0.4f,
         actionType = SettingsActionType.FEED
     ),

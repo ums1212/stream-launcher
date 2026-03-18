@@ -5,11 +5,10 @@ import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
 import androidx.paging.cachedIn
-import com.google.firebase.firestore.FirebaseFirestore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
-import org.comon.streamlauncher.data.paging.MarketPresetPagingSource
+import org.comon.streamlauncher.data.paging.MarketPresetPagingSourceFactory
 import org.comon.streamlauncher.domain.model.preset.MarketPreset
 import org.comon.streamlauncher.domain.usecase.GetTopDownloadPresetsUseCase
 import org.comon.streamlauncher.domain.usecase.GetTopLikePresetsUseCase
@@ -26,12 +25,12 @@ class PresetMarketViewModel @Inject constructor(
     private val signInWithGoogleUseCase: SignInWithGoogleUseCase,
     private val observeAuthStateUseCase: ObserveAuthStateUseCase,
     private val signOutUseCase: SignOutUseCase,
-    private val firestore: FirebaseFirestore,
+    private val pagingSourceFactory: MarketPresetPagingSourceFactory,
 ) : BaseViewModel<PresetMarketState, PresetMarketIntent, PresetMarketSideEffect>(PresetMarketState()) {
 
     val recentPresetsPaging: Flow<PagingData<MarketPreset>> = Pager(
         config = PagingConfig(pageSize = 10, enablePlaceholders = false),
-        pagingSourceFactory = { MarketPresetPagingSource(firestore) },
+        pagingSourceFactory = pagingSourceFactory::create,
     ).flow.cachedIn(viewModelScope)
 
     init {

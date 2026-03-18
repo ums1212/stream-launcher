@@ -8,6 +8,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import org.comon.streamlauncher.data.paging.MarketPresetPagingSourceFactory
 import org.comon.streamlauncher.data.repository.AppRepositoryImpl
 import org.comon.streamlauncher.data.repository.MarketPresetRepositoryImpl
 import org.comon.streamlauncher.domain.repository.AppRepository
@@ -34,6 +35,10 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindMarketPresetRepository(impl: MarketPresetRepositoryImpl): MarketPresetRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindMarketPresetPagingSourceFactory(impl: MarketPresetRepositoryImpl): MarketPresetPagingSourceFactory
 
     companion object {
         @Provides

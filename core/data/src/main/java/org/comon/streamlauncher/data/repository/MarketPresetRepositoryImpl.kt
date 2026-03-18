@@ -17,6 +17,8 @@ import org.comon.streamlauncher.data.remote.firestore.toDto
 import org.comon.streamlauncher.data.util.ImageCompressor
 import org.comon.streamlauncher.domain.model.preset.MarketPreset
 import org.comon.streamlauncher.domain.model.preset.MarketUser
+import org.comon.streamlauncher.data.paging.MarketPresetPagingSource
+import org.comon.streamlauncher.data.paging.MarketPresetPagingSourceFactory
 import org.comon.streamlauncher.domain.repository.MarketPresetRepository
 import java.io.File
 import javax.inject.Inject
@@ -29,7 +31,9 @@ class MarketPresetRepositoryImpl @Inject constructor(
     private val auth: FirebaseAuth,
     private val firestore: FirebaseFirestore,
     private val storage: FirebaseStorage,
-) : MarketPresetRepository {
+) : MarketPresetRepository, MarketPresetPagingSourceFactory {
+
+    override fun create() = MarketPresetPagingSource(firestore)
 
     private val presetsCollection get() = firestore.collection("presets")
 

@@ -20,8 +20,8 @@ import org.comon.streamlauncher.domain.usecase.SaveAppDrawerSettingsUseCase
 import org.comon.streamlauncher.domain.usecase.SaveColorPresetUseCase
 import org.comon.streamlauncher.domain.usecase.SaveFeedSettingsUseCase
 import org.comon.streamlauncher.domain.usecase.SaveGridCellImageUseCase
-import org.comon.streamlauncher.domain.repository.PresetRepository
 import org.comon.streamlauncher.domain.usecase.SavePresetUseCase
+import org.comon.streamlauncher.domain.usecase.UpdateMarketPresetIdUseCase
 import org.comon.streamlauncher.domain.usecase.ObserveAuthStateUseCase
 import org.comon.streamlauncher.domain.usecase.SignInWithGoogleUseCase
 import org.comon.streamlauncher.settings.upload.UploadDataHolder
@@ -54,7 +54,7 @@ class SettingsViewModelTest {
     private lateinit var observeAuthStateUseCase: ObserveAuthStateUseCase
     private lateinit var uploadProgressTracker: UploadProgressTracker
     private lateinit var uploadDataHolder: UploadDataHolder
-    private lateinit var presetRepository: PresetRepository
+    private lateinit var updateMarketPresetIdUseCase: UpdateMarketPresetIdUseCase
     private lateinit var viewModel: SettingsViewModel
 
     @Before
@@ -82,7 +82,7 @@ class SettingsViewModelTest {
 
         uploadProgressTracker = UploadProgressTracker()
         uploadDataHolder = UploadDataHolder()
-        presetRepository = mockk(relaxed = true)
+        updateMarketPresetIdUseCase = mockk(relaxed = true)
 
         viewModel = makeViewModel()
     }
@@ -108,7 +108,7 @@ class SettingsViewModelTest {
         observeAuthState: ObserveAuthStateUseCase = observeAuthStateUseCase,
         progressTracker: UploadProgressTracker = uploadProgressTracker,
         dataHolder: UploadDataHolder = uploadDataHolder,
-        presetRepo: PresetRepository = presetRepository,
+        updateMarketPresetId: UpdateMarketPresetIdUseCase = updateMarketPresetIdUseCase,
     ): SettingsViewModel = SettingsViewModel(
         settingsUseCase,
         colorSaveUseCase,
@@ -125,7 +125,7 @@ class SettingsViewModelTest {
         observeAuthState,
         progressTracker,
         dataHolder,
-        presetRepo,
+        updateMarketPresetId,
     )
 
     // 1. ChangeAccentColor → colorPresetIndex 상태 업데이트
