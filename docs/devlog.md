@@ -36,6 +36,33 @@
 
 ---
 
+## [2026-03-18] fix(proguard): 릴리즈 빌드 R8 난독화 위험 지점 전체 수정
+
+### 목표
+
+- 릴리즈 빌드에서 Firestore 프리셋 목록 미표시 및 업로드 실패 원인을 진단한다
+- 프로젝트 전체에 걸쳐 R8/ProGuard 난독화로 인해 런타임 오류가 발생할 수 있는 모든 위험 지점을 검토하고 수정한다
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `app/proguard-rules.pro` | **`MarketPresetDto` 패키지 keep 추가** — Firestore `toObject()` 리플렉션 역직렬화 시 getter 이름 난독화로 인한 "Found two getters or fields with conflicting case sensitivity" 오류 방지 |
+| `app/proguard-rules.pro` | **`SettingsMenu` enum keep 추가** — `SettingsMenu.COLOR.name`으로 네비게이션 인자를 생성하고 `SettingsMenu.valueOf(route.menu)`로 파싱하는 구조에서 enum 상수 이름 난독화(`COLOR` → `a`) 시 `IllegalArgumentException` 크래시 방지 |
+
+### 검증 결과
+
+- 릴리즈 빌드 후 `app/build/outputs/mapping/release/mapping.txt`에서 해당 클래스/enum 이름 보존 여부 확인 필요
+- Firestore 프리셋 목록 조회 및 업로드 기능 릴리즈 빌드에서 재테스트 필요
+
+### 설계 결정 및 근거
+
+- **Firestore DTO keep**: Firebase Firestore SDK는 `toObject(Class)` 호출 시 자체 BeanMapper가 Java 리플렉션으로 getter/setter를 스캔해 Firestore 필드명과 매핑한다. R8이 `getHasTopLeftImage()` 같은 getter 이름을 `a()`로 난독화하면 BeanMapper가 동일 프로퍼티에 여러 getter가 매핑된다고 오해해 오류를 발생시킨다. Firebase SDK 자체의 consumer ProGuard rules는 SDK 내부 클래스만 보호하므로 우리 DTO 패키지(`data.remote.firestore.*`)를 명시적으로 keep해야 한다
+- **`SettingsMenu` enum keep**: `proguard-android-optimize.txt`의 기본 enum 규칙(`-keepclassmembers enum * { $VALUES; valueOf(); }`)은 `valueOf()` 메서드와 `$VALUES` 배열은 보존하지만 enum 상수의 **이름 문자열** 자체는 보호하지 않는다. R8은 enum 상수를 `COLOR` → `a`로 rename할 수 있으며, 이 경우 `valueOf("COLOR")`가 `IllegalArgumentException`으로 크래시한다. 네비게이션 라우트 파라미터로 `SettingsMenu.COLOR.name`(문자열 `"COLOR"`)을 전달하고 수신측에서 `valueOf()`로 복원하는 패턴이기 때문에 enum 상수 이름 전체를 반드시 보존해야 한다
+- **전체 검토 기준**: 리플렉션(Firestore/Gson/Jackson), enum valueOf/name, Navigation type-safe route, Room/Hilt/WorkManager, DataStore kotlinx-serialization, Retrofit 서비스 인터페이스 6개 카테고리 점검. Navigation type-safe route(`@Serializable` 어노테이션)·Retrofit(`@retrofit2.http.*` 규칙)·Room/Hilt/WorkManager(자체 consumer rules)·SLP/네트워크 응답 모델(`@Serializable` 규칙)은 이미 보호됨을 확인
+
+---
+
 ## [2026-03-17] fix(memory): 화면 회전 시 MainActivity 메모리 누수 수정
 
 ### 목표
