@@ -88,7 +88,8 @@
       "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew :app:compileDebugKotlin :core:data:compileDebugKotlin :core:domain:compileKotlin)",
       "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew test --quiet)",
       "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew :core:paging:compileDebugKotlin :core:domain:compileKotlin :core:data:compileDebugKotlin)",
-      "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew :core:data:assembleDebug)"
+      "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew :core:data:assembleDebug)",
+      "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew :app:compileDebugKotlin)"
     ]
   }
 }

@@ -2,6 +2,43 @@
 
 ---
 
+## [2026-03-19] refactor(app): MainActivity 분리 — 5개 파일로 역할별 추출, ~600줄 → ~160줄
+
+### 목표
+
+- MainActivity.kt가 ~600줄로 비대해진 문제 해결
+- 월페이퍼 감지, 위젯 호스트, 사이드이펙트 핸들링, 네비게이션, Google 로그인을 역할별 파일로 분리
+- ViewModel 4개는 `onNewIntent` / `ActivityResultLauncher` 콜백 접근 필요로 Activity에 유지
+
+### 변경사항
+
+| 파일 | 내용 |
+|------|------|
+| **NEW** `app/.../wallpaper/WallpaperSystemBarManager.kt` | 월페이퍼 색상 감지·리스너·시스템바 스타일 동적 전환. `@Composable fun ObserveDestinationChanges()` 포함 |
+| **NEW** `app/.../widget/AppWidgetHostManager.kt` | `AppWidgetHost` 수명주기, `configureWidgetLauncher`·`pickWidgetLauncher`, `launchWidgetPicker()`·`deleteWidget()` 캡슐화 |
+| **NEW** `app/.../effect/SideEffectHandlers.kt` | `HomeSideEffectHandler`, `FeedSideEffectHandler`, `SettingsSideEffectHandler` 3개 Composable. `this@MainActivity` → `LocalContext.current` 전환, suspend `showSnackbar` 직접 호출 |
+| **NEW** `app/.../ui/GoogleSignInFlow.kt` | `showSignIn`·`showDialog` 상태 + `GoogleSignInRequiredDialog`·`GoogleSignInHandler` 조건 렌더링 캡슐화. 트리거 람다 반환 |
+| **NEW** `app/.../navigation/MainNavHost.kt` | `NavHost` 블록 전체 추출. `launcherContent: @Composable () -> Unit` 슬롯으로 `CrossPagerNavigation` 배선은 MainActivity에 유지 |
+| **MODIFY** `app/.../MainActivity.kt` | ~600줄 → ~160줄. lifecycle 콜백 각 1줄 위임, `setContent` 내부는 상태 수집 + 핸들러 호출 + NavHost 슬롯 구성 |
+| **FIX** `AppWidgetHostManager.kt` | `ComponentActivity.RESULT_OK` → `Activity.RESULT_OK` (import android.app.Activity) |
+| **FIX** `MainNavHost.kt` | `onStartDownloadService: () -> Unit` → `(String) -> Unit` (`PresetMarketHost` 실제 시그니처에 맞춤) |
+
+### 검증결과
+
+- `assembleDebug` BUILD SUCCESSFUL
+- `test` BUILD SUCCESSFUL (실패 0건, 리팩토링이므로 신규 테스트 없음)
+
+### 설계결정 및 근거
+
+- **ViewModel Activity 유지**: `HomeViewModel`·`SettingsViewModel`은 `onNewIntent`에서, `WidgetViewModel`은 `ActivityResultLauncher` 콜백에서 인텐트를 디스패치 → Composition 외부 접근 필요 → `hiltViewModel()`로 이동 불가. `FeedViewModel`은 일관성 유지로 함께 유지
+- **`AppWidgetHostManager` 초기화 위치**: `registerForActivityResult`는 `onStart` 이전 호출 필수 → `onCreate` 첫 줄에서 초기화 (widgetViewModel lazy delegate 접근 전). `by viewModels()`는 lazy이므로 필드 레벨에서 `widgetViewModel`을 캡처하면 Hilt 미초기화 상태에서 VM이 생성될 위험 있어 `lateinit var` 선택
+- **`WallpaperSystemBarManager` 필드 레벨 초기화**: ViewModel 의존 없고 생성자에서 외부 호출 없음 → `val wallpaperManager = WallpaperSystemBarManager(this)` 필드 초기화 안전
+- **`SideEffectHandlers` suspend 직접 호출**: `LaunchedEffect` 내 `collect` 람다는 코루틴 컨텍스트이므로 `settingsScope.launch {}` 없이 `snackbarHostState.showSnackbar()` 직접 호출 가능 → 코드 단순화
+- **`launcherContent` 슬롯**: `CrossPagerNavigation` 배선(4개 ViewModel + navController)을 MainActivity에 남기고 슬롯으로 전달 — 4개 ViewModel 합류 지점이므로 추출해도 복잡도 불변
+- **`onStartDownloadService: (String) -> Unit`**: `PresetDetailScreen`이 `effect.presetName`을 인자로 전달 → 실제 시그니처는 `(String) -> Unit`. 기존 코드에서 파라미터를 무시하던 람다(`{ startForegroundService(...) }`)는 Kotlin에서 `(String) -> Unit`으로 암묵적 수용 — 빌드는 통과했으나 presetName 미전달은 기존 버그 유지(별도 이슈)
+
+---
+
 ## [2026-03-19] refactor(preset-market): 네비게이션 전환 애니메이션 — "홈 고정 + 새 화면 오른쪽 슬라이드인" 패턴 적용
 
 ### 목표
