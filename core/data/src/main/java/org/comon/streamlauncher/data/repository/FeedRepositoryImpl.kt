@@ -59,8 +59,17 @@ class FeedRepositoryImpl @Inject constructor(
     private val profileCacheJsonKey = stringPreferencesKey("channel_profile_json")
     private val profileCacheTimestampKey = stringPreferencesKey("channel_profile_timestamp")
     private val profileCacheChannelIdKey = stringPreferencesKey("channel_profile_cached_id")
-    private val handleToChannelIdCache = HashMap<String, String>()
     private val json = Json { ignoreUnknownKeys = true }
+
+    private suspend fun resolveChannelId(channelId: String): String? {
+        if (!channelId.startsWith("@")) return channelId
+        return youTubeService.getChannelByHandle(
+            url = "https://www.googleapis.com/youtube/v3/channels",
+            part = "id",
+            handle = channelId,
+            apiKey = NetworkConstants.YOUTUBE_API_KEY,
+        ).items.firstOrNull()?.id
+    }
 
     override fun getLiveStatus(channelId: String): Flow<Result<LiveStatus>> = flow {
         if (channelId.isEmpty()) {
@@ -93,20 +102,7 @@ class FeedRepositoryImpl @Inject constructor(
             return@flow
         }
 
-        val resolvedId = if (channelId.startsWith("@")) {
-            handleToChannelIdCache.getOrPut(channelId) {
-                val resp = youTubeService.getChannelByHandle(
-                    url = "https://www.googleapis.com/youtube/v3/channels",
-                    part = "id",
-                    handle = channelId,
-                    apiKey = NetworkConstants.YOUTUBE_API_KEY,
-                )
-                resp.items.firstOrNull()?.id ?: return@flow
-            }
-        } else {
-            channelId
-        }
-
+        val resolvedId = resolveChannelId(channelId) ?: return@flow
         Log.d(TAG, "getYoutubeLiveStatus: resolved channelId='$resolvedId'")
         val searchResponse = youTubeService.searchVideos(
             url = "https://www.googleapis.com/youtube/v3/search",
@@ -178,22 +174,7 @@ class FeedRepositoryImpl @Inject constructor(
         }
         Log.d(TAG, "fetchYoutubeItems: channelId='$youtubeChannelId'")
 
-        val resolvedId = if (youtubeChannelId.startsWith("@")) {
-            Log.d(TAG, "fetchYoutubeItems: resolving handle -> channelId")
-            handleToChannelIdCache.getOrPut(youtubeChannelId) {
-                val channelResponse = youTubeService.getChannelByHandle(
-                    url = "https://www.googleapis.com/youtube/v3/channels",
-                    part = "id",
-                    handle = youtubeChannelId,
-                    apiKey = NetworkConstants.YOUTUBE_API_KEY,
-                )
-                Log.d(TAG, "fetchYoutubeItems: handle resolve items=${channelResponse.items.size}")
-                channelResponse.items.firstOrNull()?.id ?: return emptyList()
-            }
-        } else {
-            youtubeChannelId
-        }
-
+        val resolvedId = resolveChannelId(youtubeChannelId) ?: return emptyList()
         Log.d(TAG, "fetchYoutubeItems: resolved channelId='$resolvedId', calling search API")
         val searchResponse = youTubeService.searchVideos(
             url = "https://www.googleapis.com/youtube/v3/search",
@@ -269,20 +250,7 @@ class FeedRepositoryImpl @Inject constructor(
             emit(Result.success(parseProfileDto(cachedJson)))
         }
 
-        val resolvedId = if (youtubeChannelId.startsWith("@")) {
-            handleToChannelIdCache.getOrPut(youtubeChannelId) {
-                val resp = youTubeService.getChannelByHandle(
-                    url = "https://www.googleapis.com/youtube/v3/channels",
-                    part = "id",
-                    handle = youtubeChannelId,
-                    apiKey = NetworkConstants.YOUTUBE_API_KEY,
-                )
-                resp.items.firstOrNull()?.id ?: return@flow
-            }
-        } else {
-            youtubeChannelId
-        }
-
+        val resolvedId = resolveChannelId(youtubeChannelId) ?: return@flow
         Log.d(TAG, "getChannelProfile: fetching snippet,statistics for id='$resolvedId'")
         val response = youTubeService.getChannelInfo(
             url = "https://www.googleapis.com/youtube/v3/channels",
@@ -314,7 +282,6 @@ class FeedRepositoryImpl @Inject constructor(
             p[profileCacheTimestampKey] = now.toString()
             p[profileCacheChannelIdKey] = youtubeChannelId
         }
-        handleToChannelIdCache[youtubeChannelId] = profile.channelId
         Log.d(TAG, "getChannelProfile: success name='${profile.name}' subs=${profile.subscriberCount}")
         emit(Result.success(profile))
     }.catch { e ->

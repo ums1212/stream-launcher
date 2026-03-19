@@ -2,6 +2,33 @@
 
 ---
 
+## [2026-03-19] refactor(feed): handleToChannelIdCache 제거 및 resolveChannelId 추출
+
+### 목표
+
+- `FeedRepositoryImpl`의 `handleToChannelIdCache: HashMap<String, String>()` 이 앱 수명 동안 무한히 증가할 수 있다는 이슈를 검토
+- 실제 앱 구조(YouTube 채널 설정 1개, RSS 제거)에서 인메모리 캐시 자체가 불필요함을 확인
+- `@Singleton` 클래스의 `var` 가변 상태 제거 (thread-safety, 테스트 격리, 참조 투명성 문제)
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `core/data/.../repository/FeedRepositoryImpl.kt` | `HashMap<String, String>` → `Pair<String, String>?` 중간 단계를 거쳐 최종적으로 인메모리 캐시 전체 제거. `resolveChannelId(channelId): String?` private suspend 함수 추출. 세 곳의 중복 핸들 해석 로직을 단일 호출로 통일 |
+
+### 검증결과
+
+- 코드 리뷰 수준 확인 (빌드/테스트 미실행)
+- `@Singleton` 클래스 내 `var` 프로퍼티 0개 — 가변 상태 없음
+
+### 설계결정 및 근거
+
+- **캐시 제거 근거**: ViewModel의 60초 쿨다운이 이미 호출 빈도를 제한하고 있어 `@handle → channelId` 해석 API(`part=id`) 중복 호출이 실질적으로 발생하지 않음. `getChannelProfile`의 DataStore 7일 TTL 캐시가 더 비싼 `snippet,statistics` 호출을 보호
+- **`var` 제거**: `@Singleton`의 가변 상태는 경쟁 조건, 테스트 간 상태 누수, 호출 순서 의존성을 유발. `resolveChannelId` 추출로 클래스가 완전히 무상태(stateless)가 됨
+- **`Pair` 중간 단계**: HashMap보다 단순하지만 `var` 문제는 여전히 존재해 최종적으로 제거. 과정을 통해 "캐시 자체가 필요한가"를 재검토하는 계기가 됨
+
+---
+
 ## [2026-03-19] refactor(preset-market): MarketPreset / MarketPresetDto V1 레거시 제거 및 필드 정리
 
 ### 목표
