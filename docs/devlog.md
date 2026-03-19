@@ -2,6 +2,33 @@
 
 ---
 
+## [2026-03-19] refactor(preset-market): 네비게이션 전환 애니메이션 — "홈 고정 + 새 화면 오른쪽 슬라이드인" 패턴 적용
+
+### 목표
+
+- 마켓 홈 → 검색/상세 이동 시 홈 화면이 fadeOut 되지 않고 고정된 채, 새 화면이 오른쪽에서 슬라이드인 되는 UX 구현
+- 설정 상세 → 프리셋 마켓 이동도 동일 패턴 적용
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `feature/preset-market/ui/PresetMarketHost.kt` | `MarketHome.exitTransition` → `ExitTransition.None`, `popEnterTransition` → `EnterTransition.None` |
+| `feature/preset-market/ui/PresetMarketHost.kt` | `MarketSearch` / `MarketDetail` enterTransition → `slideInHorizontally(initialOffsetX = { it })`, popExitTransition → `slideOutHorizontally(targetOffsetX = { it })` |
+| `app/src/main/java/.../MainActivity.kt` | `SettingsDetail.exitTransition` → `ExitTransition.None`, `popEnterTransition` → `EnterTransition.None` (PresetMarket 이동 시 SettingsDetail 고정) |
+
+### 검증결과
+
+- 코드 리뷰 수준 검토 (빌드 미실행)
+
+### 설계결정 및 근거
+
+- `ExitTransition.None` 패턴: 현재 화면이 스택에 남아 고정되고 새 화면의 enterTransition만 재생 → "모달 위에 새 레이어가 올라오는" 자연스러운 계층감 연출
+- 뒤로가기 시 `popExitTransition`으로 새 화면이 오른쪽으로 슬라이드아웃, 기존 화면은 `EnterTransition.None`으로 자연스럽게 드러남
+- `SettingsDetail → PresetMarket` 구간에서도 동일 원칙 적용: exitTransition/popEnterTransition만 None으로 교체, popExitTransition(Launcher 복귀 시 슬라이드아웃)은 유지
+
+---
+
 ## [2026-03-19] refactor(core:data): Firebase DataSource 추상화 — MarketPresetRepositoryImpl 분리
 
 ### 목표

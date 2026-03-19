@@ -1,10 +1,10 @@
 package org.comon.streamlauncher.preset_market.ui
 
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
@@ -34,11 +34,12 @@ fun PresetMarketHost(
             navController = navController,
             startDestination = MarketHome,
             modifier = modifier,
+            enterTransition = { slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(300)) },
+            popExitTransition = { slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(300)) },
+            exitTransition = { ExitTransition.None },
+            popEnterTransition = { EnterTransition.None },
         ) {
-            composable<MarketHome>(
-                exitTransition = { fadeOut(tween(300)) },
-                popEnterTransition = { fadeIn(tween(300)) },
-            ) {
+            composable<MarketHome> {
                 MarketHomeScreen(
                     onNavigateToDetail = { navController.navigate(MarketDetail(presetId = it, fromCard = false)) },
                     onNavigateToDetailFromCard = { navController.navigate(MarketDetail(presetId = it, fromCard = true)) },
@@ -49,12 +50,7 @@ fun PresetMarketHost(
                     animatedVisibilityScope = this,
                 )
             }
-            composable<MarketSearch>(
-                enterTransition = { fadeIn() },
-                exitTransition = { slideOutHorizontally(targetOffsetX = { it }) },
-                popEnterTransition = { slideInHorizontally(initialOffsetX = { -it }) },
-                popExitTransition = { fadeOut() },
-            ) { backStackEntry ->
+            composable<MarketSearch> { backStackEntry ->
                 val route = backStackEntry.toRoute<MarketSearch>()
                 MarketSearchScreen(
                     initialQuery = route.query,
@@ -64,12 +60,7 @@ fun PresetMarketHost(
                     animatedVisibilityScope = this,
                 )
             }
-            composable<MarketDetail>(
-                enterTransition = { fadeIn(tween(300)) },
-                exitTransition = { fadeOut(tween(300)) },
-                popEnterTransition = { fadeIn(tween(300)) },
-                popExitTransition = { fadeOut(tween(300)) },
-            ) { backStackEntry ->
+            composable<MarketDetail> { backStackEntry ->
                 val route = backStackEntry.toRoute<MarketDetail>()
                 PresetDetailScreen(
                     onBack = { navController.popBackStack() },
@@ -80,12 +71,7 @@ fun PresetMarketHost(
                     onStopDownloadService = onStopDownloadService,
                 )
             }
-            composable<MarketUserInfo>(
-                enterTransition = { slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(300)) },
-                exitTransition = { slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(300)) },
-                popEnterTransition = { slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(300)) },
-                popExitTransition = { slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(300)) },
-            ) {
+            composable<MarketUserInfo> {
                 PresetMarketUserInfoScreen(
                     onBack = { navController.popBackStack() },
                     onNavigateToDetail = { navController.navigate(MarketDetail(presetId = it)) },

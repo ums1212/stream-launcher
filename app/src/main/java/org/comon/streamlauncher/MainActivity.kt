@@ -22,6 +22,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.material3.SnackbarHostState
@@ -263,239 +264,245 @@ class MainActivity : ComponentActivity() {
                 accentPrimaryOverride = Color(preset.accentPrimaryArgb),
                 accentSecondaryOverride = Color(preset.accentSecondaryArgb),
             ) {
-            CompositionLocalProvider(LocalDragDropState provides dragDropState) {
-                val widgetState by widgetViewModel.uiState.collectAsStateWithLifecycle()
+                CompositionLocalProvider(LocalDragDropState provides dragDropState) {
+                    val widgetState by widgetViewModel.uiState.collectAsStateWithLifecycle()
 
-                LaunchedEffect(Unit) {
-                    viewModel.effect.collect { effect ->
-                        when (effect) {
-                            is HomeSideEffect.NavigateToApp -> {
-                                val launchIntent = packageManager.getLaunchIntentForPackage(effect.packageName)
-                                if (launchIntent != null) {
-                                    try {
-                                        startActivity(launchIntent)
-                                    } catch (e: ActivityNotFoundException) {
-                                        Log.w("MainActivity", "앱 실행 실패: ${effect.packageName}", e)
-                                    }
-                                } else {
-                                    Log.w("MainActivity", "앱 실행 실패: ${effect.packageName}")
-                                }
-                            }
-                            is HomeSideEffect.ShowError ->
-                                Log.e("MainActivity", "Error: ${effect.message}")
-                            is HomeSideEffect.SetDefaultHomeApp -> {
-                                try {
-                                    val intent = Intent(Settings.ACTION_HOME_SETTINGS)
-                                    if (intent.resolveActivity(packageManager) != null) {
-                                        startActivity(intent)
+                    LaunchedEffect(Unit) {
+                        viewModel.effect.collect { effect ->
+                            when (effect) {
+                                is HomeSideEffect.NavigateToApp -> {
+                                    val launchIntent = packageManager.getLaunchIntentForPackage(effect.packageName)
+                                    if (launchIntent != null) {
+                                        try {
+                                            startActivity(launchIntent)
+                                        } catch (e: ActivityNotFoundException) {
+                                            Log.w("MainActivity", "앱 실행 실패: ${effect.packageName}", e)
+                                        }
                                     } else {
+                                        Log.w("MainActivity", "앱 실행 실패: ${effect.packageName}")
+                                    }
+                                }
+                                is HomeSideEffect.ShowError ->
+                                    Log.e("MainActivity", "Error: ${effect.message}")
+                                is HomeSideEffect.SetDefaultHomeApp -> {
+                                    try {
+                                        val intent = Intent(Settings.ACTION_HOME_SETTINGS)
+                                        if (intent.resolveActivity(packageManager) != null) {
+                                            startActivity(intent)
+                                        } else {
+                                            startActivity(Intent(Settings.ACTION_SETTINGS))
+                                        }
+                                    } catch (_: ActivityNotFoundException) {
                                         startActivity(Intent(Settings.ACTION_SETTINGS))
                                     }
-                                } catch (_: ActivityNotFoundException) {
-                                    startActivity(Intent(Settings.ACTION_SETTINGS))
                                 }
                             }
                         }
                     }
-                }
 
-                LaunchedEffect(Unit) {
-                    feedViewModel.effect.collect { effect ->
-                        when (effect) {
-                            is FeedSideEffect.OpenUrl -> {
-                                try {
-                                    startActivity(Intent(Intent.ACTION_VIEW, effect.url.toUri()))
-                                } catch (e: ActivityNotFoundException) {
-                                    Log.w("MainActivity", "URL 열기 실패: ${effect.url}", e)
+                    LaunchedEffect(Unit) {
+                        feedViewModel.effect.collect { effect ->
+                            when (effect) {
+                                is FeedSideEffect.OpenUrl -> {
+                                    try {
+                                        startActivity(Intent(Intent.ACTION_VIEW, effect.url.toUri()))
+                                    } catch (e: ActivityNotFoundException) {
+                                        Log.w("MainActivity", "URL 열기 실패: ${effect.url}", e)
+                                    }
                                 }
+                                is FeedSideEffect.ShowError ->
+                                    Log.e("MainActivity", "Feed Error: ${effect.message}")
                             }
-                            is FeedSideEffect.ShowError ->
-                                Log.e("MainActivity", "Feed Error: ${effect.message}")
                         }
                     }
-                }
 
-                var showSettingsSignIn by remember { mutableStateOf(false) }
-                var showSettingsSignInDialog by remember { mutableStateOf(false) }
-                val settingsSnackbarHostState = remember { SnackbarHostState() }
-                val settingsScope = rememberCoroutineScope()
+                    var showSettingsSignIn by remember { mutableStateOf(false) }
+                    var showSettingsSignInDialog by remember { mutableStateOf(false) }
+                    val settingsSnackbarHostState = remember { SnackbarHostState() }
+                    val settingsScope = rememberCoroutineScope()
 
-                if (showSettingsSignInDialog) {
-                    GoogleSignInRequiredDialog(
-                        onConfirm = {
-                            showSettingsSignInDialog = false
-                            showSettingsSignIn = true
-                        },
-                        onDismiss = { showSettingsSignInDialog = false },
-                    )
-                }
-
-                if (showSettingsSignIn) {
-                    GoogleSignInHandler(
-                        onSignInSuccess = { idToken ->
-                            settingsViewModel.handleIntent(
-                                SettingsIntent.SignInWithGoogle(idToken)
-                            )
-                        },
-                        onSignInFailure = { message ->
-                            settingsScope.launch {
-                                settingsSnackbarHostState.showSnackbar(message)
-                            }
-                        },
-                        onDismiss = { showSettingsSignIn = false },
-                    )
-                }
-
-                LaunchedEffect(Unit) {
-                    settingsViewModel.effect.collect { effect ->
-                        when (effect) {
-                            is SettingsSideEffect.NavigateToMain ->
-                                navController.popBackStack(Launcher, inclusive = false)
-                            is SettingsSideEffect.StartUploadService -> {
-                                val serviceIntent = Intent(this@MainActivity, PresetUploadService::class.java)
-                                    .putExtra(PresetUploadService.EXTRA_PRESET_NAME, effect.presetName)
-                                startForegroundService(serviceIntent)
-                            }
-                            is SettingsSideEffect.UploadStarted ->
-                                settingsScope.launch {
-                                    settingsSnackbarHostState.showSnackbar("${effect.presetName}을 마켓에 업로드합니다")
-                                }
-                            is SettingsSideEffect.UploadSuccess ->
-                                settingsScope.launch {
-                                    settingsSnackbarHostState.showSnackbar("프리셋이 마켓에 업로드되었습니다!")
-                                }
-                            is SettingsSideEffect.UploadError ->
-                                settingsScope.launch {
-                                    settingsSnackbarHostState.showSnackbar("업로드 실패: ${effect.message}")
-                                }
-                            is SettingsSideEffect.RequireSignIn ->
-                                showSettingsSignInDialog = true
-                            is SettingsSideEffect.StopUploadService ->
-                                stopService(Intent(this@MainActivity, PresetUploadService::class.java))
-                            is SettingsSideEffect.ShowError ->
-                                settingsScope.launch {
-                                    settingsSnackbarHostState.showSnackbar(effect.message)
-                                }
-                        }
+                    if (showSettingsSignInDialog) {
+                        GoogleSignInRequiredDialog(
+                            onConfirm = {
+                                showSettingsSignInDialog = false
+                                showSettingsSignIn = true
+                            },
+                            onDismiss = { showSettingsSignInDialog = false },
+                        )
                     }
-                }
 
-                NavHost(
-                    navController = navController,
-                    startDestination = Launcher,
-                ) {
-                    composable<Launcher>(
-                        exitTransition = { ExitTransition.None },
-                        popEnterTransition = { EnterTransition.None },
-                    ) {
-                        val configuration = LocalConfiguration.current
-                        val isLandscape =
-                            configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-                        val appDrawerColumns =
-                            if (isLandscape) {
-                                uiState.appDrawerGridRows
-                            } else {
-                                uiState.appDrawerGridColumns
-                            }
-                        val appDrawerRows =
-                            if (isLandscape) {
-                                uiState.appDrawerGridColumns
-                            } else {
-                                uiState.appDrawerGridRows
-                            }
-
-                        CrossPagerNavigation(
-                            resetTrigger = resetTrigger,
-                            feedContent = { isVisible ->
-                                FeedScreen(
-                                    state = feedState,
-                                    isVisible = isVisible,
-                                    onIntent = feedViewModel::handleIntent,
+                    if (showSettingsSignIn) {
+                        GoogleSignInHandler(
+                            onSignInSuccess = { idToken ->
+                                settingsViewModel.handleIntent(
+                                    SettingsIntent.SignInWithGoogle(idToken)
                                 )
                             },
-                            settingsContent = {
-                                SettingsScreen(
-                                    onIntent = settingsViewModel::handleIntent,
-                                    onNavigate = { navController.navigate(it) },
-                                )
-                            },
-                            appDrawerContent = {
-                                AppDrawerScreen(
-                                    searchQuery = uiState.searchQuery,
-                                    filteredApps = uiState.filteredApps,
-                                    onSearch = { viewModel.handleIntent(HomeIntent.Search(it)) },
-                                    onAppClick = { viewModel.handleIntent(HomeIntent.ClickApp(it)) },
-                                    onAppAssigned = { app, cell ->
-                                        viewModel.handleIntent(HomeIntent.AssignAppToCell(app, cell))
-                                    },
-                                    columns = appDrawerColumns,
-                                    rows = appDrawerRows,
-                                    iconSizeRatio = uiState.appDrawerIconSizeRatio,
-                                )
-                            },
-                            isWidgetEditMode = widgetState.isEditMode,
-                            isWidgetDragging = widgetState.draggingWidgetId != null,
-                            widgetContent = {
-                                WidgetScreen(
-                                    state = widgetState,
-                                    appWidgetHost = appWidgetHost,
-                                    onAddWidgetClick = ::launchWidgetPicker,
-                                    onDeleteWidgetClick = ::deleteWidget,
-                                    onIntent = widgetViewModel::handleIntent,
-                                )
-                            },
-                            isHomeEditMode = uiState.editingCell != null,
-                        ) {
-                            HomeScreen(state = uiState, onIntent = viewModel::handleIntent)
-                        }
-                    }
-                    composable<SettingsDetail>(
-                        enterTransition = { slideInHorizontally(initialOffsetX = { it }) },
-                        exitTransition = { slideOutHorizontally(targetOffsetX = { it }) },
-                        popEnterTransition = { slideInHorizontally(initialOffsetX = { -it }) },
-                        popExitTransition = { slideOutHorizontally(targetOffsetX = { it }) },
-                    ) { backStackEntry ->
-                        val route = backStackEntry.toRoute<SettingsDetail>()
-                        val menu = runCatching { SettingsMenu.valueOf(route.menu) }.getOrNull()
-                            ?: return@composable
-                        SettingsDetailScreen(
-                            menu = menu,
-                            state = settingsState,
-                            onIntent = settingsViewModel::handleIntent,
-                            onBack = { navController.popBackStack() },
-                            onNavigateToMarket = { navController.navigate(PresetMarketRoute) },
-                            onShowSnackbar = { message ->
+                            onSignInFailure = { message ->
                                 settingsScope.launch {
                                     settingsSnackbarHostState.showSnackbar(message)
                                 }
                             },
-                            onRequireSignIn = { showSettingsSignIn = true },
+                            onDismiss = { showSettingsSignIn = false },
                         )
                     }
-                    composable<PresetMarketRoute>(
-                        enterTransition = { slideInHorizontally(initialOffsetX = { it }) },
-                        popExitTransition = { slideOutHorizontally(targetOffsetX = { it }) },
-                    ) {
-                        PresetMarketHost(
-                            onBack = { navController.popBackStack() },
-                            onStartDownloadService = {
-                                startForegroundService(Intent(this@MainActivity, PresetDownloadService::class.java))
-                            },
-                            onStopDownloadService = {
-                                stopService(Intent(this@MainActivity, PresetDownloadService::class.java))
-                            },
-                        )
-                    }
-                }
 
-                if (settingsState.showNoticeDialog) {
-                    NoticeDialog(
-                        noticeText = androidx.compose.ui.res.stringResource(org.comon.streamlauncher.settings.R.string.notice_body),
-                        version = BuildConfig.VERSION_NAME,
-                        onDismiss = { settingsViewModel.handleIntent(SettingsIntent.DismissNotice) },
-                    )
-                }
-            } // CompositionLocalProvider
+                    LaunchedEffect(Unit) {
+                        settingsViewModel.effect.collect { effect ->
+                            when (effect) {
+                                is SettingsSideEffect.NavigateToMain ->
+                                    navController.popBackStack(Launcher, inclusive = false)
+                                is SettingsSideEffect.StartUploadService -> {
+                                    val serviceIntent = Intent(this@MainActivity, PresetUploadService::class.java)
+                                        .putExtra(PresetUploadService.EXTRA_PRESET_NAME, effect.presetName)
+                                    startForegroundService(serviceIntent)
+                                }
+                                is SettingsSideEffect.UploadStarted ->
+                                    settingsScope.launch {
+                                        settingsSnackbarHostState.showSnackbar("${effect.presetName}을 마켓에 업로드합니다")
+                                    }
+                                is SettingsSideEffect.UploadSuccess ->
+                                    settingsScope.launch {
+                                        settingsSnackbarHostState.showSnackbar("프리셋이 마켓에 업로드되었습니다!")
+                                    }
+                                is SettingsSideEffect.UploadError ->
+                                    settingsScope.launch {
+                                        settingsSnackbarHostState.showSnackbar("업로드 실패: ${effect.message}")
+                                    }
+                                is SettingsSideEffect.RequireSignIn ->
+                                    showSettingsSignInDialog = true
+                                is SettingsSideEffect.StopUploadService ->
+                                    stopService(Intent(this@MainActivity, PresetUploadService::class.java))
+                                is SettingsSideEffect.ShowError ->
+                                    settingsScope.launch {
+                                        settingsSnackbarHostState.showSnackbar(effect.message)
+                                    }
+                            }
+                        }
+                    }
+
+                    NavHost(
+                        navController = navController,
+                        startDestination = Launcher,
+                        enterTransition = { slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(300)) },
+                        popExitTransition = { slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(300)) },
+                        exitTransition = { ExitTransition.None },
+                        popEnterTransition = { EnterTransition.None },
+                    ) {
+                        composable<Launcher>(
+                            enterTransition = { EnterTransition.None },
+                            popExitTransition = { ExitTransition.None },
+                        ) {
+                            val configuration = LocalConfiguration.current
+                            val isLandscape =
+                                configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+                            val appDrawerColumns =
+                                if (isLandscape) {
+                                    uiState.appDrawerGridRows
+                                } else {
+                                    uiState.appDrawerGridColumns
+                                }
+                            val appDrawerRows =
+                                if (isLandscape) {
+                                    uiState.appDrawerGridColumns
+                                } else {
+                                    uiState.appDrawerGridRows
+                                }
+
+                            CrossPagerNavigation(
+                                resetTrigger = resetTrigger,
+                                feedContent = { isVisible ->
+                                    FeedScreen(
+                                        state = feedState,
+                                        isVisible = isVisible,
+                                        onIntent = feedViewModel::handleIntent,
+                                    )
+                                },
+                                settingsContent = {
+                                    SettingsScreen(
+                                        onIntent = settingsViewModel::handleIntent,
+                                        onNavigate = { navController.navigate(it) },
+                                    )
+                                },
+                                appDrawerContent = {
+                                    AppDrawerScreen(
+                                        searchQuery = uiState.searchQuery,
+                                        filteredApps = uiState.filteredApps,
+                                        onSearch = { viewModel.handleIntent(HomeIntent.Search(it)) },
+                                        onAppClick = { viewModel.handleIntent(HomeIntent.ClickApp(it)) },
+                                        onAppAssigned = { app, cell ->
+                                            viewModel.handleIntent(HomeIntent.AssignAppToCell(app, cell))
+                                        },
+                                        columns = appDrawerColumns,
+                                        rows = appDrawerRows,
+                                        iconSizeRatio = uiState.appDrawerIconSizeRatio,
+                                    )
+                                },
+                                isWidgetEditMode = widgetState.isEditMode,
+                                isWidgetDragging = widgetState.draggingWidgetId != null,
+                                widgetContent = {
+                                    WidgetScreen(
+                                        state = widgetState,
+                                        appWidgetHost = appWidgetHost,
+                                        onAddWidgetClick = ::launchWidgetPicker,
+                                        onDeleteWidgetClick = ::deleteWidget,
+                                        onIntent = widgetViewModel::handleIntent,
+                                    )
+                                },
+                                isHomeEditMode = uiState.editingCell != null,
+                            ) {
+                                HomeScreen(state = uiState, onIntent = viewModel::handleIntent)
+                            }
+                        }
+                        composable<SettingsDetail>(
+                            enterTransition = { slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(300)) },
+                            popExitTransition = { slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(300)) },
+                            exitTransition = { ExitTransition.None },
+                            popEnterTransition = { EnterTransition.None },
+                        ) { backStackEntry ->
+                            val route = backStackEntry.toRoute<SettingsDetail>()
+                            val menu = runCatching { SettingsMenu.valueOf(route.menu) }.getOrNull()
+                                ?: return@composable
+                            SettingsDetailScreen(
+                                menu = menu,
+                                state = settingsState,
+                                onIntent = settingsViewModel::handleIntent,
+                                onBack = { navController.popBackStack() },
+                                onNavigateToMarket = { navController.navigate(PresetMarketRoute) },
+                                onShowSnackbar = { message ->
+                                    settingsScope.launch {
+                                        settingsSnackbarHostState.showSnackbar(message)
+                                    }
+                                },
+                                onRequireSignIn = { showSettingsSignIn = true },
+                            )
+                        }
+                        composable<PresetMarketRoute>(
+                            enterTransition = { slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(300)) },
+                            popExitTransition = { slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(300)) },
+                            exitTransition = { ExitTransition.None },
+                            popEnterTransition = { EnterTransition.None },
+                        ) {
+                            PresetMarketHost(
+                                onBack = { navController.popBackStack() },
+                                onStartDownloadService = {
+                                    startForegroundService(Intent(this@MainActivity, PresetDownloadService::class.java))
+                                },
+                                onStopDownloadService = {
+                                    stopService(Intent(this@MainActivity, PresetDownloadService::class.java))
+                                },
+                            )
+                        }
+                    }
+
+                    if (settingsState.showNoticeDialog) {
+                        NoticeDialog(
+                            noticeText = androidx.compose.ui.res.stringResource(org.comon.streamlauncher.settings.R.string.notice_body),
+                            version = BuildConfig.VERSION_NAME,
+                            onDismiss = { settingsViewModel.handleIntent(SettingsIntent.DismissNotice) },
+                        )
+                    }
+                } // CompositionLocalProvider
             } // StreamLauncherTheme
         } // setContent
     } // onCreate
