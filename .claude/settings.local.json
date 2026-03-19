@@ -77,7 +77,8 @@
       "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew :app:compileDebugKotlin :feature:settings:compileDebugKotlin)",
       "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew :feature:settings:kspDebugKotlin --stacktrace)",
       "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew clean assembleDebug)",
-      "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew assembleDebug --info)"
+      "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew assembleDebug --info)",
+      "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew :core:domain:compileKotlin)"
     ]
   }
 }

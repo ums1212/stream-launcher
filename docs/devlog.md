@@ -2,6 +2,40 @@
 
 ---
 
+## [2026-03-19] refactor: DownloadProgress/UploadProgress typealias 제거 — PresetOperationProgress 일원화
+
+### 목표
+
+- 이전 리팩토링에서 임시 도입한 `DownloadProgress` / `UploadProgress` typealias를 완전히 제거
+- 모든 참조를 `PresetOperationProgress`로 직접 교체해 불필요한 간접 계층 삭제
+
+### 변경사항
+
+| Phase | 파일 | 변경 내용 |
+|-------|------|-----------|
+| **1** | `core/domain/.../usecase/DownloadMarketPresetUseCase.kt` | import `DownloadProgress` → `PresetOperationProgress`, 반환 타입 및 생성자 호출 6곳 교체 |
+| **1** | `core/domain/.../usecase/UploadPresetToMarketUseCase.kt` | import `UploadProgress` → `PresetOperationProgress`, 반환 타입 및 생성자 호출 4곳 교체 |
+| **2** | `feature/preset-market/.../download/DownloadProgressTracker.kt` | `: ProgressTracker<DownloadProgress>` → `: ProgressTracker<PresetOperationProgress>` |
+| **2** | `feature/settings/.../upload/UploadProgressTracker.kt` | `: ProgressTracker<UploadProgress>` → `: ProgressTracker<PresetOperationProgress>` |
+| **2** | `feature/preset-market/.../PresetDetailContract.kt` | `downloadProgress: DownloadProgress?` → `PresetOperationProgress?` |
+| **2** | `feature/settings/.../SettingsContract.kt` | `uploadProgress: UploadProgress?` → `PresetOperationProgress?` |
+| **3** | `feature/settings/.../ui/PresetItemCard.kt` | 파라미터 타입 `UploadProgress?` → `PresetOperationProgress?` (계획서 미기재 누락 파일) |
+| **4** | `core/domain/.../model/preset/DownloadProgress.kt` | typealias 파일 삭제 |
+| **4** | `core/domain/.../model/preset/UploadProgress.kt` | typealias 파일 삭제 |
+
+### 검증 결과
+
+- Phase 1: `:core:domain:compileKotlin` BUILD SUCCESSFUL
+- Phase 2: `assembleDebug` BUILD SUCCESSFUL
+- Phase 4 (최종): `assembleDebug` BUILD SUCCESSFUL (307 tasks)
+
+### 설계 결정 및 근거
+
+- **Phase 3 내용 변경**: 계획서에는 ViewModel/Service 4개 파일의 import 제거로 기술됐으나, 실제 확인 결과 해당 파일들은 `DownloadProgress`/`UploadProgress`를 직접 import하지 않고 Tracker 클래스만 참조하고 있었음. 대신 계획서 미기재 파일인 `PresetItemCard.kt`에 직접 타입 참조가 있어 해당 파일을 처리함.
+- **삭제 전 grep 확인**: `import.*\.(DownloadProgress|UploadProgress)$` 패턴으로 잔여 참조 0건 확인 후 typealias 파일 삭제.
+
+---
+
 ## [2026-03-19] refactor: Progress 관련 중복 클래스 통합 (PresetOperationProgress / ProgressTracker / DataHolder)
 
 ### 목표

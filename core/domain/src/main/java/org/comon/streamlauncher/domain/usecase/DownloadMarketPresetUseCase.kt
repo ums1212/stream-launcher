@@ -3,7 +3,7 @@ package org.comon.streamlauncher.domain.usecase
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import org.comon.streamlauncher.domain.model.GridCell
-import org.comon.streamlauncher.domain.model.preset.DownloadProgress
+import org.comon.streamlauncher.domain.model.preset.PresetOperationProgress
 import org.comon.streamlauncher.domain.model.preset.MarketPreset
 import org.comon.streamlauncher.domain.model.preset.Preset
 import org.comon.streamlauncher.domain.repository.MarketPresetRepository
@@ -46,32 +46,32 @@ class DownloadMarketPresetUseCase @Inject constructor(
         if (localPreset.hasWallpaperSettings) localPreset.wallpaperUri?.let { wallpaperHelper.setWallpaperFromPreset(it) }
     }
 
-    fun downloadWithProgress(marketPreset: MarketPreset): Flow<DownloadProgress> = flow {
+    fun downloadWithProgress(marketPreset: MarketPreset): Flow<PresetOperationProgress> = flow {
         val presetName = marketPreset.name
         val totalSteps = 3
 
         try {
             // Step 1: .slp 다운로드 + 추출
             val result = unpackager.downloadAndUnpack(marketPreset)
-            emit(DownloadProgress(presetName, 1, totalSteps))
+            emit(PresetOperationProgress(presetName, 1, totalSteps))
 
             // Step 2: 저장 + 설정 적용
             presetRepository.savePreset(result.localPreset)
             applySettings(result.localPreset)
-            emit(DownloadProgress(presetName, 2, totalSteps))
+            emit(PresetOperationProgress(presetName, 2, totalSteps))
 
             // Step 3: 카운트 증가
             marketRepository.incrementDownloadCount(marketPreset.id)
-            emit(DownloadProgress(presetName, totalSteps, totalSteps, isCompleted = true))
+            emit(PresetOperationProgress(presetName, totalSteps, totalSteps, isCompleted = true))
         } catch (_: UnknownHostException) {
             unpackager.cleanupPresetDir(marketPreset.id)
-            emit(DownloadProgress(presetName, 0, totalSteps, error = "네트워크 연결 없음"))
+            emit(PresetOperationProgress(presetName, 0, totalSteps, error = "네트워크 연결 없음"))
         } catch (e: IOException) {
             unpackager.cleanupPresetDir(marketPreset.id)
-            emit(DownloadProgress(presetName, 0, totalSteps, error = e.message ?: "IO 오류"))
+            emit(PresetOperationProgress(presetName, 0, totalSteps, error = e.message ?: "IO 오류"))
         } catch (e: Exception) {
             unpackager.cleanupPresetDir(marketPreset.id)
-            emit(DownloadProgress(presetName, 0, totalSteps, error = e.message ?: "알 수 없는 오류"))
+            emit(PresetOperationProgress(presetName, 0, totalSteps, error = e.message ?: "알 수 없는 오류"))
         }
     }
 }

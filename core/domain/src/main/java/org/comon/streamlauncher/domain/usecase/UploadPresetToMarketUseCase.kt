@@ -3,7 +3,7 @@ package org.comon.streamlauncher.domain.usecase
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import org.comon.streamlauncher.domain.model.preset.Preset
-import org.comon.streamlauncher.domain.model.preset.UploadProgress
+import org.comon.streamlauncher.domain.model.preset.PresetOperationProgress
 import org.comon.streamlauncher.domain.repository.MarketPresetRepository
 import org.comon.streamlauncher.domain.repository.PresetPackager
 import java.io.IOException
@@ -65,7 +65,7 @@ class UploadPresetToMarketUseCase @Inject constructor(
         previewUris: List<String> = emptyList(),
         description: String = "",
         tags: List<String> = emptyList(),
-    ): Flow<UploadProgress> = flow {
+    ): Flow<PresetOperationProgress> = flow {
         val presetName = localPreset.name
         val totalSteps = 3
         var completed = 0
@@ -77,13 +77,13 @@ class UploadPresetToMarketUseCase @Inject constructor(
 
             // Step 1: 패킹
             val packed = packager.packPreset(localPreset, previewUris, presetId, description, tags, uid, user.displayName)
-            emit(UploadProgress(presetName, ++completed, totalSteps))
+            emit(PresetOperationProgress(presetName, ++completed, totalSteps))
 
             try {
                 // Step 2: .slp 업로드
                 val storagePath = "presets/$uid/$presetId.slp"
                 val slpStorageUrl = repository.uploadSlpFile(packed.slpFilePath, storagePath).getOrThrow()
-                emit(UploadProgress(presetName, ++completed, totalSteps))
+                emit(PresetOperationProgress(presetName, ++completed, totalSteps))
 
                 // Step 3: 썸네일 업로드 + Firestore 문서
                 val thumbnailUrl = previewUris.firstOrNull()?.let {
@@ -102,16 +102,16 @@ class UploadPresetToMarketUseCase @Inject constructor(
                 )
                 repository.uploadPreset(finalPreset).getOrThrow()
 
-                emit(UploadProgress(presetName, totalSteps, totalSteps, isCompleted = true, marketPresetId = presetId))
+                emit(PresetOperationProgress(presetName, totalSteps, totalSteps, isCompleted = true, marketPresetId = presetId))
             } finally {
                 packager.deleteTempFile(packed.slpFilePath)
             }
         } catch (_: UnknownHostException) {
-            emit(UploadProgress(presetName, completed, totalSteps, error = "네트워크 연결을 확인하세요"))
+            emit(PresetOperationProgress(presetName, completed, totalSteps, error = "네트워크 연결을 확인하세요"))
         } catch (_: IOException) {
-            emit(UploadProgress(presetName, completed, totalSteps, error = "네트워크 연결을 확인하세요"))
+            emit(PresetOperationProgress(presetName, completed, totalSteps, error = "네트워크 연결을 확인하세요"))
         } catch (e: Exception) {
-            emit(UploadProgress(presetName, completed, totalSteps, error = e.message ?: "업로드 실패"))
+            emit(PresetOperationProgress(presetName, completed, totalSteps, error = e.message ?: "업로드 실패"))
         }
     }
 }

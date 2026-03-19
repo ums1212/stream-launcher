@@ -34,7 +34,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import org.comon.streamlauncher.domain.model.preset.Preset
-import org.comon.streamlauncher.domain.model.preset.UploadProgress
+import org.comon.streamlauncher.domain.model.preset.PresetOperationProgress
 import org.comon.streamlauncher.settings.R
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -47,7 +47,7 @@ internal fun PresetItemCard(
     modifier: Modifier = Modifier,
     onShare: (() -> Unit)? = null,
     isPending: Boolean = false,
-    uploadProgress: UploadProgress? = null,
+    uploadProgress: PresetOperationProgress? = null,
     onPauseUpload: () -> Unit = {},
     onResumeUpload: () -> Unit = {},
     onCancelUpload: () -> Unit = {},

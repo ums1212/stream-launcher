@@ -1,6 +1,6 @@
 package org.comon.streamlauncher.preset_market
 
-import org.comon.streamlauncher.domain.model.preset.DownloadProgress
+import org.comon.streamlauncher.domain.model.preset.PresetOperationProgress
 import org.comon.streamlauncher.domain.model.preset.MarketPreset
 import org.comon.streamlauncher.ui.UiIntent
 import org.comon.streamlauncher.ui.UiSideEffect
@@ -12,7 +12,7 @@ data class PresetDetailState(
     val isDownloading: Boolean = false,
     val isLoading: Boolean = true,
     val error: String? = null,
-    val downloadProgress: DownloadProgress? = null,
+    val downloadProgress: PresetOperationProgress? = null,
     val isAlreadyDownloaded: Boolean = false,
 ) : UiState
 

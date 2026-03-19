@@ -1,12 +1,12 @@
 package org.comon.streamlauncher.preset_market.download
 
-import org.comon.streamlauncher.domain.model.preset.DownloadProgress
+import org.comon.streamlauncher.domain.model.preset.PresetOperationProgress
 import org.comon.streamlauncher.ui.tracker.ProgressTracker
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class DownloadProgressTracker @Inject constructor() : ProgressTracker<DownloadProgress>() {
+class DownloadProgressTracker @Inject constructor() : ProgressTracker<PresetOperationProgress>() {
     private var _cancellationRequested = false
     val cancellationRequested: Boolean get() = _cancellationRequested
 
