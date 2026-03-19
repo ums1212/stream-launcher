@@ -7,9 +7,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -23,6 +20,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import org.comon.streamlauncher.domain.model.preset.MarketPreset
+import org.comon.streamlauncher.preset_market.ui.component.PresetStatsRow
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
@@ -95,43 +93,14 @@ fun MarketPresetCard(
                 )
             }
             Spacer(modifier = Modifier.height(4.dp))
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Download,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(14.dp),
-                    )
-                    Text(
-                        text = "${preset.downloadCount}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color.White,
-                    )
-                }
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Favorite,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(14.dp),
-                    )
-                    Text(
-                        text = "${preset.likeCount}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color.White,
-                    )
-                }
-            }
+            PresetStatsRow(
+                downloadCount = preset.downloadCount,
+                likeCount = preset.likeCount,
+                color = Color.White,
+                iconSize = 14.dp,
+                outerSpacing = 12.dp,
+                innerSpacing = 4.dp,
+            )
             if (preset.tags.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {

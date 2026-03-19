@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
@@ -51,6 +50,7 @@ import org.comon.streamlauncher.domain.model.AppEntity
 import org.comon.streamlauncher.domain.model.GridCell
 import org.comon.streamlauncher.ui.component.calculateFixedAppGridMetrics
 import org.comon.streamlauncher.ui.component.AppIcon
+import org.comon.streamlauncher.ui.component.PagerIndicator
 import org.comon.streamlauncher.ui.dragdrop.LocalDragDropState
 import org.comon.streamlauncher.ui.theme.StreamLauncherTheme
 import androidx.compose.ui.res.stringResource
@@ -134,44 +134,16 @@ fun AppDrawerScreen(
 
         // 페이지 인디케이터
         if (pageCount > 1) {
-            Row(
+            PagerIndicator(
+                pageCount = pageCount,
+                currentPage = pagerState.currentPage,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 12.dp),
-                horizontalArrangement = Arrangement.Center,
-            ) {
-                repeat(pageCount) { index ->
-                    PageIndicatorDot(
-                        pagerState = pagerState,
-                        index = index,
-                        color = colors.accentPrimary
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun PageIndicatorDot(
-    pagerState: PagerState,
-    index: Int,
-    color: androidx.compose.ui.graphics.Color
-) {
-    val isSelected = pagerState.currentPage == index
-    Box(
-        modifier = Modifier
-            .padding(horizontal = 4.dp)
-            .size(if (isSelected) 8.dp else 6.dp)
-            .then(Modifier.padding(0.dp)),
-    ) {
-        androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
-            drawCircle(
-                color = if (isSelected) {
-                    color
-                } else {
-                    color.copy(alpha = 0.3f)
-                },
+                selectedColor = colors.accentPrimary,
+                unselectedColor = colors.accentPrimary.copy(alpha = 0.3f),
+                dotSize = 8.dp,
+                smallDotSize = 6.dp,
             )
         }
     }

@@ -41,6 +41,7 @@ import kotlinx.coroutines.launch
 import org.comon.streamlauncher.preset_market.*
 import org.comon.streamlauncher.preset_market.R
 import org.comon.streamlauncher.ui.component.GoogleSignInRequiredDialog
+import org.comon.streamlauncher.ui.component.PagerIndicator
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class, ExperimentalSharedTransitionApi::class)
 @Composable
@@ -355,25 +356,13 @@ fun PresetDetailScreen(
                             }
                         } // with(sharedTransitionScope)
                         // 페이지 인디케이터
-                        Row(
+                        PagerIndicator(
+                            pageCount = preset.previewImageUrls.size,
+                            currentPage = pagerState.currentPage,
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.Center,
-                        ) {
-                            repeat(preset.previewImageUrls.size) { idx ->
-                                val color = if (pagerState.currentPage == idx) {
-                                    MaterialTheme.colorScheme.primary
-                                } else {
-                                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
-                                }
-                                Surface(
-                                    modifier = Modifier
-                                        .padding(horizontal = 4.dp)
-                                        .size(8.dp),
-                                    shape = RoundedCornerShape(4.dp),
-                                    color = color,
-                                ) {}
-                            }
-                        }
+                            selectedColor = MaterialTheme.colorScheme.primary,
+                            unselectedColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+                        )
 
                         // 전체화면 이미지 뷰어
                         fullScreenImageIndex?.let { startIndex ->
@@ -513,23 +502,14 @@ private fun FullScreenImagePager(
                 )
             }
             // 페이지 인디케이터
-            Row(
+            PagerIndicator(
+                pageCount = imageUrls.size,
+                currentPage = pagerState.currentPage,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .padding(bottom = 24.dp),
-                horizontalArrangement = Arrangement.Center,
-            ) {
-                repeat(imageUrls.size) { idx ->
-                    val color = if (pagerState.currentPage == idx) Color.White else Color.White.copy(alpha = 0.4f)
-                    Surface(
-                        modifier = Modifier
-                            .padding(horizontal = 4.dp)
-                            .size(8.dp),
-                        shape = RoundedCornerShape(4.dp),
-                        color = color,
-                    ) {}
-                }
-            }
+                selectedColor = Color.White,
+            )
         }
     }
 }

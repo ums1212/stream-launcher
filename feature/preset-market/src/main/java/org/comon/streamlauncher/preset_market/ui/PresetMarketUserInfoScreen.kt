@@ -25,6 +25,7 @@ import org.comon.streamlauncher.preset_market.PresetMarketUserInfoIntent
 import org.comon.streamlauncher.preset_market.PresetMarketUserInfoSideEffect
 import org.comon.streamlauncher.preset_market.PresetMarketUserInfoViewModel
 import org.comon.streamlauncher.preset_market.R
+import org.comon.streamlauncher.preset_market.ui.component.PresetStatsRow
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -300,20 +301,14 @@ private fun SimplePresetListItem(
                     maxLines = 1,
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 )
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Text(
-                        text = "↓ ${preset.downloadCount}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Text(
-                        text = "♥ ${preset.likeCount}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+                PresetStatsRow(
+                    downloadCount = preset.downloadCount,
+                    likeCount = preset.likeCount,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    iconSize = 12.dp,
+                    outerSpacing = 8.dp,
+                    innerSpacing = 2.dp,
+                )
             }
         }
     }

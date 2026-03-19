@@ -2,6 +2,42 @@
 
 ---
 
+## [2026-03-19] refactor: UI Composable 중복 제거 (PagerIndicator / PresetStatsRow / PresetSwipeItem)
+
+### 목표
+
+- 여러 화면에 중복 구현된 UI Composable 3종을 공통 컴포넌트로 추출해 유지보수성 향상
+- 로직 변경 없이 순수 리팩토링 (각 단계 빌드 검증)
+
+### 변경사항
+
+| 항목 | 파일 | 변경 내용 |
+|------|------|-----------|
+| **신규** | `core/ui/.../component/PagerIndicator.kt` | `PagerIndicator(pageCount, currentPage, selectedColor, unselectedColor, dotSize, smallDotSize)` composable 추가 |
+| 교체 | `apps-drawer/.../AppDrawerScreen.kt` | `PageIndicatorDot` private fun 제거 → `PagerIndicator` 사용 |
+| 교체 | `preset-market/.../PresetDetailScreen.kt` | 이미지 pager 인디케이터(Surface 방식) 2곳 → `PagerIndicator` 사용 |
+| **신규** | `preset-market/.../ui/component/PresetStatsRow.kt` | `PresetStatsRow(downloadCount, likeCount, color, iconSize, outerSpacing, innerSpacing)` composable 추가 |
+| 교체 | `preset-market/.../MarketPresetCard.kt` | 다운로드/좋아요 Row 블록 → `PresetStatsRow` 사용, 미사용 Icons import 제거 |
+| 교체 | `preset-market/.../MarketPresetListItem.kt` | 다운로드/좋아요 Row 블록 → `PresetStatsRow` 사용, 미사용 Icons import 제거 |
+| 교체 | `preset-market/.../PresetMarketUserInfoScreen.kt` | `SimplePresetListItem` 내 텍스트 심볼 stats → `PresetStatsRow` 사용 |
+| **신규** | `settings/.../ui/PresetSwipeItem.kt` | `SwipeToDismissBox + PresetItemCard` 조합을 `PresetSwipeItem` internal fun으로 추출 |
+| 교체 | `settings/.../PortraitPresetSettingsScreen.kt` | items 람다 내 SwipeToDismissBox 블록 → `PresetSwipeItem` 호출로 대체, 미사용 import 제거 |
+| 교체 | `settings/.../LandscapePresetSettingsScreen.kt` | items 람다 내 SwipeToDismissBox 블록 → `PresetSwipeItem` 호출로 대체, 미사용 import 제거 |
+
+### 검증 결과
+
+- Step 1 (PagerIndicator): `assembleDebug` BUILD SUCCESSFUL
+- Step 2 (PresetStatsRow): `assembleDebug` BUILD SUCCESSFUL
+- Step 3 (PresetSwipeItem): `assembleDebug` BUILD SUCCESSFUL
+
+### 설계 결정 및 근거
+
+- **PagerIndicator 위치 (`core:ui`)**: `AppDrawerScreen`(feature:apps-drawer)과 `PresetDetailScreen`(feature:preset-market) 양쪽에서 공유해야 하므로 cross-feature 의존 금지 원칙에 따라 `core:ui`에 배치. `dotSize`/`smallDotSize` 분리 파라미터로 AppDrawerScreen의 선택/비선택 크기 차이(8dp/6dp) 유지.
+- **PresetStatsRow 위치 (`feature:preset-market` 내부)**: 3개 사용처 모두 동일 모듈 내이므로 `internal` visibility로 외부 노출 없이 공유. `color`, `iconSize`, `outerSpacing`, `innerSpacing` 파라미터화로 Card(흰색/14dp)와 ListItem(onSurfaceVariant/12dp) 스타일 차이 수용.
+- **PresetSwipeItem 위치 (`feature:settings/ui`)**: Portrait/Landscape 두 파일 모두 동일 패키지이므로 별도 파일로 추출. `Modifier.animateItem()`은 LazyColumn 컨텍스트에서만 의미 있으므로 호출부에서 `modifier` 파라미터로 전달.
+
+---
+
 ## [2026-03-19] chore: 사소한 코드 정리 (Minor Cleanup)
 
 ### 목표
