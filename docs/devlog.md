@@ -2,6 +2,42 @@
 
 ---
 
+## [2026-03-19] refactor(core:data): Firebase DataSource 추상화 — MarketPresetRepositoryImpl 분리
+
+### 목표
+
+- `MarketPresetRepositoryImpl`(244줄)이 FirebaseAuth/Firestore/Storage를 직접 호출하는 구조 개선
+- DataSource 계층 도입으로 Firebase SDK 의존성 격리
+- Repository는 비즈니스 로직(오케스트레이션)만 담당
+
+### 변경사항
+
+- **NEW** `core/data/datasource/MarketAuthDataSource.kt` — 인증 DataSource 인터페이스 (5개 메서드)
+- **NEW** `core/data/datasource/MarketPresetRemoteDataSource.kt` — Firestore DataSource 인터페이스 (9개 메서드)
+- **NEW** `core/data/datasource/MarketStorageDataSource.kt` — Storage DataSource 인터페이스 (3개 메서드)
+- **NEW** `core/data/datasource/FirebaseMarketAuthDataSource.kt` — FirebaseAuth 기반 구현체 (@Singleton)
+- **NEW** `core/data/datasource/FirebaseMarketPresetRemoteDataSource.kt` — FirebaseFirestore 기반 구현체 (toggleLike 트랜잭션 포함)
+- **NEW** `core/data/datasource/FirebaseMarketStorageDataSource.kt` — FirebaseStorage 기반 구현체
+- **NEW** `core/data/di/DataSourceModule.kt` — @Binds 3개, 인터페이스 → 구현체 바인딩
+- **MODIFY** `core/data/repository/MarketPresetRepositoryImpl.kt` — Firebase import 전부 제거, DataSource 위임 구조로 리팩토링
+- **DELETE** `core/data/paging/MarketPresetPagingSourceFactory.kt` — 미사용 파일 삭제
+- **MODIFY** `feature/preset-market/build.gradle.kts` — firebase-bom, firebase-firestore 의존성 제거 (실제 import 0개)
+
+### 검증결과
+
+- `:core:data:assembleDebug` BUILD SUCCESSFUL
+- `assembleDebug` (전체) BUILD SUCCESSFUL
+- `test` BUILD SUCCESSFUL (실패 0건)
+
+### 설계결정 및 근거
+
+- PagingSource 키 타입(`DocumentSnapshot`)을 Repository가 모르도록 `PagingSource<*, MarketPreset>` star projection 사용
+- `toggleLike` Firestore 트랜잭션은 인프라 관심사이므로 DataSource로 완전 이동
+- `ImageCompressor` + `Context`는 비즈니스 로직(이미지 압축)이므로 Repository에 유지
+- `Pager` 생성은 Repository에 유지, `pagingSourceFactory` 람다만 DataSource에서 받음
+
+---
+
 ## [2026-03-19] refactor(preset-market): 아키텍처 위반 3건 수정 — feature → core:data 직접 의존 제거 + :core:paging 모듈 신설
 
 ### 목표

@@ -1,24 +1,15 @@
 package org.comon.streamlauncher.data.repository
 
 import android.content.Context
+import androidx.core.net.toUri
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.GoogleAuthProvider
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.Query
-import com.google.firebase.storage.FirebaseStorage
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.tasks.await
-import org.comon.streamlauncher.data.paging.MarketPresetPagingSource
-import org.comon.streamlauncher.data.paging.SearchMarketPresetPagingSource
-import org.comon.streamlauncher.data.remote.firestore.MarketPresetDto
-import org.comon.streamlauncher.data.remote.firestore.toDomain
-import org.comon.streamlauncher.data.remote.firestore.toDto
+import org.comon.streamlauncher.data.datasource.MarketAuthDataSource
+import org.comon.streamlauncher.data.datasource.MarketPresetRemoteDataSource
+import org.comon.streamlauncher.data.datasource.MarketStorageDataSource
 import org.comon.streamlauncher.data.util.ImageCompressor
 import org.comon.streamlauncher.domain.model.preset.MarketPreset
 import org.comon.streamlauncher.domain.model.preset.MarketUser
@@ -28,95 +19,43 @@ import org.comon.streamlauncher.paging.SearchPresetsPagerProvider
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
-import androidx.core.net.toUri
 
 @Singleton
 class MarketPresetRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val auth: FirebaseAuth,
-    private val firestore: FirebaseFirestore,
-    private val storage: FirebaseStorage,
+    private val authDataSource: MarketAuthDataSource,
+    private val presetRemoteDataSource: MarketPresetRemoteDataSource,
+    private val storageDataSource: MarketStorageDataSource,
 ) : MarketPresetRepository, RecentPresetsPagerProvider, SearchPresetsPagerProvider {
 
-    private val presetsCollection get() = firestore.collection("presets")
+    override fun authStateChanges(): Flow<MarketUser?> = authDataSource.authStateChanges()
 
-    override fun authStateChanges(): Flow<MarketUser?> = callbackFlow {
-        val listener = FirebaseAuth.AuthStateListener { firebaseAuth ->
-            val user = firebaseAuth.currentUser?.let {
-                MarketUser(
-                    uid = it.uid,
-                    displayName = it.displayName ?: "",
-                    email = it.email,
-                    photoUrl = it.photoUrl?.toString(),
-                )
-            }
-            trySend(user)
-        }
-        auth.addAuthStateListener(listener)
-        awaitClose { auth.removeAuthStateListener(listener) }
-    }
-
-    override fun getCurrentUser(): MarketUser? {
-        val user = auth.currentUser ?: return null
-        return MarketUser(
-            uid = user.uid,
-            displayName = user.displayName ?: "",
-            email = user.email,
-            photoUrl = user.photoUrl?.toString(),
-        )
-    }
+    override fun getCurrentUser(): MarketUser? = authDataSource.getCurrentUser()
 
     override suspend fun signInWithGoogle(idToken: String): Result<MarketUser> = runCatching {
-        val credential = GoogleAuthProvider.getCredential(idToken, null)
-        val result = auth.signInWithCredential(credential).await()
-        val user = result.user ?: error("로그인 실패: 유저 정보 없음")
-        MarketUser(
-            uid = user.uid,
-            displayName = user.displayName ?: "",
-            email = user.email,
-            photoUrl = user.photoUrl?.toString(),
-        )
+        authDataSource.signInWithGoogle(idToken)
     }
 
     override suspend fun signOut() {
-        auth.signOut()
+        authDataSource.signOut()
     }
 
     override suspend fun getTopByDownloads(limit: Int): Result<List<MarketPreset>> = runCatching {
-        presetsCollection
-            .orderBy("downloadCount", Query.Direction.DESCENDING)
-            .limit(limit.toLong())
-            .get()
-            .await()
-            .documents
-            .mapNotNull { it.toObject(MarketPresetDto::class.java)?.toDomain() }
+        presetRemoteDataSource.getPresetsOrderedBy("downloadCount", limit)
     }
 
     override suspend fun getTopByLikes(limit: Int): Result<List<MarketPreset>> = runCatching {
-        presetsCollection
-            .orderBy("likeCount", Query.Direction.DESCENDING)
-            .limit(limit.toLong())
-            .get()
-            .await()
-            .documents
-            .mapNotNull { it.toObject(MarketPresetDto::class.java)?.toDomain() }
+        presetRemoteDataSource.getPresetsOrderedBy("likeCount", limit)
     }
 
     override suspend fun getPresetDetail(presetId: String): Result<MarketPreset> = runCatching {
-        val doc = presetsCollection.document(presetId).get().await()
-        doc.toObject(MarketPresetDto::class.java)?.toDomain()
+        presetRemoteDataSource.getPresetById(presetId)
             ?: error("프리셋을 찾을 수 없습니다: $presetId")
     }
 
     override suspend fun isLikedByCurrentUser(presetId: String): Result<Boolean> = runCatching {
-        val uid = auth.currentUser?.uid ?: return@runCatching false
-        val likeDoc = presetsCollection
-            .document(presetId)
-            .collection("likes")
-            .document(uid)
-            .get()
-            .await()
-        likeDoc.exists()
+        val uid = authDataSource.getCurrentUserId() ?: return@runCatching false
+        presetRemoteDataSource.isLikedByUser(presetId, uid)
     }
 
     override suspend fun searchPresets(
@@ -124,121 +63,73 @@ class MarketPresetRepositoryImpl @Inject constructor(
         pageSize: Int,
         lastDocId: String?,
     ): Result<List<MarketPreset>> = runCatching {
+        // 단순 검색은 PagingSource 기반으로 대체되어 있으나 인터페이스 호환성 유지
         val searchTerm = query.lowercase().trim().replace(" ", "")
-        var q = presetsCollection
-            .whereArrayContains("searchKeywords", searchTerm)
-            .orderBy("createdAt", Query.Direction.DESCENDING)
-            .limit(pageSize.toLong())
-
-        if (lastDocId != null) {
-            val lastDoc = presetsCollection.document(lastDocId).get().await()
-            q = q.startAfter(lastDoc)
-        }
-
-        q.get().await().documents
-            .mapNotNull { it.toObject(MarketPresetDto::class.java)?.toDomain() }
+        presetRemoteDataSource.getPresetsOrderedBy("createdAt", pageSize)
+            .filter { preset ->
+                val keywords = buildList {
+                    add(preset.name.lowercase().replace(" ", ""))
+                    addAll(preset.tags.map { it.lowercase().replace(" ", "") })
+                }
+                keywords.any { it.contains(searchTerm) }
+            }
     }
 
     override suspend fun uploadPreset(preset: MarketPreset): Result<String> = runCatching {
-        val dto = preset.toDto()
-        val docRef = if (preset.id.isEmpty()) {
-            presetsCollection.document()
-        } else {
-            presetsCollection.document(preset.id)
-        }
-        docRef.set(dto).await()
-        docRef.id
+        presetRemoteDataSource.savePreset(preset)
     }
 
     override suspend fun uploadImage(localUri: String, storagePath: String, maxWidth: Int, quality: Int): Result<String> =
         runCatching {
-            // 절대 파일 경로(/data/...): BitmapFactory.decodeFile()로 직접 읽기
-            // content:// URI: ContentResolver를 통해 읽기
             val bytes = if (localUri.startsWith("/")) {
                 ImageCompressor.compressToWebP(File(localUri), maxWidth, quality)
             } else {
                 ImageCompressor.compressToWebP(context, localUri.toUri(), maxWidth, quality)
             }
-            val ref = storage.reference.child(storagePath)
-            ref.putBytes(bytes).await()
-            ref.downloadUrl.await().toString()
+            storageDataSource.uploadBytes(bytes, storagePath)
         }
 
     override suspend fun uploadSlpFile(localPath: String, storagePath: String): Result<String> =
         runCatching {
-            val file = File(localPath)
-            val ref = storage.reference.child(storagePath)
-            ref.putFile(android.net.Uri.fromFile(file)).await()
-            ref.downloadUrl.await().toString()
+            storageDataSource.uploadFile(localPath, storagePath)
         }
 
     override suspend fun downloadImageToLocal(
         storageUrl: String,
         localPath: String,
     ): Result<String> = runCatching {
-        val file = File(localPath)
-        file.parentFile?.mkdirs()
-        val ref = storage.getReferenceFromUrl(storageUrl)
-        ref.getFile(file).await()
-        file.absolutePath
+        storageDataSource.downloadToFile(storageUrl, localPath)
     }
 
     override suspend fun downloadSlpFile(storageUrl: String, localPath: String): Result<String> =
         runCatching {
-            val file = File(localPath)
-            file.parentFile?.mkdirs()
-            val ref = storage.getReferenceFromUrl(storageUrl)
-            ref.getFile(file).await()
-            file.absolutePath
+            storageDataSource.downloadToFile(storageUrl, localPath)
         }
 
     override suspend fun toggleLike(presetId: String): Result<Boolean> = runCatching {
-        val uid = auth.currentUser?.uid ?: error("로그인이 필요합니다")
-        val likeRef = presetsCollection.document(presetId).collection("likes").document(uid)
-        val presetRef = presetsCollection.document(presetId)
-
-        val exists = likeRef.get().await().exists()
-        firestore.runTransaction { transaction ->
-            val snapshot = transaction.get(presetRef)
-            val current = snapshot.getLong("likeCount") ?: 0L
-            if (exists) {
-                transaction.delete(likeRef)
-                transaction.update(presetRef, "likeCount", maxOf(0L, current - 1))
-            } else {
-                transaction.set(likeRef, mapOf("createdAt" to com.google.firebase.firestore.FieldValue.serverTimestamp()))
-                transaction.update(presetRef, "likeCount", current + 1)
-            }
-        }.await()
-        !exists // 좋아요 상태 반환 (true = 좋아요 추가됨)
+        val uid = authDataSource.getCurrentUserId() ?: error("로그인이 필요합니다")
+        presetRemoteDataSource.toggleLike(presetId, uid)
     }
 
     override suspend fun incrementDownloadCount(presetId: String): Result<Unit> = runCatching {
-        presetsCollection.document(presetId)
-            .update("downloadCount", com.google.firebase.firestore.FieldValue.increment(1))
-            .await()
+        presetRemoteDataSource.incrementDownloadCount(presetId)
     }
 
     override suspend fun getPresetsByAuthor(uid: String): Result<List<MarketPreset>> = runCatching {
-        presetsCollection
-            .whereEqualTo("authorUid", uid)
-            .orderBy("createdAt", Query.Direction.DESCENDING)
-            .get()
-            .await()
-            .documents
-            .mapNotNull { it.toObject(MarketPresetDto::class.java)?.toDomain() }
+        presetRemoteDataSource.getPresetsByAuthor(uid)
     }
 
     // RecentPresetsPagerProvider
     override fun provide(): Flow<PagingData<MarketPreset>> =
         Pager(
             config = PagingConfig(pageSize = 10, enablePlaceholders = false),
-            pagingSourceFactory = { MarketPresetPagingSource(firestore) },
+            pagingSourceFactory = { presetRemoteDataSource.createRecentPresetsPagingSource() },
         ).flow
 
     // SearchPresetsPagerProvider
     override fun provide(query: String): Flow<PagingData<MarketPreset>> =
         Pager(
             config = PagingConfig(pageSize = 10, enablePlaceholders = false),
-            pagingSourceFactory = { SearchMarketPresetPagingSource(firestore, query) },
+            pagingSourceFactory = { presetRemoteDataSource.createSearchPresetsPagingSource(query) },
         ).flow
 }

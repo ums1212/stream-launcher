@@ -95,9 +95,6 @@ dependencies {
     implementation(libs.paging.runtime)
     implementation(libs.paging.compose)
 
-    implementation(platform(libs.firebase.bom))
-    implementation(libs.firebase.firestore)
-
     implementation(libs.play.services.ads)
     implementation(libs.play.services.auth)
     implementation(libs.credentials)
