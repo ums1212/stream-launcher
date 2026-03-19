@@ -2,6 +2,42 @@
 
 ---
 
+## [2026-03-19] refactor: Progress 관련 중복 클래스 통합 (PresetOperationProgress / ProgressTracker / DataHolder)
+
+### 목표
+
+- Upload/Download에 각각 독립 구현된 동일 구조 클래스 3쌍을 통합해 유지보수 포인트 감소
+- 기존 참조 코드(UseCase, ViewModel, Service, UI) 변경 최소화
+
+### 변경사항
+
+| 항목 | 파일 | 변경 내용 |
+|------|------|-----------|
+| **신규** | `core/domain/.../model/preset/PresetOperationProgress.kt` | `DownloadProgress` + `UploadProgress` 통합 단일 data class (`marketPresetId` 포함) |
+| 교체 | `core/domain/.../model/preset/DownloadProgress.kt` | `data class` → `typealias DownloadProgress = PresetOperationProgress` |
+| 교체 | `core/domain/.../model/preset/UploadProgress.kt` | `data class` → `typealias UploadProgress = PresetOperationProgress` |
+| **신규** | `core/ui/.../tracker/ProgressTracker.kt` | `abstract class ProgressTracker<T>` — `update/pause/resume/awaitResume/clear` 공통 구현 |
+| 교체 | `feature/settings/.../upload/UploadProgressTracker.kt` | 독립 구현 → `ProgressTracker<UploadProgress>` 상속으로 단순화 |
+| 교체 | `feature/preset-market/.../download/DownloadProgressTracker.kt` | 독립 구현 → `ProgressTracker<DownloadProgress>` 상속 + `cancellationRequested` / `requestCancellation()` / `clear()` override 유지 |
+| **신규** | `core/domain/.../model/DataHolder.kt` | `interface DataHolder { fun clear() }` |
+| 교체 | `feature/settings/.../upload/UploadDataHolder.kt` | `DataHolder` 인터페이스 구현 추가 |
+| 교체 | `feature/preset-market/.../download/DownloadDataHolder.kt` | `DataHolder` 인터페이스 구현 추가 |
+
+### 검증 결과
+
+- Step 1 (PresetOperationProgress + typealias): `clean assembleDebug` BUILD SUCCESSFUL
+- Step 2 (ProgressTracker 추상 클래스): `assembleDebug` BUILD SUCCESSFUL
+- Step 3 (DataHolder 인터페이스): `assembleDebug` BUILD SUCCESSFUL
+
+### 설계 결정 및 근거
+
+- **typealias 채택**: `DownloadProgress` / `UploadProgress`를 즉시 제거하면 UseCase, Contract, ViewModel, Service 전반에 걸친 타입 교체가 필요해 변경 범위가 커짐. typealias로 기존 이름을 유지해 참조 코드 무수정 보장. 이후 필요 시 단계적으로 `PresetOperationProgress`로 일원화 가능.
+- **ProgressTracker 위치 (`core:ui`)**: feature:settings와 feature:preset-market 양쪽이 의존하는 공통 위치. `core:domain`은 순수 JVM 모듈(Android 의존성 금지)이라 `MutableStateFlow` 사용이 제약됨 — kotlinx-coroutines 의존성을 이미 갖춘 `core:ui`에 배치.
+- **`_isPaused` private 유지**: `requestCancellation()`에서 pause 해제가 필요한 `DownloadProgressTracker`는 `resume()` 공개 메서드를 호출하는 방식으로 내부 필드 노출 없이 처리.
+- **DataHolder 위치 (`core:domain`)**: `clear()` 단일 메서드의 마커 인터페이스. 도메인 레이어 객체이므로 Android 의존성 없는 `core:domain`이 적합.
+
+---
+
 ## [2026-03-19] refactor: UI Composable 중복 제거 (PagerIndicator / PresetStatsRow / PresetSwipeItem)
 
 ### 목표
