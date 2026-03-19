@@ -17,7 +17,7 @@ import org.comon.streamlauncher.ui.util.calculateIsCompactHeight
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun PresetSettingsContent(
+internal fun PresetSettingsContent(
     state: SettingsState,
     onIntent: (SettingsIntent) -> Unit,
     onNavigateToMarket: () -> Unit = {},
@@ -52,7 +52,7 @@ fun PresetSettingsContent(
     }
 
     if(isCompactLandscape){
-        LandScapePresetSettingsScreen(
+        LandscapePresetSettingsScreen(
             state = state,
             isUploadInProgress = isUploadInProgress,
             onNavigateToMarket = { onNavigateToMarket() },

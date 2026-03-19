@@ -66,7 +66,7 @@ internal fun ColorSettingsContent(
 }
 
 @Composable
-internal fun ColorSettingsGridItem(
+private fun ColorSettingsGridItem(
     state: SettingsState,
     preset: ColorPreset,
     onIntent: (SettingsIntent) -> Unit,

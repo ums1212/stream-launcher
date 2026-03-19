@@ -2,6 +2,49 @@
 
 ---
 
+## [2026-03-19] chore: 사소한 코드 정리 (Minor Cleanup)
+
+### 목표
+
+- 불필요한 Kotlin stdlib 명시적 import 제거
+- Composable visibility 정책 일관성 확보
+- 파일명/함수명 케이싱 불일치 수정 (`LandScape` → `Landscape`)
+- Android Studio 자동 생성 보일러플레이트 테스트 파일 제거
+
+### 변경사항
+
+| 항목 | 파일 | 변경 내용 |
+|------|------|-----------|
+| stdlib import 제거 | `settings/ui/LandscapeSettingsLayout.kt` | `kotlin.collections.chunked`, `kotlin.collections.forEach` import 삭제 |
+| stdlib import 제거 | `settings/ui/SavePresetDialog.kt` | `kotlin.text.ifEmpty` import 삭제 |
+| stdlib import 제거 | `settings/ui/UploadToMarketDialog.kt` | `kotlin.collections.distinct`, `kotlin.collections.plus` import 삭제 |
+| Visibility 수정 | `settings/ui/ColorSettingsContent.kt` | `ColorSettingsGridItem`: `internal` → `private` |
+| Visibility 수정 | `settings/ui/PresetSettingsContent.kt` | `PresetSettingsContent`: `public` → `internal` |
+| 파일명 rename | `LandScapePresetSettingsScreen.kt` → `LandscapePresetSettingsScreen.kt` | `git mv`로 케이싱 수정 |
+| 함수명 수정 | `LandscapePresetSettingsScreen.kt` | `LandScapePresetSettingsScreen` → `LandscapePresetSettingsScreen` |
+| 호출부 수정 | `settings/ui/PresetSettingsContent.kt` | 함수 호출명 동일하게 수정 |
+| 보일러플레이트 삭제 | `feature/launcher/.../ExampleInstrumentedTest.kt` | 파일 삭제 |
+| 보일러플레이트 삭제 | `feature/apps-drawer/.../ExampleInstrumentedTest.kt` | 파일 삭제 |
+| 보일러플레이트 삭제 | `feature/apps-drawer/.../ExampleUnitTest.kt` | 파일 삭제 |
+| 보일러플레이트 삭제 | `feature/widget/.../ExampleUnitTest.kt` | 파일 삭제 |
+| 보일러플레이트 삭제 | `feature/widget/.../ExampleInstrumentedTest.kt` | 파일 삭제 |
+| 보일러플레이트 삭제 | `feature/preset-market/.../ExampleUnitTest.kt` | 파일 삭제 |
+| 보일러플레이트 삭제 | `feature/preset-market/.../ExampleInstrumentedTest.kt` | 파일 삭제 |
+
+### 검증결과
+
+- `./gradlew assembleDebug` — BUILD SUCCESSFUL (35s, 35 executed / 272 up-to-date)
+
+### 설계결정 및 근거
+
+- **stdlib import**: Kotlin 표준 라이브러리는 자동 import되므로 명시적 import는 불필요한 노이즈. IDE 경고 기준과 일치
+- **`private` 강등**: `ColorSettingsGridItem`은 동일 파일 내부에서만 사용되므로 `internal`로 열어둘 필요 없음. 최소 가시성 원칙 적용
+- **`internal` 강등**: `PresetSettingsContent`는 다른 feature 모듈에서 참조하지 않으므로 `public` 불필요. feature 모듈 캡슐화 강화
+- **`git mv` 사용**: Windows 파일시스템은 대소문자를 구분하지 않으므로 `cp`로는 rename 불가. `git mv`를 통해 Git이 rename으로 추적하도록 처리
+- **보일러플레이트 삭제**: Android Studio가 모듈 생성 시 자동으로 만든 빈 테스트 파일로, 실제 로직 없음. 존재하면 CI/테스트 리포트에서 혼란 유발 가능
+
+---
+
 ## [2026-03-19] fix(preset): 프리셋 용량 제한 및 예외 처리 개선
 
 ### 목표

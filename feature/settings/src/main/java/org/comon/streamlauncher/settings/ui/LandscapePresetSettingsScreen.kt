@@ -38,7 +38,7 @@ import org.comon.streamlauncher.settings.SettingsIntent
 import org.comon.streamlauncher.settings.SettingsState
 
 @Composable
-internal fun LandScapePresetSettingsScreen(
+internal fun LandscapePresetSettingsScreen(
     state: SettingsState,
     isUploadInProgress: Boolean,
     onNavigateToMarket: () -> Unit,

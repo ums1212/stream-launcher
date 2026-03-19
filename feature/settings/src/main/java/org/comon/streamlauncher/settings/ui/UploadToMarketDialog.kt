@@ -38,8 +38,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import org.comon.streamlauncher.settings.R
-import kotlin.collections.distinct
-import kotlin.collections.plus
 
 @Composable
 internal fun UploadToMarketDialog(

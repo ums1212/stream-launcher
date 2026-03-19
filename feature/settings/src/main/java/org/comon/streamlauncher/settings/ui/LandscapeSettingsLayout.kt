@@ -16,8 +16,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import org.comon.streamlauncher.settings.model.SettingMenuItem
 import org.comon.streamlauncher.settings.model.SettingsActionType
-import kotlin.collections.chunked
-import kotlin.collections.forEach
 
 @Composable
 internal fun LandScapeSettingsScreen(

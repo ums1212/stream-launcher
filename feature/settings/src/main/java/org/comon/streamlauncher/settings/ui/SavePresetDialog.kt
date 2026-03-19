@@ -28,7 +28,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import org.comon.streamlauncher.settings.R
-import kotlin.text.ifEmpty
 
 @Composable
 internal fun SavePresetDialog(
