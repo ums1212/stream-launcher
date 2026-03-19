@@ -2,6 +2,45 @@
 
 ---
 
+## [2026-03-19] design(theme): 컬러 프리셋을 전체 ColorScheme에 반영
+
+### 목표
+
+- 컬러 프리셋 선택 시 `primary`/`tertiary` 7개 속성만 반영되던 한계 해소
+- `onSurfaceVariant`(22곳), `onSurface`(8곳), `outlineVariant`(3곳), `secondaryContainer`(2곳) 등 나머지 속성이 기본값을 유지하여 발생하던 시각적 불일치 해결
+- `glassSurface`/`glassOnSurface`/`gridBorder` 등 `StreamLauncherColors`도 자동 갱신
+
+### 변경사항
+
+| 파일 | 내용 |
+|------|------|
+| `core/ui/.../theme/Theme.kt` | `baseColorScheme.copy()` 블록을 ~25개 속성으로 확장; `StreamLauncherColors` 베이스 계산을 Dynamic Color 분기 없이 단일 `colorScheme` 파생으로 단순화; override 블록에 `gridBorder`/`glassSurface`/`glassOnSurface` 추가 |
+
+**확장된 colorScheme 속성 그룹**
+
+- **Primary/Tertiary container**: `primaryContainer`, `onPrimaryContainer`, `tertiaryContainer`, `onTertiaryContainer`
+- **Secondary** (tertiary에서 파생): `secondary`, `onSecondary`, `secondaryContainer`, `onSecondaryContainer`
+- **On-surface**: `onSurface`, `onSurfaceVariant`, `onBackground` — MD3 기본값에서 accent를 5~10% lerp
+- **Surface family**: `surfaceDim`, `surfaceBright`, `surfaceContainerLowest/Low/Container/High/Highest`, `surfaceTint`
+- **Outline**: `outline`, `outlineVariant`
+- **Inverse**: `inverseSurface`, `inverseOnSurface`, `inversePrimary`
+- **Error 색상**: 변경 없음 (시맨틱 의미 보존)
+
+### 검증결과
+
+- `:core:ui:compileDebugKotlin` BUILD SUCCESSFUL
+- `:app:assembleDebug` BUILD SUCCESSFUL
+- 전체 테스트 `./gradlew test` BUILD SUCCESSFUL (실패 0건)
+
+### 설계결정 및 근거
+
+- **lerp 비율 최소화**: on-surface 계열은 5~10%, surface 계열은 1~16%로 낮게 설정 — 가독성(대비비 4.5:1) 유지를 우선함
+- **Error 계열 불변**: `error`/`onError`/`errorContainer`/`onErrorContainer`는 "삭제·취소" 시맨틱을 갖는 예약 색상이므로 accent 영향을 주지 않음
+- **StreamLauncherColors 단순화**: Dynamic Color 분기를 제거하고 항상 `colorScheme`에서 파생 → accent override 시 `glassSurface`, `glassOnSurface`, `gridBorder`도 자동으로 accent 반영, 분기 중복 제거
+- **secondary = tertiary**: MD3 권장 패턴으로, accentSecondary가 secondary 계열에도 일관되게 표현됨
+
+---
+
 ## [2026-03-19] feat(preset-market): MarketHomeScreen landscape/portrait 레이아웃 분리
 
 ### 목표
