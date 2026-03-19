@@ -5,9 +5,6 @@ import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccountCircle
@@ -23,13 +20,11 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.paging.compose.collectAsLazyPagingItems
-import androidx.paging.compose.itemKey
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import org.comon.streamlauncher.domain.model.preset.MarketPreset
 import org.comon.streamlauncher.preset_market.*
 import org.comon.streamlauncher.preset_market.R
 import org.comon.streamlauncher.ui.component.GoogleSignInRequiredDialog
+import org.comon.streamlauncher.ui.util.calculateIsCompactHeight
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
 @Composable
@@ -50,6 +45,7 @@ fun MarketHomeScreen(
     var showSignInDialog by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val isCompactLandscape = calculateIsCompactHeight()
 
     val signInSuccessMessage = stringResource(R.string.preset_market_sign_in_success)
 
@@ -90,7 +86,6 @@ fun MarketHomeScreen(
 
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
-    with(sharedTransitionScope) {
     Scaffold(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -103,13 +98,28 @@ fun MarketHomeScreen(
                     }
                 },
                 actions = {
+                    // landscape에서는 fake SearchBar 대신 TopAppBar 검색 아이콘 제공
+                    if (isCompactLandscape) {
+                        IconButton(onClick = { viewModel.handleIntent(PresetMarketIntent.NavigateToSearch) }) {
+                            Icon(
+                                Icons.Default.Search,
+                                contentDescription = stringResource(R.string.preset_market_search_hint),
+                            )
+                        }
+                    }
                     if (state.currentUser != null) {
                         IconButton(onClick = { viewModel.handleIntent(PresetMarketIntent.NavigateToUserInfo) }) {
-                            Icon(Icons.Default.AccountCircle, contentDescription = stringResource(R.string.preset_market_user_info_title))
+                            Icon(
+                                Icons.Default.AccountCircle,
+                                contentDescription = stringResource(R.string.preset_market_user_info_title),
+                            )
                         }
                     } else {
                         IconButton(onClick = { showSignInDialog = true }) {
-                            Icon(Icons.Default.Person, contentDescription = stringResource(R.string.preset_market_login))
+                            Icon(
+                                Icons.Default.Person,
+                                contentDescription = stringResource(R.string.preset_market_login),
+                            )
                         }
                     }
                 },
@@ -117,164 +127,79 @@ fun MarketHomeScreen(
             )
         },
     ) { paddingValues ->
-        LazyColumn(
-            contentPadding = paddingValues,
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(0.dp),
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues),
         ) {
-            // 검색바 (탭하면 검색 화면으로 이동하는 fake SearchBar)
-            item {
-                Surface(
-                    onClick = { viewModel.handleIntent(PresetMarketIntent.NavigateToSearch) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                        .sharedBounds(
-                            sharedContentState = rememberSharedContentState(key = "market-search-bar"),
-                            animatedVisibilityScope = animatedVisibilityScope,
-                        ),
-                    shape = MaterialTheme.shapes.extraSmall,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
+            // 검색창 — portrait일 때만 표시
+            if (!isCompactLandscape) {
+                with(sharedTransitionScope) {
+                    Surface(
+                        onClick = { viewModel.handleIntent(PresetMarketIntent.NavigateToSearch) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .sharedBounds(
+                                sharedContentState = rememberSharedContentState(key = "market-search-bar"),
+                                animatedVisibilityScope = animatedVisibilityScope,
+                            ),
+                        shape = MaterialTheme.shapes.extraSmall,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
                     ) {
-                        Text(
-                            text = stringResource(R.string.preset_market_search_hint),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Spacer(Modifier.weight(1f))
-                        Icon(
-                            imageVector = Icons.Default.Search,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
+                        ) {
+                            Text(
+                                text = stringResource(R.string.preset_market_search_hint),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Spacer(Modifier.weight(1f))
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                 }
             }
 
-            // AdMob 배너 (광고 로딩 전에도 고정 높이 확보 → 레이아웃 이동 방지)
-            item {
-                Box(
+            // AdMob 배너
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+            ) {
+                AdmobBanner(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(58.dp), // BANNER(50dp) + 수직 패딩 4dp×2
-                ) {
-                    AdmobBanner(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp),
-                    )
-                }
-            }
-
-            // 탭 (다운로드 / 좋아요)
-            item {
-                PrimaryTabRow(selectedTabIndex = state.selectedTab.ordinal) {
-                    Tab(
-                        selected = state.selectedTab == MarketTab.DOWNLOADS,
-                        onClick = { viewModel.handleIntent(PresetMarketIntent.SelectTab(MarketTab.DOWNLOADS)) },
-                        text = { Text(stringResource(R.string.preset_market_top_downloads)) },
-                    )
-                    Tab(
-                        selected = state.selectedTab == MarketTab.LIKES,
-                        onClick = { viewModel.handleIntent(PresetMarketIntent.SelectTab(MarketTab.LIKES)) },
-                        text = { Text(stringResource(R.string.preset_market_top_likes)) },
-                    )
-                }
-            }
-
-            // Top 10 HorizontalPager (auto-scroll)
-            item {
-                val topPresets = if (state.selectedTab == MarketTab.DOWNLOADS) {
-                    state.topDownloadPresets
-                } else {
-                    state.topLikePresets
-                }
-                if (topPresets.isNotEmpty()) {
-                    TopPresetPager(
-                        presets = topPresets,
-                        onClick = onNavigateToDetailFromCard,
-                        sharedTransitionScope = sharedTransitionScope,
-                        animatedVisibilityScope = animatedVisibilityScope,
-                    )
-                } else if (state.isLoading) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(200.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        CircularProgressIndicator()
-                    }
-                }
-            }
-
-            // 최근 업로드 헤더
-            item {
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                Text(
-                    text = stringResource(R.string.preset_market_recent),
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        .padding(vertical = 4.dp),
                 )
             }
 
-            // 최근 업로드 목록 (Paging)
-            items(
-                count = recentPresets.itemCount,
-                key = recentPresets.itemKey { it.id },
-            ) { index ->
-                val preset = recentPresets[index]
-                if (preset != null) {
-                    MarketPresetListItem(
-                        preset = preset,
-                        onClick = { viewModel.handleIntent(PresetMarketIntent.ClickPreset(preset.id)) },
-                        sharedTransitionScope = sharedTransitionScope,
-                        animatedVisibilityScope = animatedVisibilityScope,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                    )
-                }
+            // 콘텐츠 레이아웃
+            if (isCompactLandscape) {
+                MarketHomeLandscapeContent(
+                    state = state,
+                    recentPresets = recentPresets,
+                    onIntent = { viewModel.handleIntent(it) },
+                    onNavigateToDetailFromCard = onNavigateToDetailFromCard,
+                    sharedTransitionScope = sharedTransitionScope,
+                    animatedVisibilityScope = animatedVisibilityScope,
+                    modifier = Modifier.weight(1f),
+                )
+            } else {
+                MarketHomePortraitContent(
+                    state = state,
+                    recentPresets = recentPresets,
+                    onIntent = { viewModel.handleIntent(it) },
+                    onNavigateToDetailFromCard = onNavigateToDetailFromCard,
+                    sharedTransitionScope = sharedTransitionScope,
+                    animatedVisibilityScope = animatedVisibilityScope,
+                    modifier = Modifier.weight(1f),
+                )
             }
         }
-    }
-    } // with(sharedTransitionScope)
-}
-
-@OptIn(ExperimentalSharedTransitionApi::class)
-@Composable
-private fun TopPresetPager(
-    presets: List<MarketPreset>,
-    onClick: (String) -> Unit,
-    sharedTransitionScope: SharedTransitionScope,
-    animatedVisibilityScope: AnimatedVisibilityScope,
-) {
-    val pagerState = rememberPagerState { presets.size }
-
-    // 3초마다 자동 스크롤
-    LaunchedEffect(pagerState.pageCount) {
-        while (true) {
-            delay(3000L)
-            val next = (pagerState.currentPage + 1) % pagerState.pageCount
-            pagerState.animateScrollToPage(next)
-        }
-    }
-
-    HorizontalPager(
-        state = pagerState,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(200.dp)
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        pageSpacing = 8.dp,
-    ) { page ->
-        MarketPresetCard(
-            preset = presets[page],
-            onClick = { onClick(presets[page].id) },
-            sharedTransitionScope = sharedTransitionScope,
-            animatedVisibilityScope = animatedVisibilityScope,
-            rank = page + 1,
-        )
     }
 }

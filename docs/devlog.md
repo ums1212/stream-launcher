@@ -2,6 +2,40 @@
 
 ---
 
+## [2026-03-19] feat(preset-market): MarketHomeScreen landscape/portrait 레이아웃 분리
+
+### 목표
+
+- MarketHomeScreen이 portrait 전용 레이아웃으로만 구성되어 landscape에서 사용성이 떨어지던 문제 해결
+- Settings/UserInfo 화면과 동일한 `calculateIsCompactHeight()` 분기 패턴으로 통일
+
+### 변경사항
+
+**신규 생성 (4개 파일)**
+- `ui/MarketHomePortraitContent.kt` — PrimaryTabRow, TopPresetPager(3초 auto-scroll HorizontalPager), Paging LazyColumn
+- `ui/MarketHomeLandscapeContent.kt` — 커스텀 사이드탭(Column + SideTabItem) + 오른쪽 콘텐츠 영역. `LandscapeSideTab` enum (UI-only 로컬 상태). Top10 탭은 `TopPresetPager` 재사용, Recent 탭은 `LazyRow { MarketPresetLandscapeCard }`
+- `ui/component/MarketPresetLandscapeCard.kt` — LazyRow용 세로형 카드(width=200.dp, thumbnail 120.dp). `fromCard` 파라미터로 sharedBounds key 분기
+- `res/values/strings.xml` — `preset_market_side_tab_top10` 추가
+
+**수정 (1개 파일)**
+- `ui/MarketHomeScreen.kt` — Orchestrator: Scaffold content 내 `Column { SearchBar(portrait only), AdMobBanner, content(weight=1f) }` 구조. `TopPresetPager` → `MarketHomePortraitContent.kt`로 이동(internal), landscape 시 TopAppBar에 Search 아이콘 추가
+
+### 검증결과
+
+- `:feature:preset-market:assembleDebug` BUILD SUCCESSFUL
+- `:app:assembleDebug` BUILD SUCCESSFUL
+
+### 설계결정 및 근거
+
+- **ViewModel/Contract 변경 없음**: `LandscapeSideTab`은 UI-only 로컬 상태이므로 ViewModel 수정·테스트 추가 불필요
+- **SearchBar portrait only**: `!isCompactLandscape`일 때만 표시. landscape는 TopAppBar의 Search 아이콘으로 대체. sharedBounds 애니메이션은 SearchBar가 표시될 때만 동작하므로 문제없음
+- **AdMob 공통 배치**: SearchBar 아래, content 위. portrait/landscape 구분 없이 항상 표시
+- **SideTabItem 커스텀 구현**: `NavigationRailItem`의 indicator가 Material3 내부 토큰으로 고정 크기라 `fillMaxWidth()` 적용 불가 → `Surface + Column` 커스텀으로 교체. `width(IntrinsicSize.Max)`로 Column이 가장 넓은 아이템 너비에 맞추고 각 항목은 `fillMaxWidth()`로 채움
+- **SideTabItem 색상**: 선택 시 `MaterialTheme.colorScheme.primary` / `onPrimary` 사용 → 설정에서 지정한 accent 컬러(`accentPrimaryOverride` → `primary` 매핑)가 자동 반영
+- **TopPresetPager 재사용**: `private` → `internal`로 변경 + `modifier` 파라미터 추가로 landscape Top10 탭에서 동일 컴포넌트 공유
+
+---
+
 ## [2026-03-19] refactor(app): MainActivity 분리 — 5개 파일로 역할별 추출, ~600줄 → ~160줄
 
 ### 목표
