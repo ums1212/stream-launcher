@@ -2,6 +2,33 @@
 
 ---
 
+## [2026-03-19] refactor(widget): WidgetViewModel — BaseViewModel MVI 패턴 마이그레이션
+
+### 목표
+
+- 프로젝트 내 유일한 예외였던 `WidgetViewModel`을 `BaseViewModel<S, I, E>` 패턴으로 통일
+- `WidgetContract.kt`에 누락된 `WidgetSideEffect` sealed interface 추가
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `feature/widget/.../WidgetContract.kt` | `WidgetState : UiState`, `WidgetIntent : UiIntent` 구현 추가; `WidgetSideEffect : UiSideEffect` sealed interface 신규 추가 |
+| `feature/widget/.../WidgetViewModel.kt` | `ViewModel()` → `BaseViewModel<WidgetState, WidgetIntent, WidgetSideEffect>(WidgetState())` 상속 변경; `_state MutableStateFlow` / `stateIn` / `uiState` 필드 제거; `handleIntent()` → `override fun`; `_state.update { it.copy(...) }` → `updateState { copy(...) }`; `_state.value` → `currentState` |
+| `feature/widget/.../ui/WidgetScreen.kt` | 변경 없음 — `state: WidgetState` 파라미터 방식 유지, `uiState` 프로퍼티명 동일 |
+
+### 검증 결과
+
+- `:feature:widget:compileDebugKotlin` BUILD SUCCESSFUL
+- `assembleDebug` BUILD SUCCESSFUL (307 tasks)
+
+### 설계 결정 및 근거
+
+- **WidgetSideEffect 빈 sealed interface 허용**: 현재 위젯 화면에서 외부로 전달할 단발성 이벤트(Toast, Navigation 등)가 없으므로 빈 sealed interface로 정의. 향후 필요 시 변형 추가 가능.
+- **WidgetScreen.kt 무변경**: `BaseViewModel`이 기존 `stateIn`과 동일한 `uiState: StateFlow<S>` API를 제공하므로 Screen 및 `MainActivity`의 `collectAsStateWithLifecycle()` 호출부 수정 불필요.
+
+---
+
 ## [2026-03-19] refactor: DownloadProgress/UploadProgress typealias 제거 — PresetOperationProgress 일원화
 
 ### 목표

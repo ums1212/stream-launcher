@@ -1,39 +1,28 @@
 package org.comon.streamlauncher.widget
 
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.comon.streamlauncher.domain.model.WidgetPlacement
 import org.comon.streamlauncher.domain.repository.WidgetRepository
+import org.comon.streamlauncher.ui.BaseViewModel
 import javax.inject.Inject
 
 @HiltViewModel
 class WidgetViewModel @Inject constructor(
     private val widgetRepository: WidgetRepository,
-) : ViewModel() {
-
-    private val _state = MutableStateFlow(WidgetState())
-    val uiState = _state.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5_000L),
-        initialValue = WidgetState(),
-    )
+) : BaseViewModel<WidgetState, WidgetIntent, WidgetSideEffect>(WidgetState()) {
 
     init {
         viewModelScope.launch { widgetRepository.migrateLegacySlots() }
         viewModelScope.launch {
             widgetRepository.getWidgetPlacements().collect { placements ->
-                _state.update { it.copy(placements = placements) }
+                updateState { copy(placements = placements) }
             }
         }
     }
 
-    fun handleIntent(intent: WidgetIntent) {
+    override fun handleIntent(intent: WidgetIntent) {
         when (intent) {
             is WidgetIntent.AddWidget -> addWidget(intent.appWidgetId, intent.minCols, intent.minRows)
             is WidgetIntent.RemoveWidget -> removeWidget(intent.appWidgetId)
@@ -43,13 +32,13 @@ class WidgetViewModel @Inject constructor(
             is WidgetIntent.StartResize -> startResize(intent.appWidgetId)
             is WidgetIntent.UpdateResize -> updateResize(intent.colSpan, intent.rowSpan)
             is WidgetIntent.EndResize -> endResize()
-            is WidgetIntent.SetEditMode -> _state.update { it.copy(isEditMode = intent.isEdit) }
+            is WidgetIntent.SetEditMode -> updateState { copy(isEditMode = intent.isEdit) }
         }
     }
 
     private fun addWidget(appWidgetId: Int, minCols: Int, minRows: Int) {
         viewModelScope.launch {
-            val placements = _state.value.placements
+            val placements = currentState.placements
             val (col, row) = findAvailablePosition(placements, minCols, minRows)
             val placement = WidgetPlacement(
                 appWidgetId = appWidgetId,
@@ -69,9 +58,9 @@ class WidgetViewModel @Inject constructor(
     }
 
     private fun startDrag(appWidgetId: Int) {
-        val placement = _state.value.placements.find { it.appWidgetId == appWidgetId } ?: return
-        _state.update {
-            it.copy(
+        val placement = currentState.placements.find { it.appWidgetId == appWidgetId } ?: return
+        updateState {
+            copy(
                 draggingWidgetId = appWidgetId,
                 dragPreviewCol = placement.column,
                 dragPreviewRow = placement.row,
@@ -80,23 +69,23 @@ class WidgetViewModel @Inject constructor(
     }
 
     private fun updateDrag(gridCol: Int, gridRow: Int) {
-        if (_state.value.draggingWidgetId == null) return
-        _state.update { it.copy(dragPreviewCol = gridCol, dragPreviewRow = gridRow) }
+        if (currentState.draggingWidgetId == null) return
+        updateState { copy(dragPreviewCol = gridCol, dragPreviewRow = gridRow) }
     }
 
     private fun endDrag() {
-        val state = _state.value
+        val state = currentState
         val draggingId = state.draggingWidgetId ?: return
         viewModelScope.launch {
             widgetRepository.updateWidgetPlacement(draggingId, state.dragPreviewCol, state.dragPreviewRow)
         }
-        _state.update { it.copy(draggingWidgetId = null) }
+        updateState { copy(draggingWidgetId = null) }
     }
 
     private fun startResize(appWidgetId: Int) {
-        val placement = _state.value.placements.find { it.appWidgetId == appWidgetId } ?: return
-        _state.update {
-            it.copy(
+        val placement = currentState.placements.find { it.appWidgetId == appWidgetId } ?: return
+        updateState {
+            copy(
                 resizingWidgetId = appWidgetId,
                 resizePreviewColSpan = placement.columnSpan,
                 resizePreviewRowSpan = placement.rowSpan,
@@ -105,17 +94,17 @@ class WidgetViewModel @Inject constructor(
     }
 
     private fun updateResize(colSpan: Int, rowSpan: Int) {
-        if (_state.value.resizingWidgetId == null) return
-        _state.update { it.copy(resizePreviewColSpan = colSpan, resizePreviewRowSpan = rowSpan) }
+        if (currentState.resizingWidgetId == null) return
+        updateState { copy(resizePreviewColSpan = colSpan, resizePreviewRowSpan = rowSpan) }
     }
 
     private fun endResize() {
-        val state = _state.value
+        val state = currentState
         val resizingId = state.resizingWidgetId ?: return
         viewModelScope.launch {
             widgetRepository.updateWidgetSize(resizingId, state.resizePreviewColSpan, state.resizePreviewRowSpan)
         }
-        _state.update { it.copy(resizingWidgetId = null) }
+        updateState { copy(resizingWidgetId = null) }
     }
 
     /**
