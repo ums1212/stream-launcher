@@ -7,8 +7,7 @@
 ```
 org.comon.streamlauncher.apps_drawer
 └── ui/
-    ├── AppDrawerScreen.kt   # 전체 앱 서랍 화면
-    └── AppIcon.kt           # 앱 아이콘 Composable
+    └── AppDrawerScreen.kt   # 전체 앱 서랍 화면 (AppIcon 은 core:ui 에 위치)
 ```
 
 ## 주요 컴포넌트
@@ -20,10 +19,11 @@ org.comon.streamlauncher.apps_drawer
 - `derivedStateOf` 로 filteredApps 구독 최적화
 - 페이지 이탈 시 소프트 키보드 자동 숨김
 
-### AppIcon
+### AppIcon (core:ui/component/AppIcon.kt)
 
 - `produceState` + `Dispatchers.IO` 로 비동기 아이콘 로드 (UI 블로킹 방지)
 - Coil `AsyncImage` 사용
+- feature:apps-drawer 와 feature:launcher 에서 공용으로 사용 → `core:ui` 에 배치됨
 
 ### AppDrawerItem (드래그 앤 드롭)
 

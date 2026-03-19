@@ -7,10 +7,15 @@
 ```
 org.comon.streamlauncher.ui
 ├── BaseViewModel.kt        # MVI 기반 추상 ViewModel
-├── component/             # 재사용 Composable (GlassCard 등)
+├── component/
+│   ├── AppIcon.kt              # 앱 아이콘 Composable (produceState + Dispatchers.IO)
+│   ├── AppIconFetcher.kt       # Coil 커스텀 Fetcher (PackageManager 아이콘 로드)
+│   ├── AppGridSizing.kt        # 그리드 셀 크기 계산 유틸리티
+│   └── GoogleSignInRequiredDialog.kt  # 로그인 요구 공통 다이얼로그
 ├── dragdrop/              # DragDropState, LocalDragDropState
-├── modifier/              # Compose Modifier 확장
-└── theme/                 # StreamLauncherTheme, 색상, 타이포그래피
+├── modifier/              # Compose Modifier 확장 (glassEffect, neonGlow)
+├── theme/                 # StreamLauncherTheme, 색상, 타이포그래피
+└── util/                  # Window 유틸리티 (insets 등)
 ```
 
 ## BaseViewModel
@@ -39,6 +44,13 @@ abstract class BaseViewModel<S : UiState, I : UiIntent, E : UiSideEffect> : View
 - **단일 feature 전용 UI** → 해당 feature 모듈 내에 위치
 - 크로스 feature 공유 상태 (예: `DragDropState`) → `core:ui/dragdrop/` 에 배치
 - `LocalDragDropState` → `CompositionLocalProvider` 패턴으로 하위 트리에 전달
+
+### 주요 공유 컴포넌트
+
+- `AppIcon`: `produceState` + `Dispatchers.IO` 비동기 아이콘 로드 (feature:apps-drawer, feature:launcher 공용)
+- `AppIconFetcher`: Coil 커스텀 Fetcher — `StreamLauncherApplication` 의 `ImageLoaderFactory` 에 등록
+- `AppGridSizing`: 그리드 셀 크기 계산 (화면 크기 기반)
+- `GoogleSignInRequiredDialog`: 마켓 기능 사용 전 로그인 요구 다이얼로그
 
 ## Modifier 확장
 

@@ -10,10 +10,13 @@ org.comon.streamlauncher.data
 ├── repository/    # Repository 구현체 (*RepositoryImpl)
 ├── local/
 │   └── room/      # AppDatabase, DAO, Entity
-├── paging/        # PagingSource 구현체
+├── paging/        # PagingSource 구현체 (MarketPresetPagingSource, SearchMarketPresetPagingSource)
+│                  # ※ Pager 인터페이스/UseCase 래퍼는 :core:paging 모듈에 위치
+├── remote/
+│   └── firestore/ # Firebase DTO 클래스 (MarketPresetDto 등)
 ├── slp/           # 커스텀 프리셋 포맷 (.slp) — 패커/언패커
-├── util/          # DateParser, ImageCompressor 등
-└── worker/        # WorkManager Worker 클래스
+├── util/          # DateParser, ImageCompressor, WallpaperHelperImpl 등
+└── worker/        # WorkManager Worker 클래스 (FeedSyncWorker)
 ```
 
 ## 규칙

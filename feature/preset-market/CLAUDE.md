@@ -57,8 +57,12 @@ org.comon.streamlauncher.preset_market
 
 ## Paging 3 규칙
 
-- `PagingSource` 는 `core:data/paging/` 에 위치
-- ViewModel 에서 `Pager` 생성 → `cachedIn(viewModelScope)`
+- `PagingSource` 구현체 → `core:data/paging/` 에 위치
+- `PagerProvider` 인터페이스 + UseCase 래퍼 → `core:paging` 모듈에 위치
+  - `RecentPresetsPagerProvider` / `GetRecentPresetsPagerUseCase`
+  - `SearchPresetsPagerProvider` / `SearchPresetsPagerUseCase`
+- `feature:preset-market` 은 `:core:paging` 에 의존 (`:core:data` 직접 의존 금지)
+- ViewModel 에서 `GetRecentPresetsPagerUseCase` / `SearchPresetsPagerUseCase` 주입 → `cachedIn(viewModelScope)`
 - UI: `LazyPagingItems` + `collectAsLazyPagingItems()`
 
 ## 주의사항

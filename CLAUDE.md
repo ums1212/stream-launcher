@@ -14,9 +14,10 @@ Android 홈 런처 앱. 2×2 그리드, 앱 서랍(초성 검색), 스트리밍 
 ```
 :app
 :core:domain   ← 순수 JVM (Android 의존성 없음)
-:core:data     ← 저장소 구현, Hilt DI, Room, DataStore, Firebase
+:core:data     ← 저장소 구현, Hilt DI, Room, DataStore, Firebase, PagingSource
 :core:ui       ← 공유 Composable, 테마, BaseViewModel
 :core:network  ← Retrofit, OkHttp, API 서비스
+:core:paging   ← Paging 3 추상화 (PagerProvider 인터페이스 + UseCase 래퍼)
 :feature:launcher
 :feature:apps-drawer
 :feature:widget
@@ -24,7 +25,8 @@ Android 홈 런처 앱. 2×2 그리드, 앱 서랍(초성 검색), 스트리밍 
 :feature:preset-market
 ```
 
-의존 방향은 **단방향**: feature → core:ui/domain, core:data → core:domain/network. feature 간 직접 의존 금지.
+의존 방향은 **단방향**: feature → core:ui/domain/paging, core:data → core:domain/network. feature 간 직접 의존 금지.
+- `feature:preset-market` 은 `core:paging` 에 의존 (core:data 직접 의존 금지)
 
 ## 아키텍처: Clean Architecture + MVI
 
