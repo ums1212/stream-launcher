@@ -20,11 +20,11 @@ interface PresetDao {
 
     @Query("SELECT COUNT(*) FROM presets")
     fun getPresetCount(): Int
-    
-    @Query("DELETE FROM presets WHERE id = (SELECT id FROM presets ORDER BY createdAt ASC LIMIT 1)")
-    fun deleteOldestPreset()
 
-    @Query("SELECT EXISTS(SELECT 1 FROM presets WHERE marketPresetId = :marketPresetId)")
+    @Query("SELECT * FROM presets WHERE id = :id LIMIT 1")
+    fun getById(id: Int): PresetEntity?
+    
+@Query("SELECT EXISTS(SELECT 1 FROM presets WHERE marketPresetId = :marketPresetId)")
     fun existsByMarketPresetId(marketPresetId: String): Boolean
 
     @Query("UPDATE presets SET marketPresetId = :marketPresetId WHERE id = :id")

@@ -372,6 +372,10 @@ class MainActivity : ComponentActivity() {
                                 showSettingsSignInDialog = true
                             is SettingsSideEffect.StopUploadService ->
                                 stopService(Intent(this@MainActivity, PresetUploadService::class.java))
+                            is SettingsSideEffect.ShowError ->
+                                settingsScope.launch {
+                                    settingsSnackbarHostState.showSnackbar(effect.message)
+                                }
                         }
                     }
                 }

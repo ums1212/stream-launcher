@@ -2,6 +2,37 @@
 
 ---
 
+## [2026-03-19] fix(preset): 프리셋 용량 제한 및 예외 처리 개선
+
+### 목표
+
+- `savePreset()`에서 `id != 0`이지만 DB에 존재하지 않는 프리셋 저장 시 10개 용량 제한이 우회되는 버그 수정
+- UI 정책(10개 초과 시 저장 차단)과 Repository 정책 일치: 초과 시 가장 오래된 항목 자동 삭제 → `IllegalStateException` throw로 변경
+- Repository 예외가 `SettingsViewModel`에서 처리되지 않아 앱이 크래시되는 문제 수정
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `core/data/.../room/preset/PresetDao.kt` | `getById(id: Int): PresetEntity?` 쿼리 메서드 추가; 더 이상 사용되지 않는 `deleteOldestPreset()` 제거 |
+| `core/data/.../repository/PresetRepositoryImpl.kt` | `isInsert = id == 0 || getById(id) == null` 로 실질적 INSERT 판별; 초과 시 `IllegalStateException` throw (기존 자동 삭제 로직 제거) |
+| `feature/settings/.../SettingsContract.kt` | `SettingsSideEffect.ShowError(val message: String)` 추가 |
+| `feature/settings/.../SettingsViewModel.kt` | `savePresetUseCase` 호출을 `runCatching { }.onFailure { }` 로 감싸 예외 발생 시 `ShowError` SideEffect 발행 |
+| `app/.../MainActivity.kt` | `ShowError` SideEffect 수신 시 `settingsSnackbarHostState.showSnackbar()` 로 에러 메시지 표시 |
+
+### 검증결과
+
+- `:app:compileDebugKotlin`, `:feature:settings:compileDebugKotlin` — BUILD SUCCESSFUL
+
+### 설계결정 및 근거
+
+- **자동 삭제 → 예외 throw**: UI(`PresetSettingsContent`)가 이미 10개 초과 시 저장 자체를 막고 안내 다이얼로그를 띄우므로, Repository에서 몰래 삭제하는 동작은 UI 정책과 불일치. 저장 거부로 통일
+- **`isInsert` 조건**: `@Insert(onConflict = REPLACE)`는 id가 없는 행도 INSERT로 처리하므로 `id != 0`이더라도 DB에 존재하지 않으면 실질적 INSERT로 간주해 용량 제한 적용
+- **`runCatching` 선택**: `try-catch` 대신 `runCatching`으로 성공/실패 분기를 선언적으로 표현. `onFailure`에서 SideEffect 발행
+- **`ShowError` SideEffect**: 기존 `UploadError`는 업로드 전용이므로 범용 에러 표시용 SideEffect를 별도 추가. 기존 Snackbar 인프라(`settingsSnackbarHostState`) 재사용
+
+---
+
 ## [2026-03-19] refactor(feed): handleToChannelIdCache 제거 및 resolveChannelId 추출
 
 ### 목표

@@ -22,10 +22,9 @@ class PresetRepositoryImpl @Inject constructor(
     }
 
     override suspend fun savePreset(preset: Preset) = withContext(Dispatchers.IO) {
-        // Enforce the 10 presets limit
-        val currentCount = presetDao.getPresetCount()
-        if (currentCount >= 10 && preset.id == 0) { // Only delete if inserting a new one
-            presetDao.deleteOldestPreset()
+        val isInsert = preset.id == 0 || presetDao.getById(preset.id) == null
+        if (isInsert && presetDao.getPresetCount() >= 10) {
+            throw IllegalStateException("프리셋은 최대 10개까지 저장할 수 있습니다.")
         }
         presetDao.insertPreset(preset.toEntity())
     }

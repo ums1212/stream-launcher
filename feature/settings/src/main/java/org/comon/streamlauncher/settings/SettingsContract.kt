@@ -77,4 +77,5 @@ sealed interface SettingsSideEffect : UiSideEffect {
     data class UploadError(val message: String) : SettingsSideEffect
     data object RequireSignIn : SettingsSideEffect
     data object StopUploadService : SettingsSideEffect
+    data class ShowError(val message: String) : SettingsSideEffect
 }

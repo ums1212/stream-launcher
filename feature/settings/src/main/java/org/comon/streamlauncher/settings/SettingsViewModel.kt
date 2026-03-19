@@ -238,7 +238,8 @@ class SettingsViewModel @Inject constructor(
                 hasThemeSettings = intent.saveTheme,
                 themeColorHex = if (intent.saveTheme) state.colorPresetIndex.toString() else null
             )
-            savePresetUseCase(preset)
+            runCatching { savePresetUseCase(preset) }
+                .onFailure { e -> sendEffect(SettingsSideEffect.ShowError(e.message ?: "프리셋 저장에 실패했습니다.")) }
         }
     }
 
