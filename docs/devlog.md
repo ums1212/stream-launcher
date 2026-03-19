@@ -2,6 +2,66 @@
 
 ---
 
+## [2026-03-19] refactor(preset-market): 아키텍처 위반 3건 수정 — feature → core:data 직접 의존 제거 + :core:paging 모듈 신설
+
+### 목표
+
+- `feature:preset-market` ViewModel 3개에서 `core:data` 직접 import 제거
+- Clean Architecture 규칙 복원: feature → core:domain / core:paging 인터페이스만 의존
+- `core:domain`을 순수 JVM 모듈로 유지 (paging 의존 없음)
+- Paging3 관련 인터페이스·UseCase를 `:core:paging`(Android library)으로 분리해 JVM/Android 변형 불일치 해소
+
+### 변경사항
+
+**이슈 1 — PresetDetailViewModel: Repository 직접 주입 → UseCase 경유**
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `core/domain/.../usecase/IsLikedByCurrentUserUseCase.kt` | 신규 — `MarketPresetRepository.isLikedByCurrentUser()` 래핑 |
+| `core/domain/.../usecase/IsDownloadedByMarketIdUseCase.kt` | 신규 — `PresetRepository.isDownloadedByMarketId()` 래핑 |
+| `preset_market/PresetDetailViewModel.kt` | `MarketPresetRepository` / `PresetRepository` 직접 주입 제거 → 두 UseCase로 교체 |
+
+**이슈 2·3 — MarketSearchViewModel / PresetMarketViewModel: core:data 직접 import 제거**
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `core/data/.../di/RepositoryModule.kt` | `bindMarketPresetPagingSourceFactory` 바인딩 제거; Provider 바인딩 2개 추가 |
+| `core/data/.../repository/MarketPresetRepositoryImpl.kt` | `MarketPresetPagingSourceFactory` 구현 제거; `RecentPresetsPagerProvider` / `SearchPresetsPagerProvider` 구현 추가 |
+| `preset_market/MarketSearchViewModel.kt` | `FirebaseFirestore` + `SearchMarketPresetPagingSource` 직접 사용 → `SearchPresetsPagerUseCase` 주입으로 교체 |
+| `preset_market/PresetMarketViewModel.kt` | `MarketPresetPagingSourceFactory` + `Pager` 수동 생성 → `GetRecentPresetsPagerUseCase` 주입으로 교체 |
+| `feature/preset-market/build.gradle.kts` | `core:data` 제거, `core:paging` 추가 |
+
+**:core:paging 모듈 신설 (Android library)**
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `core/paging/build.gradle.kts` | `paging-runtime`, `core:domain`, `hilt` 설정 |
+| `core/paging/.../RecentPresetsPagerProvider.kt` | 신규 — `provide(): Flow<PagingData<MarketPreset>>` 인터페이스 |
+| `core/paging/.../SearchPresetsPagerProvider.kt` | 신규 — `provide(query): Flow<PagingData<MarketPreset>>` 인터페이스 |
+| `core/paging/.../GetRecentPresetsPagerUseCase.kt` | 신규 — `RecentPresetsPagerProvider` 주입, `invoke()` |
+| `core/paging/.../SearchPresetsPagerUseCase.kt` | 신규 — `SearchPresetsPagerProvider` 주입, `invoke(query)` |
+| `core/data/build.gradle.kts` | `core:paging` 의존 추가 |
+| `core/domain/build.gradle.kts` | `paging-common` 제거 (domain 순수 JVM 복원) |
+| `core/domain/.../MarketPresetRepository.kt` | `getRecentPresetsPager` / `searchPresetsPager` 제거 |
+| `gradle/libs.versions.toml` | `paging-common` alias 추가 (core:paging 빌드용) |
+
+### 검증 결과
+
+- `:core:domain:compileKotlin` BUILD SUCCESSFUL (paging 의존 없음 확인)
+- `:core:paging:compileDebugKotlin` BUILD SUCCESSFUL
+- `:core:data:compileDebugKotlin` BUILD SUCCESSFUL
+- `:feature:preset-market:kspDebugKotlin` + `compileDebugKotlin` BUILD SUCCESSFUL (KSP 오류 해소)
+- `test` (전체 단위 테스트) BUILD SUCCESSFUL (실패 0건)
+
+### 설계 결정 및 근거
+
+- **`:core:paging` 모듈 신설**: `paging-common`을 `core:domain`(java-library)에 추가하면 Gradle이 JVM 변형을 선택하는 반면, `feature:preset-market`(Android library)은 Android 변형을 사용해 IDE 타입 불일치 및 KSP `Symbol not found` 오류가 발생. `core:paging`을 Android library로 신설해 모든 모듈이 동일한 Android 변형의 `PagingData`를 사용하도록 통일.
+- **Provider 인터페이스 도입 (`RecentPresetsPagerProvider` / `SearchPresetsPagerProvider`)**: `PagingSource`의 키 타입(`DocumentSnapshot`)은 Firebase 타입이므로 `core:paging`에 노출할 수 없음. `Flow<PagingData<T>>` 반환 인터페이스로 키 타입을 완전히 은닉하고, `Pager` 생성 로직을 `core:data` 구현체에 격리.
+- **UseCase가 Provider를 래핑**: 프로젝트 컨벤션(ViewModel → UseCase 경유)을 paging에도 적용. UseCase는 Provider를 주입받아 단순 위임하며, ViewModel은 paging 인프라를 전혀 알지 못함.
+- **`MarketPresetRepositoryImpl`이 Provider 인터페이스 구현**: 별도 구현 클래스 추가 없이 기존 Firestore 의존성을 재사용. `@Binds`로 두 Provider 인터페이스에 각각 바인딩.
+
+---
+
 ## [2026-03-19] refactor(widget): WidgetViewModel — BaseViewModel MVI 패턴 마이그레이션
 
 ### 목표

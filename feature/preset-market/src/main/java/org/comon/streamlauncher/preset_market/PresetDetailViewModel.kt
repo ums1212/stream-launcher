@@ -5,13 +5,13 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import org.comon.streamlauncher.domain.repository.PresetRepository
 import org.comon.streamlauncher.domain.usecase.GetAllPresetsUseCase
 import org.comon.streamlauncher.domain.usecase.GetCurrentMarketUserUseCase
 import org.comon.streamlauncher.domain.usecase.GetMarketPresetDetailUseCase
+import org.comon.streamlauncher.domain.usecase.IsDownloadedByMarketIdUseCase
+import org.comon.streamlauncher.domain.usecase.IsLikedByCurrentUserUseCase
 import org.comon.streamlauncher.domain.usecase.SignInWithGoogleUseCase
 import org.comon.streamlauncher.domain.usecase.ToggleMarketPresetLikeUseCase
-import org.comon.streamlauncher.domain.repository.MarketPresetRepository
 import org.comon.streamlauncher.preset_market.download.DownloadDataHolder
 import org.comon.streamlauncher.preset_market.download.DownloadProgressTracker
 import org.comon.streamlauncher.ui.BaseViewModel
@@ -25,10 +25,10 @@ class PresetDetailViewModel @Inject constructor(
     private val toggleMarketPresetLikeUseCase: ToggleMarketPresetLikeUseCase,
     private val getAllPresetsUseCase: GetAllPresetsUseCase,
     private val signInWithGoogleUseCase: SignInWithGoogleUseCase,
-    private val marketRepository: MarketPresetRepository,
+    private val isLikedByCurrentUserUseCase: IsLikedByCurrentUserUseCase,
+    private val isDownloadedByMarketIdUseCase: IsDownloadedByMarketIdUseCase,
     private val downloadDataHolder: DownloadDataHolder,
     private val downloadProgressTracker: DownloadProgressTracker,
-    private val presetRepository: PresetRepository,
 ) : BaseViewModel<PresetDetailState, PresetDetailIntent, PresetDetailSideEffect>(PresetDetailState()) {
 
     // 로그인 후 재실행할 대기 중인 액션
@@ -90,11 +90,11 @@ class PresetDetailViewModel @Inject constructor(
                 .onSuccess { preset ->
                     updateState { copy(preset = preset, isLoading = false) }
                     // 다운로드 여부 확인
-                    val isDownloaded = presetRepository.isDownloadedByMarketId(presetId)
+                    val isDownloaded = isDownloadedByMarketIdUseCase(presetId)
                     updateState { copy(isAlreadyDownloaded = isDownloaded) }
                     // 좋아요 상태 확인
                     if (getCurrentMarketUserUseCase() != null) {
-                        marketRepository.isLikedByCurrentUser(presetId)
+                        isLikedByCurrentUserUseCase(presetId)
                             .onSuccess { liked -> updateState { copy(isLiked = liked) } }
                     }
                 }

@@ -49,6 +49,7 @@ kotlin {
 dependencies {
     implementation(project(":core:domain"))
     implementation(project(":core:network"))
+    implementation(project(":core:paging"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.hilt.android)

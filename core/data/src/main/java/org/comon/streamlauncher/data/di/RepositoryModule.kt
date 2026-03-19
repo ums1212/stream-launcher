@@ -8,11 +8,12 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
-import org.comon.streamlauncher.data.paging.MarketPresetPagingSourceFactory
 import org.comon.streamlauncher.data.repository.AppRepositoryImpl
 import org.comon.streamlauncher.data.repository.MarketPresetRepositoryImpl
 import org.comon.streamlauncher.domain.repository.AppRepository
 import org.comon.streamlauncher.domain.repository.MarketPresetRepository
+import org.comon.streamlauncher.paging.RecentPresetsPagerProvider
+import org.comon.streamlauncher.paging.SearchPresetsPagerProvider
 import javax.inject.Singleton
 
 @Suppress("unused") // Hilt @Binds 함수는 코드에서 직접 호출되지 않고 DI 프레임워크가 사용
@@ -38,7 +39,11 @@ abstract class RepositoryModule {
 
     @Binds
     @Singleton
-    abstract fun bindMarketPresetPagingSourceFactory(impl: MarketPresetRepositoryImpl): MarketPresetPagingSourceFactory
+    abstract fun bindRecentPresetsPagerProvider(impl: MarketPresetRepositoryImpl): RecentPresetsPagerProvider
+
+    @Binds
+    @Singleton
+    abstract fun bindSearchPresetsPagerProvider(impl: MarketPresetRepositoryImpl): SearchPresetsPagerProvider
 
     companion object {
         @Provides

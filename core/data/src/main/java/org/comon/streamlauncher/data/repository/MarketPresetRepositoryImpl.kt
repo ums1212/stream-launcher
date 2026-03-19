@@ -1,6 +1,9 @@
 package org.comon.streamlauncher.data.repository
 
 import android.content.Context
+import androidx.paging.Pager
+import androidx.paging.PagingConfig
+import androidx.paging.PagingData
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.firestore.FirebaseFirestore
@@ -11,15 +14,17 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
+import org.comon.streamlauncher.data.paging.MarketPresetPagingSource
+import org.comon.streamlauncher.data.paging.SearchMarketPresetPagingSource
 import org.comon.streamlauncher.data.remote.firestore.MarketPresetDto
 import org.comon.streamlauncher.data.remote.firestore.toDomain
 import org.comon.streamlauncher.data.remote.firestore.toDto
 import org.comon.streamlauncher.data.util.ImageCompressor
 import org.comon.streamlauncher.domain.model.preset.MarketPreset
 import org.comon.streamlauncher.domain.model.preset.MarketUser
-import org.comon.streamlauncher.data.paging.MarketPresetPagingSource
-import org.comon.streamlauncher.data.paging.MarketPresetPagingSourceFactory
 import org.comon.streamlauncher.domain.repository.MarketPresetRepository
+import org.comon.streamlauncher.paging.RecentPresetsPagerProvider
+import org.comon.streamlauncher.paging.SearchPresetsPagerProvider
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -31,9 +36,7 @@ class MarketPresetRepositoryImpl @Inject constructor(
     private val auth: FirebaseAuth,
     private val firestore: FirebaseFirestore,
     private val storage: FirebaseStorage,
-) : MarketPresetRepository, MarketPresetPagingSourceFactory {
-
-    override fun create() = MarketPresetPagingSource(firestore)
+) : MarketPresetRepository, RecentPresetsPagerProvider, SearchPresetsPagerProvider {
 
     private val presetsCollection get() = firestore.collection("presets")
 
@@ -224,4 +227,18 @@ class MarketPresetRepositoryImpl @Inject constructor(
             .documents
             .mapNotNull { it.toObject(MarketPresetDto::class.java)?.toDomain() }
     }
+
+    // RecentPresetsPagerProvider
+    override fun provide(): Flow<PagingData<MarketPreset>> =
+        Pager(
+            config = PagingConfig(pageSize = 10, enablePlaceholders = false),
+            pagingSourceFactory = { MarketPresetPagingSource(firestore) },
+        ).flow
+
+    // SearchPresetsPagerProvider
+    override fun provide(query: String): Flow<PagingData<MarketPreset>> =
+        Pager(
+            config = PagingConfig(pageSize = 10, enablePlaceholders = false),
+            pagingSourceFactory = { SearchMarketPresetPagingSource(firestore, query) },
+        ).flow
 }
