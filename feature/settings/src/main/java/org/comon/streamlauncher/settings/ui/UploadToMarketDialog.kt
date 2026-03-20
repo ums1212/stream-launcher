@@ -68,10 +68,11 @@ internal fun UploadToMarketDialog(
             ) {
                 OutlinedTextField(
                     value = description,
-                    onValueChange = { description = it },
+                    onValueChange = { if (it.length <= 500) description = it },
                     label = { Text(stringResource(R.string.preset_upload_description_label)) },
                     modifier = Modifier.fillMaxWidth(),
                     maxLines = 3,
+                    supportingText = { Text("${description.length}/500") },
                 )
                 OutlinedTextField(
                     value = tagInput,

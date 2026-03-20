@@ -20,6 +20,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import org.comon.streamlauncher.domain.util.InputValidator
 import org.comon.streamlauncher.settings.R
 import org.comon.streamlauncher.settings.SettingsIntent
 import org.comon.streamlauncher.settings.SettingsState
@@ -37,12 +38,12 @@ internal fun FeedSettingsContent(
 
     val chzzkError by remember {
         derivedStateOf {
-            chzzkChannelId.any { it.isWhitespace() }
+            chzzkChannelId.isNotEmpty() && !InputValidator.isValidChzzkChannelId(chzzkChannelId)
         }
     }
     val youtubeError by remember {
         derivedStateOf {
-            youtubeChannelId.any { it.isWhitespace() }
+            youtubeChannelId.isNotEmpty() && !InputValidator.isValidYoutubeChannelId(youtubeChannelId)
         }
     }
     val isSaveEnabled by remember {
@@ -63,7 +64,7 @@ internal fun FeedSettingsContent(
             label = { Text(stringResource(R.string.settings_chzzk_channel_id)) },
             isError = chzzkError,
             supportingText = if (chzzkError) {
-                { Text(stringResource(R.string.settings_no_whitespace)) }
+                { Text(stringResource(R.string.settings_chzzk_id_format_error)) }
             } else null,
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
@@ -76,7 +77,7 @@ internal fun FeedSettingsContent(
             placeholder = { Text(stringResource(R.string.settings_youtube_placeholder)) },
             isError = youtubeError,
             supportingText = if (youtubeError) {
-                { Text(stringResource(R.string.settings_no_whitespace)) }
+                { Text(stringResource(R.string.settings_youtube_id_format_error)) }
             } else null,
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,

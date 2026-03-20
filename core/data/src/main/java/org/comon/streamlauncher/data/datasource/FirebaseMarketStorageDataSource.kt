@@ -26,10 +26,22 @@ class FirebaseMarketStorageDataSource @Inject constructor(
     }
 
     override suspend fun downloadToFile(storageUrl: String, localPath: String): String {
+        validateStorageUrl(storageUrl)
         val file = File(localPath)
         file.parentFile?.mkdirs()
         val ref = storage.getReferenceFromUrl(storageUrl)
         ref.getFile(file).await()
         return file.absolutePath
+    }
+
+    private fun validateStorageUrl(url: String) {
+        val bucket = storage.reference.bucket
+        val expectedPrefixes = listOf(
+            "gs://$bucket/",
+            "https://firebasestorage.googleapis.com/v0/b/$bucket/",
+        )
+        require(expectedPrefixes.any { url.startsWith(it) }) {
+            "Storage URL does not belong to the expected bucket"
+        }
     }
 }

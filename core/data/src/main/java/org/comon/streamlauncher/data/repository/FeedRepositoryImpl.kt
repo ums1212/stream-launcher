@@ -18,6 +18,7 @@ import org.comon.streamlauncher.domain.model.ChannelProfile
 import org.comon.streamlauncher.domain.model.FeedItem
 import org.comon.streamlauncher.domain.model.LiveStatus
 import org.comon.streamlauncher.domain.repository.FeedRepository
+import org.comon.streamlauncher.domain.util.InputValidator
 import org.comon.streamlauncher.network.NetworkConstants
 import org.comon.streamlauncher.network.api.ChzzkService
 import org.comon.streamlauncher.network.api.YouTubeService
@@ -77,9 +78,12 @@ class FeedRepositoryImpl @Inject constructor(
             emit(Result.success(LiveStatus(false, "", 0, "", "")))
             return@flow
         }
-        val url = "https://api.chzzk.naver.com/service/v3/channels/$channelId/live-detail"
-        Log.d(TAG, "getLiveStatus: calling $url")
-        val response = chzzkService.getLiveDetail(url)
+        if (!InputValidator.isValidChzzkChannelId(channelId)) {
+            emit(Result.failure(IllegalArgumentException("Invalid Chzzk channel ID format")))
+            return@flow
+        }
+        Log.d(TAG, "getLiveStatus: calling chzzk API")
+        val response = chzzkService.getLiveDetail(channelId)
         val content = response.content
         val status = LiveStatus(
             isLive = content?.status == "OPEN",
@@ -99,6 +103,10 @@ class FeedRepositoryImpl @Inject constructor(
         if (channelId.isEmpty()) {
             Log.d(TAG, "getYoutubeLiveStatus: channelId empty, skip")
             emit(Result.success(LiveStatus(false, "", 0, "", "")))
+            return@flow
+        }
+        if (!InputValidator.isValidYoutubeChannelId(channelId)) {
+            emit(Result.failure(IllegalArgumentException("Invalid YouTube channel ID format")))
             return@flow
         }
 
@@ -137,8 +145,7 @@ class FeedRepositoryImpl @Inject constructor(
     override fun getIntegratedFeed(
         youtubeChannelId: String,
     ): Flow<Result<List<FeedItem>>> = flow {
-        Log.d(TAG, "getIntegratedFeed() youtubeChannelId='$youtubeChannelId'")
-        Log.d(TAG, "YOUTUBE_API_KEY length=${NetworkConstants.YOUTUBE_API_KEY.length}")
+        Log.d(TAG, "getIntegratedFeed() start")
 
         // 1) 캐시 먼저 emit
         val cachedJson = cacheDataStore.data.first()[feedCacheKey]
@@ -172,7 +179,11 @@ class FeedRepositoryImpl @Inject constructor(
             Log.d(TAG, "fetchYoutubeItems: channelId empty, skip")
             return emptyList()
         }
-        Log.d(TAG, "fetchYoutubeItems: channelId='$youtubeChannelId'")
+        if (!InputValidator.isValidYoutubeChannelId(youtubeChannelId)) {
+            Log.d(TAG, "fetchYoutubeItems: invalid channelId format, skip")
+            return emptyList()
+        }
+        Log.d(TAG, "fetchYoutubeItems: fetching items")
 
         val resolvedId = resolveChannelId(youtubeChannelId) ?: return emptyList()
         Log.d(TAG, "fetchYoutubeItems: resolved channelId='$resolvedId', calling search API")
@@ -231,6 +242,10 @@ class FeedRepositoryImpl @Inject constructor(
     override fun getChannelProfile(youtubeChannelId: String): Flow<Result<ChannelProfile>> = flow {
         if (youtubeChannelId.isEmpty()) {
             Log.d(TAG, "getChannelProfile: channelId empty, skip")
+            return@flow
+        }
+        if (!InputValidator.isValidYoutubeChannelId(youtubeChannelId)) {
+            Log.d(TAG, "getChannelProfile: invalid channelId format, skip")
             return@flow
         }
 

@@ -4,6 +4,9 @@ import kotlinx.serialization.json.Json
 import java.io.File
 import java.util.zip.ZipInputStream
 
+private const val MAX_ENTRIES = 50
+private const val MAX_TOTAL_SIZE = 50L * 1024 * 1024  // 50 MB
+
 /**
  * .slp 파일(ZIP) 추출 + manifest.json 파싱
  */
@@ -21,18 +24,45 @@ object SlpUnpacker {
 
         val extractedPaths = mutableMapOf<String, String>()
         var manifestBytes: ByteArray? = null
+        var entryCount = 0
+        var totalSize = 0L
 
         ZipInputStream(slpFile.inputStream().buffered()).use { zis ->
             var entry = zis.nextEntry
             while (entry != null) {
+                entryCount++
+                if (entryCount > MAX_ENTRIES) {
+                    throw SecurityException("ZIP entry count exceeds limit ($MAX_ENTRIES)")
+                }
+
                 val sanitized = if (!entry.isDirectory) sanitizePath(entry.name) else null
                 if (sanitized != null) {
                     if (sanitized == "manifest.json") {
-                        manifestBytes = zis.readBytes()
+                        val bytes = zis.readBytes()
+                        totalSize += bytes.size
+                        if (totalSize > MAX_TOTAL_SIZE) {
+                            throw SecurityException("ZIP total size exceeds limit (${MAX_TOTAL_SIZE / 1024 / 1024} MB)")
+                        }
+                        manifestBytes = bytes
                     } else {
                         val outFile = File(targetDir, sanitized)
                         outFile.parentFile?.mkdirs()
-                        outFile.outputStream().buffered().use { zis.copyTo(it) }
+                        var written = 0L
+                        outFile.outputStream().buffered().use { out ->
+                            val buffer = ByteArray(8192)
+                            var read: Int
+                            while (zis.read(buffer).also { read = it } != -1) {
+                                written += read
+                                totalSize += read
+                                if (totalSize > MAX_TOTAL_SIZE) {
+                                    out.close()
+                                    outFile.delete()
+                                    extractedPaths.values.forEach { File(it).delete() }
+                                    throw SecurityException("ZIP total size exceeds limit (${MAX_TOTAL_SIZE / 1024 / 1024} MB)")
+                                }
+                                out.write(buffer, 0, read)
+                            }
+                        }
                         extractedPaths[sanitized] = outFile.absolutePath
                     }
                 }

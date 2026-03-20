@@ -69,6 +69,14 @@
 -dontwarn nl.adaptivity.xmlutil.**
 
 # ------------------------------------------------------------
+# 릴리스 빌드에서 Log.v / Log.d 제거
+# ------------------------------------------------------------
+-assumenosideeffects class android.util.Log {
+    public static int v(...);
+    public static int d(...);
+}
+
+# ------------------------------------------------------------
 # Enum — .name / valueOf() 런타임 사용
 # SettingsMenu.COLOR.name 으로 내비게이션 인자를 만들고,
 # SettingsMenu.valueOf(route.menu) 로 다시 파싱한다.

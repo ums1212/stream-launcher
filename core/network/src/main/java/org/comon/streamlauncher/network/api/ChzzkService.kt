@@ -2,9 +2,9 @@ package org.comon.streamlauncher.network.api
 
 import org.comon.streamlauncher.network.model.ChzzkLiveResponse
 import retrofit2.http.GET
-import retrofit2.http.Url
+import retrofit2.http.Path
 
 interface ChzzkService {
-    @GET
-    suspend fun getLiveDetail(@Url url: String): ChzzkLiveResponse
+    @GET("service/v3/channels/{channelId}/live-detail")
+    suspend fun getLiveDetail(@Path("channelId") channelId: String): ChzzkLiveResponse
 }

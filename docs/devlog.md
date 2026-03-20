@@ -2,6 +2,55 @@
 
 ---
 
+## [2026-03-20] security: 보안 취약점 수정 (SSRF·로그 유출·백업 노출·ZIP Bomb·Firebase)
+
+### 목표
+
+- HIGH 1건 / MEDIUM 7건 / LOW 3건으로 분류된 보안 감사 결과를 코드에 반영
+- 사용자 입력이 URL에 직접 보간되는 SSRF 위험 제거
+- 릴리스 빌드에서 API 키 메타데이터·채널 ID 등이 로그로 유출되는 경로 차단
+- 백업·추출 규칙 미설정으로 DataStore·DB 전체가 클라우드 백업되던 문제 해결
+- 악의적인 `.slp` 파일로 인한 ZIP Bomb(디스크/메모리 고갈) 방어
+- Firebase Storage URL 검증 없이 임의 버킷 파일에 접근 가능하던 문제 수정
+- UI 입력 필드의 형식 검증 미흡 및 길이 제한 없음 문제 해결
+- Firestore/Storage 보안 규칙 버전 관리 체계화
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| **NEW** `core/domain/.../util/InputValidator.kt` | `isValidChzzkChannelId` (32자리 hex) + `isValidYoutubeChannelId` (UC… / @handle) 순수 Kotlin 검증 유틸 |
+| **NEW** `core/domain/.../util/InputValidatorTest.kt` | 정상·빈값·경로 조작·특수문자 등 19개 단위 테스트 |
+| `core/network/.../api/ChzzkService.kt` | `@GET @Url url: String` → `@GET("service/v3/channels/{channelId}/live-detail") @Path channelId` 변경으로 URL 보간 제거 |
+| `core/data/.../repository/FeedRepositoryImpl.kt` | `InputValidator` import 추가; `getLiveStatus` / `getYoutubeLiveStatus` / `fetchYoutubeItems` / `getChannelProfile` 진입 시 검증 호출; `YOUTUBE_API_KEY.length` 로그 삭제; 수동 URL 조립 제거 |
+| `app/proguard-rules.pro` | `-assumenosideeffects class android.util.Log { v(…); d(…); }` 추가 — 릴리스 빌드에서 Log.v/d 제거 |
+| `app/src/main/res/xml/backup_rules.xml` | `datastore/`, `market_presets/`, `database/.` 제외 규칙 명시 (API < 31) |
+| `app/src/main/res/xml/data_extraction_rules.xml` | `cloud-backup` + `device-transfer` 양쪽에 동일 제외 규칙 명시 (API 31+) |
+| **NEW** `app/src/main/res/xml/network_security_config.xml` | `cleartextTrafficPermitted="false"` — HTTP 평문 통신 전면 차단 |
+| `app/src/main/AndroidManifest.xml` | `android:networkSecurityConfig="@xml/network_security_config"` 추가 |
+| `core/data/.../slp/SlpUnpacker.kt` | `MAX_ENTRIES=50` / `MAX_TOTAL_SIZE=50MB` 상수 추가; 엔트리 수 초과 시 `SecurityException`; 누적 바이트 추적으로 크기 초과 시 `SecurityException` + 기추출 파일 정리; `readBytes()` → 청크 단위 읽기로 교체 |
+| `core/data/.../datasource/FirebaseMarketStorageDataSource.kt` | `validateStorageUrl()` private 메서드 추가; `downloadToFile()` 진입 시 `gs://버킷/` 또는 `https://firebasestorage…/버킷/` prefix 검증 |
+| `feature/settings/.../ui/FeedSettingsContent.kt` | 공백 포함 여부 → `InputValidator` 형식 검증으로 교체; 빈 값은 허용(선택 필드); Chzzk/YouTube 에러 메시지 문자열 리소스 참조 |
+| `feature/settings/.../ui/UploadToMarketDialog.kt` | description `onValueChange`에 500자 상한 추가; `supportingText`로 현재 글자 수 표시 |
+| `feature/settings/.../res/values/strings.xml` | `settings_chzzk_id_format_error` / `settings_youtube_id_format_error` 문자열 추가 |
+| **NEW** `firestore.rules` | `market_presets` 읽기 공개; 쓰기 인증+authorUid 검증+필드 길이 제한; 삭제 소유자만 |
+| **NEW** `storage.rules` | `market_presets/` 읽기 공개; 쓰기 인증+10MB+content-type 검증; 삭제 경로 uid 일치 |
+
+### 검증결과
+
+- `./gradlew assembleDebug` BUILD SUCCESSFUL (deprecation 경고만, 에러 없음)
+- `./gradlew testDebugUnitTest` BUILD SUCCESSFUL — 전체 테스트 통과 (InputValidatorTest 19개 신규 포함)
+
+### 설계결정 및 근거
+
+- **InputValidator를 core:domain에 배치**: 순수 JVM 유틸이므로 Android 의존 없이 여러 모듈(core:data, feature:settings)에서 재사용 가능. feature → core:domain 단방향 의존 규칙 준수.
+- **ChzzkService @Path 전환**: Chzzk Retrofit은 이미 `https://api.chzzk.naver.com/` baseUrl을 사용하므로 `@Path`로 전환하면 URL 전체를 사용자 입력으로 조립할 필요가 없어 SSRF 경로 차단. `@Url` 방식은 임의 호스트 지정이 가능해 취약.
+- **Log.d/v는 -assumenosideeffects로 제거**: 소스 레벨 삭제 대신 ProGuard 규칙으로 처리 — 디버그 빌드의 로그 가독성은 유지하면서 릴리스에서만 제거되어 개발 경험과 보안 요구 동시 충족.
+- **ZIP Bomb 방어 전략**: 엔트리 수(50개)와 누적 압축 해제 크기(50MB) 두 축으로 방어. 크기 초과 시 이미 추출된 파일까지 정리하여 부분 추출 잔여물 없음. 청크 읽기로 단일 엔트리 크기도 제어.
+- **FeedSettingsContent 검증 교체**: 공백 포함 여부 → 형식 검증으로 강화. 빈 값은 선택 필드이므로 허용 (사용자가 채널 설정을 안 하는 경우 정상 상태).
+
+---
+
 ## [2026-03-20] fix(error-handling): ANR 위험 코드 점검 + 사용자 에러 스낵바 구현
 
 ### 목표
