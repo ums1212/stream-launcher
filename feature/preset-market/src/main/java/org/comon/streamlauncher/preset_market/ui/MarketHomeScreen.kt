@@ -186,6 +186,8 @@ fun MarketHomeScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .defaultMinSize(minHeight = 58.dp),
+                contentAlignment = Alignment.Center,
             ) {
                 AdmobBanner(
                     modifier = Modifier
