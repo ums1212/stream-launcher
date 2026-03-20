@@ -12,7 +12,6 @@ data class FeedState(
     val youtubeLiveStatus: LiveStatus? = null,
     val feedItems: List<FeedItem> = emptyList(),
     val isLoading: Boolean = false,
-    val errorMessage: String? = null,
     val chzzkChannelId: String = "",
     val youtubeChannelId: String = "",
     val channelProfile: ChannelProfile? = null,

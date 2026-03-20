@@ -90,8 +90,8 @@ class SettingsViewModel @Inject constructor(
                     }
                     sendEffect(SettingsSideEffect.UploadSuccess)
                 } else {
-                    progress?.error?.let { error ->
-                        sendEffect(SettingsSideEffect.UploadError(error))
+                    progress?.error?.let {
+                        sendEffect(SettingsSideEffect.UploadError("업로드에 실패했습니다"))
                     }
                 }
             }
@@ -137,7 +137,7 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             signInWithGoogleUseCase(idToken)
                 .onSuccess { pendingUploadIntent?.let { handleIntent(it) } }
-                .onFailure { e -> sendEffect(SettingsSideEffect.UploadError(e.message ?: "로그인 실패")) }
+                .onFailure { sendEffect(SettingsSideEffect.UploadError("로그인에 실패했습니다. 다시 시도해주세요")) }
         }
     }
 
@@ -179,7 +179,9 @@ class SettingsViewModel @Inject constructor(
             )
         }
         viewModelScope.launch {
-            saveFeedSettingsUseCase(chzzkChannelId, youtubeChannelId)
+            runCatching {
+                saveFeedSettingsUseCase(chzzkChannelId, youtubeChannelId)
+            }.onFailure { sendEffect(SettingsSideEffect.ShowError("피드 설정 저장에 실패했습니다")) }
         }
     }
 
@@ -192,7 +194,9 @@ class SettingsViewModel @Inject constructor(
             )
         }
         viewModelScope.launch {
-            saveAppDrawerSettingsUseCase(columns, rows, iconSizeRatio)
+            runCatching {
+                saveAppDrawerSettingsUseCase(columns, rows, iconSizeRatio)
+            }.onFailure { sendEffect(SettingsSideEffect.ShowError("앱 서랍 설정 저장에 실패했습니다")) }
         }
     }
 
@@ -239,34 +243,36 @@ class SettingsViewModel @Inject constructor(
                 themeColorHex = if (intent.saveTheme) state.colorPresetIndex.toString() else null
             )
             runCatching { savePresetUseCase(preset) }
-                .onFailure { e -> sendEffect(SettingsSideEffect.ShowError(e.message ?: "프리셋 저장에 실패했습니다.")) }
+                .onFailure { sendEffect(SettingsSideEffect.ShowError("프리셋 저장에 실패했습니다")) }
         }
     }
 
     private fun loadPreset(intent: SettingsIntent.LoadPreset) {
         viewModelScope.launch {
-            val preset = intent.preset
+            runCatching {
+                val preset = intent.preset
 
-            if (intent.loadHome) {
-                if (preset.hasTopLeftImage) saveGridCellImageUseCase(GridCell.TOP_LEFT, preset.topLeftIdleUri, preset.topLeftExpandedUri)
-                if (preset.hasTopRightImage) saveGridCellImageUseCase(GridCell.TOP_RIGHT, preset.topRightIdleUri, preset.topRightExpandedUri)
-                if (preset.hasBottomLeftImage) saveGridCellImageUseCase(GridCell.BOTTOM_LEFT, preset.bottomLeftIdleUri, preset.bottomLeftExpandedUri)
-                if (preset.hasBottomRightImage) saveGridCellImageUseCase(GridCell.BOTTOM_RIGHT, preset.bottomRightIdleUri, preset.bottomRightExpandedUri)
-            }
-            if (intent.loadFeed && preset.hasFeedSettings) {
-                saveFeedSettingsUseCase(preset.chzzkChannelId, preset.youtubeChannelId)
-            }
-            if (intent.loadDrawer && preset.hasAppDrawerSettings) {
-                saveAppDrawerSettingsUseCase(preset.appDrawerColumns, preset.appDrawerRows, preset.appDrawerIconSizeRatio)
-            }
-            if (intent.loadTheme && preset.hasThemeSettings) {
-                preset.themeColorHex?.toIntOrNull()?.let { saveColorPresetUseCase(it) }
-            }
-            if (intent.loadWallpaper && preset.hasWallpaperSettings) {
-                preset.wallpaperUri?.let { uri ->
-                    wallpaperHelper.setWallpaperFromPreset(uri)
+                if (intent.loadHome) {
+                    if (preset.hasTopLeftImage) saveGridCellImageUseCase(GridCell.TOP_LEFT, preset.topLeftIdleUri, preset.topLeftExpandedUri)
+                    if (preset.hasTopRightImage) saveGridCellImageUseCase(GridCell.TOP_RIGHT, preset.topRightIdleUri, preset.topRightExpandedUri)
+                    if (preset.hasBottomLeftImage) saveGridCellImageUseCase(GridCell.BOTTOM_LEFT, preset.bottomLeftIdleUri, preset.bottomLeftExpandedUri)
+                    if (preset.hasBottomRightImage) saveGridCellImageUseCase(GridCell.BOTTOM_RIGHT, preset.bottomRightIdleUri, preset.bottomRightExpandedUri)
                 }
-            }
+                if (intent.loadFeed && preset.hasFeedSettings) {
+                    saveFeedSettingsUseCase(preset.chzzkChannelId, preset.youtubeChannelId)
+                }
+                if (intent.loadDrawer && preset.hasAppDrawerSettings) {
+                    saveAppDrawerSettingsUseCase(preset.appDrawerColumns, preset.appDrawerRows, preset.appDrawerIconSizeRatio)
+                }
+                if (intent.loadTheme && preset.hasThemeSettings) {
+                    preset.themeColorHex?.toIntOrNull()?.let { saveColorPresetUseCase(it) }
+                }
+                if (intent.loadWallpaper && preset.hasWallpaperSettings) {
+                    preset.wallpaperUri?.let { uri ->
+                        wallpaperHelper.setWallpaperFromPreset(uri)
+                    }
+                }
+            }.onFailure { sendEffect(SettingsSideEffect.ShowError("프리셋 적용에 실패했습니다")) }
         }
     }
 
@@ -282,8 +288,10 @@ class SettingsViewModel @Inject constructor(
 
     private fun deletePreset(preset: Preset) {
         viewModelScope.launch {
-            deletePresetUseCase(preset)
-            preset.wallpaperUri?.let { wallpaperHelper.deletePresetWallpaper(it) }
+            runCatching {
+                deletePresetUseCase(preset)
+                preset.wallpaperUri?.let { wallpaperHelper.deletePresetWallpaper(it) }
+            }.onFailure { sendEffect(SettingsSideEffect.ShowError("프리셋 삭제에 실패했습니다")) }
         }
     }
 

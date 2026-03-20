@@ -2,6 +2,46 @@
 
 ---
 
+## [2026-03-20] fix(error-handling): ANR 위험 코드 점검 + 사용자 에러 스낵바 구현
+
+### 목표
+
+- `ShowError` SideEffect가 `Log.e()`만 호출하고 사용자에게 표시되지 않던 문제 해결
+- Home/Feed 영역에 SnackbarHost가 없어 스낵바를 표시할 수 없던 문제 해결
+- Raw exception 메시지(`e.message`)가 사용자에게 그대로 노출되던 케이스 제거
+- 누락된 try-catch로 인한 미처리 예외 크래시 위험 제거
+- `GoogleSignInHandler`에서 Credential 예외 메시지가 스낵바에 붙어 출력되던 문제 해결
+- State의 `errorMessage`/`error` 필드에 raw 예외 메시지가 저장되어 인라인 노출되던 문제 해결
+
+### 변경사항
+
+- `SideEffectHandlers.kt`: `HomeSideEffectHandler`, `FeedSideEffectHandler`에 `snackbarHostState` 파라미터 추가, `ShowError` 분기에 `dismiss()`+`showSnackbar()` 추가
+- `MainActivity.kt`: `settingsSnackbarHostState` → `snackbarHostState`로 통합, `Box` 래퍼 + 전역 `SnackbarHost`(SwipeToDismissBox) 추가, Home/Feed 핸들러에 snackbarHostState 전달
+- `HomeViewModel.kt`: `e.message` → `"앱 목록을 불러올 수 없습니다"`
+- `FeedViewModel.kt`: `e.message` → `"피드를 불러올 수 없습니다"` + `errorMessage = e.message` state 저장 제거
+- `FeedContract.kt`: `errorMessage: String?` 필드 삭제
+- `FeedScreen.kt`: `state.errorMessage ?: feed_no_items` → `feed_no_items` 고정 (인라인 에러 표시 제거)
+- `SettingsViewModel.kt`: 에러 메시지 3곳 교체 + `loadPreset`/`deletePreset`/`saveFeedSettings`/`saveAppDrawerSettings`에 `runCatching` 래핑
+- `PresetDetailViewModel.kt`: 에러 메시지 4곳 교체 (다운로드/로드/좋아요/로그인) + `error = e.message` state 저장 제거
+- `PresetMarketViewModel.kt`: 에러 메시지 교체 + `loadTopPresets()` 실패 시 `ShowError` SideEffect 발송 + `error = error?.message` → `null`
+- `PresetMarketUserInfoViewModel.kt`: `e.message` → `"프리셋 목록을 불러올 수 없습니다"`
+- `GoogleSignInHandler.kt`: `signInErrorText.format(e.message)` (포맷 문자열 + raw 예외) → `signInFailedText` 고정 메시지
+- `PresetDetailScreen.kt`, `MarketHomeScreen.kt`, `PresetMarketUserInfoScreen.kt`: `SnackbarHost`에 `SwipeToDismissBox` 적용
+
+### 검증결과
+
+- `assembleDebug` 빌드 성공 (deprecation 경고만, 에러 없음)
+- `./gradlew test` 전체 통과 (HomeViewModelTest/FeedViewModelTest 기댓값 2건 업데이트 포함)
+
+### 설계결정 및 근거
+
+- 단일 `snackbarHostState`를 `MainActivity`에서 생성하여 Home/Feed/Settings 핸들러 모두에 전달 — 동시 스낵바 충돌 방지, `currentSnackbarData?.dismiss()` 연쇄 패턴으로 즉시 교체
+- 에러 노출 경로를 SideEffect → 스낵바 단일 채널로 통일 — state의 `error`/`errorMessage` 필드는 UI 렌더링에서 완전히 분리
+- ANR 위험 없음 확인 — 모든 I/O 작업이 적절한 디스패처에서 실행되고 있었음
+- `SwipeToDismissBox(confirmValueChange)` API는 deprecated이나 Material3 최신 대안이 아직 불안정하여 현재 방식 유지 (기능 정상 동작, deprecation 경고만)
+
+---
+
 ## [2026-03-19] design(theme): 컬러 프리셋을 전체 ColorScheme에 반영
 
 ### 목표

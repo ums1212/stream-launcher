@@ -88,7 +88,23 @@ fun MarketHomeScreen(
 
     Scaffold(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        snackbarHost = {
+            SnackbarHost(snackbarHostState) { snackbarData ->
+                SwipeToDismissBox(
+                    state = rememberSwipeToDismissBoxState(
+                        confirmValueChange = { value ->
+                            if (value != SwipeToDismissBoxValue.Settled) {
+                                snackbarData.dismiss()
+                                true
+                            } else false
+                        }
+                    ),
+                    backgroundContent = {},
+                ) {
+                    Snackbar(snackbarData)
+                }
+            }
+        },
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.preset_market_title)) },

@@ -34,8 +34,7 @@ fun GoogleSignInHandler(
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
-    val unsupportedAuthText = stringResource(R.string.preset_market_unsupported_auth)
-    val signInErrorText = stringResource(R.string.preset_market_sign_in_error)
+    val signInFailedText = stringResource(R.string.preset_market_sign_in_failed)
 
     LaunchedEffect(Unit) {
         try {
@@ -44,12 +43,12 @@ fun GoogleSignInHandler(
             if (idToken != null) {
                 onSignInSuccess(idToken)
             } else {
-                onSignInFailure(unsupportedAuthText)
+                onSignInFailure(signInFailedText)
             }
-        } catch (e: GetCredentialCancellationException) {
+        } catch (_: GetCredentialCancellationException) {
             // 사용자가 직접 취소 — 에러 메시지 불필요
-        } catch (e: GetCredentialException) {
-            onSignInFailure(signInErrorText.format(e.message))
+        } catch (_: GetCredentialException) {
+            onSignInFailure(signInFailedText)
         } finally {
             onDismiss()
         }

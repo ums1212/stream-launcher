@@ -56,14 +56,17 @@ class PresetMarketViewModel @Inject constructor(
         viewModelScope.launch {
             val downloadsResult = getTopDownloadPresetsUseCase()
             val likesResult = getTopLikePresetsUseCase()
+            val error = downloadsResult.exceptionOrNull() ?: likesResult.exceptionOrNull()
             updateState {
                 copy(
                     isLoading = false,
                     topDownloadPresets = downloadsResult.getOrDefault(emptyList()),
                     topLikePresets = likesResult.getOrDefault(emptyList()),
-                    error = downloadsResult.exceptionOrNull()?.message
-                        ?: likesResult.exceptionOrNull()?.message,
+                    error = null,
                 )
+            }
+            if (error != null) {
+                sendEffect(PresetMarketSideEffect.ShowError("인기 프리셋을 불러올 수 없습니다"))
             }
         }
     }
@@ -75,8 +78,8 @@ class PresetMarketViewModel @Inject constructor(
                     updateState { copy(currentUser = user) }
                     sendEffect(PresetMarketSideEffect.SignInSuccess)
                 }
-                .onFailure { e ->
-                    sendEffect(PresetMarketSideEffect.ShowError(e.message ?: "로그인 실패"))
+                .onFailure {
+                    sendEffect(PresetMarketSideEffect.ShowError("로그인에 실패했습니다. 다시 시도해주세요"))
                 }
         }
     }

@@ -46,7 +46,7 @@ class PresetMarketUserInfoViewModel @Inject constructor(
                 }
                 .onFailure { e ->
                     updateState { copy(isLoading = false) }
-                    sendEffect(PresetMarketUserInfoSideEffect.ShowError(e.message ?: "불러오기 실패"))
+                    sendEffect(PresetMarketUserInfoSideEffect.ShowError("프리셋 목록을 불러올 수 없습니다"))
                 }
         }
     }

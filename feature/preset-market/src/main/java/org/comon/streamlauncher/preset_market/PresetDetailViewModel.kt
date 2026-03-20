@@ -49,7 +49,7 @@ class PresetDetailViewModel @Inject constructor(
                         sendEffect(PresetDetailSideEffect.DownloadComplete)
                     }
                     progress?.error != null -> {
-                        sendEffect(PresetDetailSideEffect.ShowError(progress.error ?: "다운로드 실패"))
+                        sendEffect(PresetDetailSideEffect.ShowError("다운로드에 실패했습니다"))
                     }
                 }
             }
@@ -98,9 +98,9 @@ class PresetDetailViewModel @Inject constructor(
                             .onSuccess { liked -> updateState { copy(isLiked = liked) } }
                     }
                 }
-                .onFailure { e ->
-                    updateState { copy(isLoading = false, error = e.message) }
-                    sendEffect(PresetDetailSideEffect.ShowError(e.message ?: "로드 실패"))
+                .onFailure {
+                    updateState { copy(isLoading = false) }
+                    sendEffect(PresetDetailSideEffect.ShowError("프리셋 정보를 불러올 수 없습니다"))
                 }
         }
     }
@@ -123,8 +123,8 @@ class PresetDetailViewModel @Inject constructor(
                         )
                     }
                 }
-                .onFailure { e ->
-                    sendEffect(PresetDetailSideEffect.ShowError(e.message ?: "좋아요 실패"))
+                .onFailure {
+                    sendEffect(PresetDetailSideEffect.ShowError("좋아요 처리에 실패했습니다"))
                 }
         }
     }
@@ -156,9 +156,9 @@ class PresetDetailViewModel @Inject constructor(
                     pendingAction?.invoke()
                     pendingAction = null
                 }
-                .onFailure { e ->
+                .onFailure {
                     pendingAction = null
-                    sendEffect(PresetDetailSideEffect.ShowError(e.message ?: "로그인 실패"))
+                    sendEffect(PresetDetailSideEffect.ShowError("로그인에 실패했습니다. 다시 시도해주세요"))
                 }
         }
     }

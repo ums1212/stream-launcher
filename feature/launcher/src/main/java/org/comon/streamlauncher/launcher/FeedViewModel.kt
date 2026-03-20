@@ -62,7 +62,7 @@ class FeedViewModel @Inject constructor(
 
         loadJob?.cancel()
         loadJob = viewModelScope.launch {
-            updateState { copy(isLoading = true, errorMessage = null) }
+            updateState { copy(isLoading = true) }
 
             val channelId = currentState.chzzkChannelId
             val youtubeChannelId = currentState.youtubeChannelId
@@ -97,16 +97,16 @@ class FeedViewModel @Inject constructor(
                                 updateState { copy(feedItems = items, isLoading = false) }
                                 lastRefreshMillis = System.currentTimeMillis()
                             },
-                            onFailure = { e ->
-                                updateState { copy(isLoading = false, errorMessage = e.message) }
-                                sendEffect(FeedSideEffect.ShowError(e.message ?: "피드를 불러오는 중 오류가 발생했습니다."))
+                            onFailure = { _ ->
+                                updateState { copy(isLoading = false) }
+                                sendEffect(FeedSideEffect.ShowError("피드를 불러올 수 없습니다"))
                             },
                         )
                     }
                 } catch (e: CancellationException) {
                     throw e
-                } catch (e: Exception) {
-                    updateState { copy(isLoading = false, errorMessage = e.message) }
+                } catch (_: Exception) {
+                    updateState { copy(isLoading = false) }
                 }
             }
 

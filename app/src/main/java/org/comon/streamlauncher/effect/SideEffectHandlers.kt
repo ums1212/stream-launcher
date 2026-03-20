@@ -18,7 +18,10 @@ import org.comon.streamlauncher.settings.SettingsSideEffect
 import org.comon.streamlauncher.settings.navigation.Launcher
 
 @Composable
-fun HomeSideEffectHandler(effectFlow: Flow<HomeSideEffect>) {
+fun HomeSideEffectHandler(
+    effectFlow: Flow<HomeSideEffect>,
+    snackbarHostState: SnackbarHostState,
+) {
     val context = LocalContext.current
     LaunchedEffect(Unit) {
         effectFlow.collect { effect ->
@@ -35,8 +38,11 @@ fun HomeSideEffectHandler(effectFlow: Flow<HomeSideEffect>) {
                         Log.w("HomeSideEffectHandler", "앱 실행 실패: ${effect.packageName}")
                     }
                 }
-                is HomeSideEffect.ShowError ->
+                is HomeSideEffect.ShowError -> {
                     Log.e("HomeSideEffectHandler", "Error: ${effect.message}")
+                    snackbarHostState.currentSnackbarData?.dismiss()
+                    snackbarHostState.showSnackbar(effect.message)
+                }
                 is HomeSideEffect.SetDefaultHomeApp -> {
                     try {
                         val intent = Intent(Settings.ACTION_HOME_SETTINGS)
@@ -55,7 +61,10 @@ fun HomeSideEffectHandler(effectFlow: Flow<HomeSideEffect>) {
 }
 
 @Composable
-fun FeedSideEffectHandler(effectFlow: Flow<FeedSideEffect>) {
+fun FeedSideEffectHandler(
+    effectFlow: Flow<FeedSideEffect>,
+    snackbarHostState: SnackbarHostState,
+) {
     val context = LocalContext.current
     LaunchedEffect(Unit) {
         effectFlow.collect { effect ->
@@ -67,8 +76,11 @@ fun FeedSideEffectHandler(effectFlow: Flow<FeedSideEffect>) {
                         Log.w("FeedSideEffectHandler", "URL 열기 실패: ${effect.url}", e)
                     }
                 }
-                is FeedSideEffect.ShowError ->
+                is FeedSideEffect.ShowError -> {
                     Log.e("FeedSideEffectHandler", "Feed Error: ${effect.message}")
+                    snackbarHostState.currentSnackbarData?.dismiss()
+                    snackbarHostState.showSnackbar(effect.message)
+                }
             }
         }
     }

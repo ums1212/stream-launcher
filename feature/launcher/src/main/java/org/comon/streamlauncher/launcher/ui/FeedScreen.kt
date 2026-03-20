@@ -167,7 +167,7 @@ private fun FeedContent(
             state.feedItems.isEmpty() -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
-                        text = state.errorMessage ?: stringResource(R.string.feed_no_items),
+                        text = stringResource(R.string.feed_no_items),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

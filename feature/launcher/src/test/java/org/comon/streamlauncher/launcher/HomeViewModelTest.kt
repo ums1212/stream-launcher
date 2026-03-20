@@ -237,7 +237,7 @@ class HomeViewModelTest {
 
             val effect = awaitItem()
             assertTrue(effect is HomeSideEffect.ShowError)
-            assertEquals(errorMessage, (effect as HomeSideEffect.ShowError).message)
+            assertEquals("앱 목록을 불러올 수 없습니다", (effect as HomeSideEffect.ShowError).message)
             cancelAndIgnoreRemainingEvents()
         }
     }

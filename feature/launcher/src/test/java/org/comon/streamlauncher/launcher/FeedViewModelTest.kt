@@ -175,7 +175,7 @@ class FeedViewModelTest {
     }
 
     @Test
-    fun `피드 로드 실패 - errorMessage 설정`() = runTest {
+    fun `피드 로드 실패 - isLoading false로 전환`() = runTest {
         every { getChzzkLiveStatusUseCase(any()) } returns flowOf(Result.success(LiveStatus(false, "", 0, "", "")))
         every { getYoutubeLiveStatusUseCase(any()) } returns flowOf(Result.success(LiveStatus(false, "", 0, "", "")))
         every { getIntegratedFeedUseCase(any()) } returns flowOf(Result.failure(RuntimeException("네트워크 오류")))
@@ -183,7 +183,6 @@ class FeedViewModelTest {
         viewModel = makeViewModel()
         advanceUntilIdle()
 
-        assertNotNull(viewModel.uiState.value.errorMessage)
         assertFalse(viewModel.uiState.value.isLoading)
     }
 

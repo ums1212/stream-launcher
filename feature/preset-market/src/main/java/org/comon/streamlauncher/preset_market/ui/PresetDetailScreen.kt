@@ -49,8 +49,8 @@ fun PresetDetailScreen(
     onBack: () -> Unit,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
-    fromCard: Boolean = false,
     modifier: Modifier = Modifier,
+    fromCard: Boolean = false,
     onStartDownloadService: (String) -> Unit = {},
     onStopDownloadService: () -> Unit = {},
     viewModel: PresetDetailViewModel = hiltViewModel(),
@@ -159,7 +159,23 @@ fun PresetDetailScreen(
                 },
             )
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        snackbarHost = {
+            SnackbarHost(snackbarHostState) { snackbarData ->
+                SwipeToDismissBox(
+                    state = rememberSwipeToDismissBoxState(
+                        confirmValueChange = { value ->
+                            if (value != SwipeToDismissBoxValue.Settled) {
+                                snackbarData.dismiss()
+                                true
+                            } else false
+                        }
+                    ),
+                    backgroundContent = {},
+                ) {
+                    Snackbar(snackbarData)
+                }
+            }
+        },
         bottomBar = {
             if (state.preset != null) {
                 Surface(tonalElevation = 3.dp) {

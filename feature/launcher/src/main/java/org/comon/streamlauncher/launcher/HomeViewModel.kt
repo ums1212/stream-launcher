@@ -106,9 +106,9 @@ class HomeViewModel @Inject constructor(
                 }
             } catch (e: CancellationException) {
                 throw e
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 updateState { copy(isLoading = false) }
-                sendEffect(HomeSideEffect.ShowError(e.message ?: "앱 목록을 불러오는 중 오류가 발생했습니다."))
+                sendEffect(HomeSideEffect.ShowError("앱 목록을 불러올 수 없습니다"))
             }
         }
     }
