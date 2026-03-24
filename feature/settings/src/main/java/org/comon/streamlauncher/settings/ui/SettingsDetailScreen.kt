@@ -42,6 +42,7 @@ fun SettingsDetailScreen(
             SettingsMenu.FEED -> R.string.settings_feed
             SettingsMenu.APP_DRAWER -> R.string.settings_app_drawer
             SettingsMenu.PRESET -> R.string.settings_preset
+            SettingsMenu.LIVE_WALLPAPER -> R.string.settings_live_wallpaper
         }
     )
     val accentPrimary = StreamLauncherTheme.colors.accentPrimary
@@ -92,6 +93,10 @@ fun SettingsDetailScreen(
                     onNavigateToMarket = onNavigateToMarket,
                     onShowSnackbar = onShowSnackbar,
                     onRequireSignIn = onRequireSignIn,
+                )
+                SettingsMenu.LIVE_WALLPAPER -> LiveWallpaperSettingsContent(
+                    state = state,
+                    onIntent = onIntent,
                 )
             }
         }

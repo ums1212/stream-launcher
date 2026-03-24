@@ -39,5 +39,9 @@ data class Preset(
     val themeColorHex: String?, // Null means system default or dynamic color
     
     val createdAt: Long = System.currentTimeMillis(),
-    val marketPresetId: String? = null
+    val marketPresetId: String? = null,
+
+    // 6. Live Wallpaper Settings
+    val isLiveWallpaper: Boolean = false,
+    val liveWallpaperUri: String? = null,
 )

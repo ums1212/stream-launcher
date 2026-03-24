@@ -4,12 +4,19 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import org.comon.streamlauncher.data.local.room.livewallpaper.LiveWallpaperDao
+import org.comon.streamlauncher.data.local.room.livewallpaper.LiveWallpaperEntity
 import org.comon.streamlauncher.data.local.room.preset.PresetDao
 import org.comon.streamlauncher.data.local.room.preset.PresetEntity
 
-@Database(entities = [PresetEntity::class], version = 3, exportSchema = false)
+@Database(
+    entities = [PresetEntity::class, LiveWallpaperEntity::class],
+    version = 5,
+    exportSchema = false,
+)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun presetDao(): PresetDao
+    abstract fun liveWallpaperDao(): LiveWallpaperDao
 
     companion object {
         // youtubeChannelName 컬럼 제거
@@ -68,6 +75,29 @@ abstract class AppDatabase : RoomDatabase() {
         val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE presets ADD COLUMN marketPresetId TEXT DEFAULT NULL")
+            }
+        }
+
+        // presets 테이블에 라이브 배경화면 컬럼 추가
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE presets ADD COLUMN isLiveWallpaper INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE presets ADD COLUMN liveWallpaperUri TEXT DEFAULT NULL")
+            }
+        }
+
+        // live_wallpapers 테이블 신규 생성
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE live_wallpapers (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        name TEXT NOT NULL,
+                        fileUri TEXT NOT NULL,
+                        thumbnailUri TEXT,
+                        createdAt INTEGER NOT NULL
+                    )
+                """.trimIndent())
             }
         }
     }

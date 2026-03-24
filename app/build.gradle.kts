@@ -112,4 +112,7 @@ dependencies {
     implementation(libs.firebase.crashlytics)
 
     implementation(libs.play.services.ads)
+
+    implementation(libs.media3.exoplayer)
+    implementation(libs.media3.ui)
 }

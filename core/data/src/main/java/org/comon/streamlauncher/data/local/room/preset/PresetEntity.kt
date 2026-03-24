@@ -46,7 +46,9 @@ data class PresetEntity(
     val themeColorHex: String?,
     
     val createdAt: Long,
-    val marketPresetId: String? = null
+    val marketPresetId: String? = null,
+    val isLiveWallpaper: Boolean = false,
+    val liveWallpaperUri: String? = null,
 )
 
 fun PresetEntity.toDomain() = Preset(
@@ -78,7 +80,9 @@ fun PresetEntity.toDomain() = Preset(
     hasThemeSettings = hasThemeSettings,
     themeColorHex = themeColorHex,
     createdAt = createdAt,
-    marketPresetId = marketPresetId
+    marketPresetId = marketPresetId,
+    isLiveWallpaper = isLiveWallpaper,
+    liveWallpaperUri = liveWallpaperUri,
 )
 
 fun Preset.toEntity() = PresetEntity(
@@ -110,5 +114,7 @@ fun Preset.toEntity() = PresetEntity(
     hasThemeSettings = hasThemeSettings,
     themeColorHex = themeColorHex,
     createdAt = createdAt,
-    marketPresetId = marketPresetId
+    marketPresetId = marketPresetId,
+    isLiveWallpaper = isLiveWallpaper,
+    liveWallpaperUri = liveWallpaperUri,
 )

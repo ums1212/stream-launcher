@@ -62,6 +62,7 @@ data class SlpAppDrawerSettings(
 data class SlpWallpaperSettings(
     val enabled: Boolean = false,
     val enableParallax: Boolean = false,
+    val isLiveWallpaper: Boolean = false,
 )
 
 @Serializable

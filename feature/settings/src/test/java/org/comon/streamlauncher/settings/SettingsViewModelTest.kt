@@ -21,6 +21,10 @@ import org.comon.streamlauncher.domain.usecase.SaveColorPresetUseCase
 import org.comon.streamlauncher.domain.usecase.SaveFeedSettingsUseCase
 import org.comon.streamlauncher.domain.usecase.SaveGridCellImageUseCase
 import org.comon.streamlauncher.domain.usecase.SavePresetUseCase
+import org.comon.streamlauncher.domain.usecase.DeleteLiveWallpaperUseCase
+import org.comon.streamlauncher.domain.usecase.GetAllLiveWallpapersUseCase
+import org.comon.streamlauncher.domain.usecase.SaveLiveWallpaperUseCase
+import org.comon.streamlauncher.domain.usecase.SetLiveWallpaperUseCase
 import org.comon.streamlauncher.domain.usecase.UpdateMarketPresetIdUseCase
 import org.comon.streamlauncher.domain.usecase.ObserveAuthStateUseCase
 import org.comon.streamlauncher.domain.usecase.SignInWithGoogleUseCase
@@ -55,6 +59,10 @@ class SettingsViewModelTest {
     private lateinit var uploadProgressTracker: UploadProgressTracker
     private lateinit var uploadDataHolder: UploadDataHolder
     private lateinit var updateMarketPresetIdUseCase: UpdateMarketPresetIdUseCase
+    private lateinit var getAllLiveWallpapersUseCase: GetAllLiveWallpapersUseCase
+    private lateinit var saveLiveWallpaperUseCase: SaveLiveWallpaperUseCase
+    private lateinit var deleteLiveWallpaperUseCase: DeleteLiveWallpaperUseCase
+    private lateinit var setLiveWallpaperUseCase: SetLiveWallpaperUseCase
     private lateinit var viewModel: SettingsViewModel
 
     @Before
@@ -84,6 +92,12 @@ class SettingsViewModelTest {
         uploadDataHolder = UploadDataHolder()
         updateMarketPresetIdUseCase = mockk(relaxed = true)
 
+        getAllLiveWallpapersUseCase = mockk()
+        every { getAllLiveWallpapersUseCase() } returns flowOf(emptyList())
+        saveLiveWallpaperUseCase = mockk(relaxed = true)
+        deleteLiveWallpaperUseCase = mockk(relaxed = true)
+        setLiveWallpaperUseCase = mockk(relaxed = true)
+
         viewModel = makeViewModel()
     }
 
@@ -109,6 +123,10 @@ class SettingsViewModelTest {
         progressTracker: UploadProgressTracker = uploadProgressTracker,
         dataHolder: UploadDataHolder = uploadDataHolder,
         updateMarketPresetId: UpdateMarketPresetIdUseCase = updateMarketPresetIdUseCase,
+        getAllLiveWallpapers: GetAllLiveWallpapersUseCase = getAllLiveWallpapersUseCase,
+        saveLiveWallpaper: SaveLiveWallpaperUseCase = saveLiveWallpaperUseCase,
+        deleteLiveWallpaper: DeleteLiveWallpaperUseCase = deleteLiveWallpaperUseCase,
+        setLiveWallpaper: SetLiveWallpaperUseCase = setLiveWallpaperUseCase,
     ): SettingsViewModel = SettingsViewModel(
         settingsUseCase,
         colorSaveUseCase,
@@ -126,6 +144,10 @@ class SettingsViewModelTest {
         progressTracker,
         dataHolder,
         updateMarketPresetId,
+        getAllLiveWallpapers,
+        saveLiveWallpaper,
+        deleteLiveWallpaper,
+        setLiveWallpaper,
     )
 
     // 1. ChangeAccentColor → colorPresetIndex 상태 업데이트

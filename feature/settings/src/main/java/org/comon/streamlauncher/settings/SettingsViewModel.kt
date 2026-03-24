@@ -7,8 +7,10 @@ import org.comon.streamlauncher.domain.model.GridCell
 import org.comon.streamlauncher.domain.model.GridCellImage
 import org.comon.streamlauncher.domain.model.preset.Preset
 import org.comon.streamlauncher.domain.usecase.CheckNoticeUseCase
+import org.comon.streamlauncher.domain.usecase.DeleteLiveWallpaperUseCase
 import org.comon.streamlauncher.domain.usecase.DeletePresetUseCase
 import org.comon.streamlauncher.domain.usecase.DismissNoticeUseCase
+import org.comon.streamlauncher.domain.usecase.GetAllLiveWallpapersUseCase
 import org.comon.streamlauncher.domain.usecase.GetAllPresetsUseCase
 import org.comon.streamlauncher.domain.model.preset.MarketUser
 import org.comon.streamlauncher.domain.usecase.ObserveAuthStateUseCase
@@ -17,7 +19,9 @@ import org.comon.streamlauncher.domain.usecase.SaveAppDrawerSettingsUseCase
 import org.comon.streamlauncher.domain.usecase.SaveColorPresetUseCase
 import org.comon.streamlauncher.domain.usecase.SaveFeedSettingsUseCase
 import org.comon.streamlauncher.domain.usecase.SaveGridCellImageUseCase
+import org.comon.streamlauncher.domain.usecase.SaveLiveWallpaperUseCase
 import org.comon.streamlauncher.domain.usecase.SavePresetUseCase
+import org.comon.streamlauncher.domain.usecase.SetLiveWallpaperUseCase
 import org.comon.streamlauncher.domain.usecase.UpdateMarketPresetIdUseCase
 import org.comon.streamlauncher.domain.usecase.SignInWithGoogleUseCase
 import org.comon.streamlauncher.settings.upload.UploadDataHolder
@@ -44,6 +48,10 @@ class SettingsViewModel @Inject constructor(
     private val uploadProgressTracker: UploadProgressTracker,
     private val uploadDataHolder: UploadDataHolder,
     private val updateMarketPresetIdUseCase: UpdateMarketPresetIdUseCase,
+    private val getAllLiveWallpapersUseCase: GetAllLiveWallpapersUseCase,
+    private val saveLiveWallpaperUseCase: SaveLiveWallpaperUseCase,
+    private val deleteLiveWallpaperUseCase: DeleteLiveWallpaperUseCase,
+    private val setLiveWallpaperUseCase: SetLiveWallpaperUseCase,
 ) : BaseViewModel<SettingsState, SettingsIntent, SettingsSideEffect>(SettingsState()) {
 
     private var currentNoticeVersion: String = ""
@@ -77,6 +85,11 @@ class SettingsViewModel @Inject constructor(
             observeAuthStateUseCase().collect { user ->
                 cachedMarketUser = user
                 updateState { copy(isSignedIn = user != null) }
+            }
+        }
+        viewModelScope.launch {
+            getAllLiveWallpapersUseCase().collect { list ->
+                updateState { copy(liveWallpapers = list) }
             }
         }
         viewModelScope.launch {
@@ -123,6 +136,14 @@ class SettingsViewModel @Inject constructor(
             is SettingsIntent.PauseUpload -> uploadProgressTracker.pause()
             is SettingsIntent.ResumeUpload -> uploadProgressTracker.resume()
             is SettingsIntent.CancelUpload -> cancelUpload()
+            is SettingsIntent.LoadLiveWallpaperFile ->
+                updateState { copy(selectedLiveWallpaperUri = intent.uri, selectedLiveWallpaperId = null) }
+            is SettingsIntent.CreateLiveWallpaper -> createLiveWallpaper(intent.name)
+            is SettingsIntent.SelectLiveWallpaper ->
+                updateState { copy(selectedLiveWallpaperId = intent.id, selectedLiveWallpaperUri = intent.uri) }
+            is SettingsIntent.SetActiveLiveWallpaper -> setActiveLiveWallpaper(intent.id, intent.uri)
+            is SettingsIntent.DeleteLiveWallpaper -> deleteLiveWallpaper(intent.id)
+            is SettingsIntent.ClearActiveLiveWallpaper -> clearActiveLiveWallpaper()
         }
     }
 
@@ -210,7 +231,8 @@ class SettingsViewModel @Inject constructor(
     private fun savePreset(intent: SettingsIntent.SavePreset) {
         viewModelScope.launch {
             val state = currentState
-            val wallpaperPath = if (intent.saveWallpaper && intent.wallpaperUri != null) {
+            // 라이브 배경화면은 이미 filesDir에 저장된 경로이므로 별도 복사 없음
+            val wallpaperPath = if (intent.saveWallpaper && intent.wallpaperUri != null && !intent.isLiveWallpaper) {
                 wallpaperHelper.copyWallpaperFromUri(intent.wallpaperUri, System.currentTimeMillis())
             } else null
 
@@ -237,10 +259,12 @@ class SettingsViewModel @Inject constructor(
                 appDrawerRows = if (intent.saveDrawer) state.appDrawerGridRows else 6,
                 appDrawerIconSizeRatio = if (intent.saveDrawer) state.appDrawerIconSizeRatio else 1.0f,
                 hasWallpaperSettings = intent.saveWallpaper,
-                wallpaperUri = wallpaperPath,
+                wallpaperUri = if (intent.isLiveWallpaper) null else wallpaperPath,
                 enableParallax = false,
                 hasThemeSettings = intent.saveTheme,
-                themeColorHex = if (intent.saveTheme) state.colorPresetIndex.toString() else null
+                themeColorHex = if (intent.saveTheme) state.colorPresetIndex.toString() else null,
+                isLiveWallpaper = intent.isLiveWallpaper,
+                liveWallpaperUri = if (intent.isLiveWallpaper) intent.wallpaperUri else null,
             )
             runCatching { savePresetUseCase(preset) }
                 .onFailure { sendEffect(SettingsSideEffect.ShowError("프리셋 저장에 실패했습니다")) }
@@ -268,8 +292,12 @@ class SettingsViewModel @Inject constructor(
                     preset.themeColorHex?.toIntOrNull()?.let { saveColorPresetUseCase(it) }
                 }
                 if (intent.loadWallpaper && preset.hasWallpaperSettings) {
-                    preset.wallpaperUri?.let { uri ->
-                        wallpaperHelper.setWallpaperFromPreset(uri)
+                    if (preset.isLiveWallpaper && preset.liveWallpaperUri != null) {
+                        setLiveWallpaperUseCase(preset.id, preset.liveWallpaperUri)
+                    } else {
+                        preset.wallpaperUri?.let { uri ->
+                            wallpaperHelper.setWallpaperFromPreset(uri)
+                        }
                     }
                 }
             }.onFailure { sendEffect(SettingsSideEffect.ShowError("프리셋 적용에 실패했습니다")) }
@@ -292,6 +320,44 @@ class SettingsViewModel @Inject constructor(
                 deletePresetUseCase(preset)
                 preset.wallpaperUri?.let { wallpaperHelper.deletePresetWallpaper(it) }
             }.onFailure { sendEffect(SettingsSideEffect.ShowError("프리셋 삭제에 실패했습니다")) }
+        }
+    }
+
+    private fun createLiveWallpaper(name: String) {
+        val uri = currentState.selectedLiveWallpaperUri ?: return
+        viewModelScope.launch {
+            runCatching {
+                val lw = saveLiveWallpaperUseCase(name, uri)
+                updateState { copy(selectedLiveWallpaperId = lw.id, selectedLiveWallpaperUri = lw.fileUri) }
+            }.onFailure { sendEffect(SettingsSideEffect.ShowError("라이브 배경화면 저장에 실패했습니다")) }
+        }
+    }
+
+    private fun setActiveLiveWallpaper(id: Int, uri: String) {
+        viewModelScope.launch {
+            runCatching {
+                setLiveWallpaperUseCase(id, uri)
+                sendEffect(SettingsSideEffect.LaunchLiveWallpaperPicker)
+            }.onFailure { sendEffect(SettingsSideEffect.ShowError("라이브 배경화면 설정에 실패했습니다")) }
+        }
+    }
+
+    private fun deleteLiveWallpaper(id: Int) {
+        viewModelScope.launch {
+            runCatching {
+                deleteLiveWallpaperUseCase(id)
+                val state = currentState
+                if (state.selectedLiveWallpaperId == id) {
+                    updateState { copy(selectedLiveWallpaperId = null, selectedLiveWallpaperUri = null) }
+                }
+            }.onFailure { sendEffect(SettingsSideEffect.ShowError("라이브 배경화면 삭제에 실패했습니다")) }
+        }
+    }
+
+    private fun clearActiveLiveWallpaper() {
+        viewModelScope.launch {
+            runCatching { setLiveWallpaperUseCase(null, null) }
+                .onFailure { sendEffect(SettingsSideEffect.ShowError("라이브 배경화면 해제에 실패했습니다")) }
         }
     }
 

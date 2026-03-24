@@ -94,7 +94,10 @@
       "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew :feature:launcher:compileDebugKotlin :feature:launcher:compileDebugUnitTestKotlin :feature:preset-market:compileDebugKotlin)",
       "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew :feature:launcher:compileDebugUnitTestKotlin :feature:preset-market:compileDebugKotlin)",
       "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew :feature:launcher:testDebugUnitTest :feature:preset-market:testDebugUnitTest)",
-      "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew testDebugUnitTest)"
+      "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew testDebugUnitTest)",
+      "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew :core:data:kspDebugKotlin --stacktrace)",
+      "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-17\" git -C D:/comon/StreamLauncher log --oneline -5)",
+      "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew :app:assembleDebug :core:data:assembleDebug)"
     ]
   }
 }

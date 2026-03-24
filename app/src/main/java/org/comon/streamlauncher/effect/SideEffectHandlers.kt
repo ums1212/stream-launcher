@@ -1,6 +1,8 @@
 package org.comon.streamlauncher.effect
 
+import android.app.WallpaperManager
 import android.content.ActivityNotFoundException
+import android.content.ComponentName
 import android.content.Intent
 import android.provider.Settings
 import android.util.Log
@@ -14,6 +16,7 @@ import kotlinx.coroutines.flow.Flow
 import org.comon.streamlauncher.launcher.FeedSideEffect
 import org.comon.streamlauncher.launcher.HomeSideEffect
 import org.comon.streamlauncher.service.PresetUploadService
+import org.comon.streamlauncher.service.VideoLiveWallpaperService
 import org.comon.streamlauncher.settings.SettingsSideEffect
 import org.comon.streamlauncher.settings.navigation.Launcher
 
@@ -116,6 +119,31 @@ fun SettingsSideEffectHandler(
                     context.stopService(Intent(context, PresetUploadService::class.java))
                 is SettingsSideEffect.ShowError ->
                     snackbarHostState.showSnackbar(effect.message)
+                is SettingsSideEffect.LaunchLiveWallpaperPicker -> {
+                    val component = ComponentName(context, VideoLiveWallpaperService::class.java)
+                    val wallpaperManager = WallpaperManager.getInstance(context)
+                    val currentInfo = wallpaperManager.wallpaperInfo
+                    if (currentInfo?.serviceName == VideoLiveWallpaperService::class.java.name) {
+                        // 이미 활성화된 경우: URI가 DataStore에 저장됐으므로 서비스가 자동으로 갱신
+                        snackbarHostState.showSnackbar("라이브 배경화면이 업데이트됩니다")
+                    } else {
+                        try {
+                            val intent = Intent(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER)
+                                .putExtra(WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT, component)
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            context.startActivity(intent)
+                        } catch (_: ActivityNotFoundException) {
+                            try {
+                                context.startActivity(
+                                    Intent(WallpaperManager.ACTION_LIVE_WALLPAPER_CHOOSER)
+                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                )
+                            } catch (_: Exception) {
+                                snackbarHostState.showSnackbar("라이브 배경화면 설정 화면을 열 수 없습니다")
+                            }
+                        }
+                    }
+                }
             }
         }
     }

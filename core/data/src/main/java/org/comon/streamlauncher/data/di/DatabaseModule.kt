@@ -8,6 +8,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import org.comon.streamlauncher.data.local.room.AppDatabase
+import org.comon.streamlauncher.data.local.room.livewallpaper.LiveWallpaperDao
 import org.comon.streamlauncher.data.local.room.preset.PresetDao
 import javax.inject.Singleton
 
@@ -23,12 +24,18 @@ object DatabaseModule {
             AppDatabase::class.java,
             "streamlauncher_db"
         )
-            .addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3)
+            .addMigrations(
+                AppDatabase.MIGRATION_1_2,
+                AppDatabase.MIGRATION_2_3,
+                AppDatabase.MIGRATION_3_4,
+                AppDatabase.MIGRATION_4_5,
+            )
             .build()
     }
-    
+
     @Provides
-    fun providePresetDao(database: AppDatabase): PresetDao {
-        return database.presetDao()
-    }
+    fun providePresetDao(database: AppDatabase): PresetDao = database.presetDao()
+
+    @Provides
+    fun provideLiveWallpaperDao(database: AppDatabase): LiveWallpaperDao = database.liveWallpaperDao()
 }

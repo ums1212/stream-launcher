@@ -47,6 +47,7 @@ object SlpPacker {
         val outFile = File(outDir, "$presetId.slp")
 
         val imageEntries = buildImageEntries(preset)
+        val liveWallpaperEntry = buildLiveWallpaperEntry(preset)
         val previewEntries = previewUris.mapIndexed { i, uri -> "previews/preview_$i.webp" to uri }
 
         val manifest = buildManifest(preset, previewUris, description, tags, authorUid, authorDisplayName)
@@ -72,6 +73,23 @@ object SlpPacker {
                 zos.putNextEntry(entry)
                 zos.write(bytes)
                 zos.closeEntry()
+            }
+
+            // 라이브 배경화면(동영상/GIF) — 원본 바이트 그대로 STORED
+            liveWallpaperEntry?.let { (entryPath, localUri) ->
+                val bytes = readRawFile(localUri)
+                if (bytes.isNotEmpty()) {
+                    val crc = CRC32().also { it.update(bytes) }
+                    val entry = ZipEntry(entryPath).apply {
+                        method = ZipEntry.STORED
+                        size = bytes.size.toLong()
+                        compressedSize = bytes.size.toLong()
+                        this.crc = crc.value
+                    }
+                    zos.putNextEntry(entry)
+                    zos.write(bytes)
+                    zos.closeEntry()
+                }
             }
         }
 
@@ -106,7 +124,16 @@ object SlpPacker {
                 bottomLeftExpanded  = preset.bottomLeftExpandedUri?.takeIf { it.isLocalUri() }?.let { "images/bottom_left_expanded.webp" },
                 bottomRightIdle     = preset.bottomRightIdleUri?.takeIf { it.isLocalUri() }?.let { "images/bottom_right_idle.webp" },
                 bottomRightExpanded = preset.bottomRightExpandedUri?.takeIf { it.isLocalUri() }?.let { "images/bottom_right_expanded.webp" },
-                wallpaper           = preset.wallpaperUri?.takeIf { it.isLocalUri() }?.let { "images/wallpaper.webp" },
+                wallpaper = when {
+                    preset.isLiveWallpaper -> {
+                        val lwUri = preset.liveWallpaperUri
+                        if (lwUri?.isLocalUri() == true) {
+                            "images/wallpaper.${lwUri.substringAfterLast('.', "mp4")}"
+                        } else null
+                    }
+                    preset.wallpaperUri?.isLocalUri() == true -> "images/wallpaper.webp"
+                    else -> null
+                },
             ),
             previews  = previewPaths,
             cellFlags = SlpCellFlags(
@@ -128,8 +155,9 @@ object SlpPacker {
                 iconSizeRatio = preset.appDrawerIconSizeRatio,
             ) else null,
             wallpaperSettings = if (preset.hasWallpaperSettings) SlpWallpaperSettings(
-                enabled        = true,
-                enableParallax = preset.enableParallax,
+                enabled          = true,
+                enableParallax   = preset.enableParallax,
+                isLiveWallpaper  = preset.isLiveWallpaper,
             ) else null,
             themeSettings = if (preset.hasThemeSettings) SlpThemeSettings(
                 enabled  = true,
@@ -150,8 +178,20 @@ object SlpPacker {
             preset.bottomLeftExpandedUri?.takeIf { it.isLocalUri() }?.let { "images/bottom_left_expanded.webp" to it },
             preset.bottomRightIdleUri?.takeIf { it.isLocalUri() }?.let { "images/bottom_right_idle.webp" to it },
             preset.bottomRightExpandedUri?.takeIf { it.isLocalUri() }?.let { "images/bottom_right_expanded.webp" to it },
-            preset.wallpaperUri?.takeIf { it.isLocalUri() }?.let { "images/wallpaper.webp" to it },
+            // 라이브 배경화면이 아닐 때만 wallpaperUri 포함 (라이브는 buildLiveWallpaperEntry로 별도 처리)
+            if (!preset.isLiveWallpaper) preset.wallpaperUri?.takeIf { it.isLocalUri() }?.let { "images/wallpaper.webp" to it } else null,
         )
+
+    private fun buildLiveWallpaperEntry(preset: Preset): Pair<String, String>? {
+        if (!preset.isLiveWallpaper) return null
+        val lwUri = preset.liveWallpaperUri ?: return null
+        if (!lwUri.isLocalUri()) return null
+        val ext = lwUri.substringAfterLast('.', "mp4")
+        return "images/wallpaper.$ext" to lwUri
+    }
+
+    private fun readRawFile(uri: String): ByteArray =
+        try { File(uri).readBytes() } catch (_: Exception) { ByteArray(0) }
 
     private fun compressUri(context: Context, uri: String): ByteArray =
         if (uri.startsWith("/")) {

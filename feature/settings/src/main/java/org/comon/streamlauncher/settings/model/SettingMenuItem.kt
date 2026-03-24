@@ -8,13 +8,14 @@ import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.LiveTv
 import androidx.compose.material.icons.rounded.Save
+import androidx.compose.material.icons.rounded.SlowMotionVideo
 import androidx.compose.material.icons.rounded.Wallpaper
 import androidx.compose.ui.graphics.vector.ImageVector
 import org.comon.streamlauncher.settings.R
 
 // 각 메뉴의 동작을 구분할 고유 식별자
 enum class SettingsActionType {
-    COLOR, IMAGE, APP_DRAWER, FEED, NOTICE, WALLPAPER, DEFAULT_HOME, PRESET
+    COLOR, IMAGE, APP_DRAWER, FEED, NOTICE, WALLPAPER, DEFAULT_HOME, PRESET, LIVE_WALLPAPER
 }
 
 data class SettingMenuItem(
@@ -72,5 +73,11 @@ val settingMenuList = listOf(
         icon = Icons.Rounded.Save,
         lerpFraction = 0.93f,
         actionType = SettingsActionType.PRESET
+    ),
+    SettingMenuItem(
+        labelId = R.string.settings_live_wallpaper,
+        icon = Icons.Rounded.SlowMotionVideo,
+        lerpFraction = 0.97f,
+        actionType = SettingsActionType.LIVE_WALLPAPER
     ),
 )

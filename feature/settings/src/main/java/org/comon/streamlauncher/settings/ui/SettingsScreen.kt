@@ -75,6 +75,7 @@ private fun MainSettingsContent(
                 }
             }
             SettingsActionType.PRESET -> onNavigate(SettingsDetail(SettingsMenu.PRESET.name))
+            SettingsActionType.LIVE_WALLPAPER -> onNavigate(SettingsDetail(SettingsMenu.LIVE_WALLPAPER.name))
         }
     }
 

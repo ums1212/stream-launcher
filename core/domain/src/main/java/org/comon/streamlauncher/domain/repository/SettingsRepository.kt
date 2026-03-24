@@ -17,4 +17,5 @@ interface SettingsRepository {
     suspend fun setAppDrawerSettings(columns: Int, rows: Int, iconSizeRatio: Float)
     suspend fun getLastShownNoticeVersion(): String?
     suspend fun setLastShownNoticeVersion(version: String)
+    suspend fun setLiveWallpaper(id: Int?, uri: String?)
 }

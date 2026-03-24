@@ -10,4 +10,6 @@ data class LauncherSettings(
     val appDrawerGridColumns: Int = 4,
     val appDrawerGridRows: Int = 6,
     val appDrawerIconSizeRatio: Float = 1.0f,
+    val liveWallpaperId: Int? = null,
+    val liveWallpaperUri: String? = null,
 )

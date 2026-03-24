@@ -37,11 +37,16 @@ fun SlpManifest.toLocalPreset(
     appDrawerRows         = appDrawerSettings?.rows ?: 6,
     appDrawerIconSizeRatio= appDrawerSettings?.iconSizeRatio ?: 1.0f,
     hasWallpaperSettings  = wallpaperSettings?.enabled ?: false,
-    wallpaperUri          = images.wallpaper?.let { extractedPaths[it] },
+    wallpaperUri          = if (wallpaperSettings?.isLiveWallpaper == true) null
+                            else images.wallpaper?.let { extractedPaths[it] },
     enableParallax        = wallpaperSettings?.enableParallax ?: false,
     hasThemeSettings      = themeSettings?.enabled ?: false,
     themeColorHex         = themeSettings?.colorHex,
     marketPresetId        = marketPresetId,
+    isLiveWallpaper       = wallpaperSettings?.isLiveWallpaper ?: false,
+    liveWallpaperUri      = if (wallpaperSettings?.isLiveWallpaper == true)
+                                images.wallpaper?.let { extractedPaths[it] }
+                            else null,
 )
 
 /**

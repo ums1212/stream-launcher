@@ -58,6 +58,8 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.coil.compose)
     implementation(libs.androidx.compose.material.material.icons.extended)
+    implementation(libs.media3.exoplayer)
+    implementation(libs.media3.ui)
 
     implementation(libs.hilt.android)
     implementation(libs.hilt.navigation.compose)

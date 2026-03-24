@@ -2,6 +2,7 @@ package org.comon.streamlauncher.settings
 
 import org.comon.streamlauncher.domain.model.GridCell
 import org.comon.streamlauncher.domain.model.GridCellImage
+import org.comon.streamlauncher.domain.model.LiveWallpaper
 import org.comon.streamlauncher.domain.model.preset.Preset
 import org.comon.streamlauncher.domain.model.preset.PresetOperationProgress
 import org.comon.streamlauncher.settings.model.ImageType
@@ -25,6 +26,9 @@ data class SettingsState(
     val uploadProgress: PresetOperationProgress? = null,
     val pendingUploadPresetName: String? = null,
     val isSignedIn: Boolean = false,
+    val liveWallpapers: List<LiveWallpaper> = emptyList(),
+    val selectedLiveWallpaperUri: String? = null,
+    val selectedLiveWallpaperId: Int? = null,
 ) : UiState
 
 sealed interface SettingsIntent : UiIntent {
@@ -46,6 +50,7 @@ sealed interface SettingsIntent : UiIntent {
         val saveWallpaper: Boolean,
         val saveTheme: Boolean,
         val wallpaperUri: String? = null,
+        val isLiveWallpaper: Boolean = false,
     ) : SettingsIntent
     data class LoadPreset(
         val preset: Preset,
@@ -67,6 +72,13 @@ sealed interface SettingsIntent : UiIntent {
     data object PauseUpload : SettingsIntent
     data object ResumeUpload : SettingsIntent
     data object CancelUpload : SettingsIntent
+
+    data class LoadLiveWallpaperFile(val uri: String) : SettingsIntent
+    data class CreateLiveWallpaper(val name: String) : SettingsIntent
+    data class SelectLiveWallpaper(val id: Int, val uri: String) : SettingsIntent
+    data class SetActiveLiveWallpaper(val id: Int, val uri: String) : SettingsIntent
+    data class DeleteLiveWallpaper(val id: Int) : SettingsIntent
+    data object ClearActiveLiveWallpaper : SettingsIntent
 }
 
 sealed interface SettingsSideEffect : UiSideEffect {
@@ -78,4 +90,5 @@ sealed interface SettingsSideEffect : UiSideEffect {
     data object RequireSignIn : SettingsSideEffect
     data object StopUploadService : SettingsSideEffect
     data class ShowError(val message: String) : SettingsSideEffect
+    data object LaunchLiveWallpaperPicker : SettingsSideEffect
 }

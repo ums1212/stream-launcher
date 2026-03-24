@@ -140,9 +140,19 @@ internal fun PresetSettingsContent(
     // Save Preset Dialog
     if (showSaveDialog) {
         SavePresetDialog(
+            liveWallpapers = state.liveWallpapers,
             onDismiss = { showSaveDialog = false },
-            onConfirm = { name, saveHome, saveFeed, saveDrawer, saveWallpaper, saveTheme, wallpaperUri ->
-                onIntent(SettingsIntent.SavePreset(name, saveHome, saveFeed, saveDrawer, saveWallpaper, saveTheme, wallpaperUri))
+            onConfirm = { name, saveHome, saveFeed, saveDrawer, saveWallpaper, saveTheme, wallpaperUri, isLiveWallpaper ->
+                onIntent(SettingsIntent.SavePreset(
+                    name = name,
+                    saveHome = saveHome,
+                    saveFeed = saveFeed,
+                    saveDrawer = saveDrawer,
+                    saveWallpaper = saveWallpaper,
+                    saveTheme = saveTheme,
+                    wallpaperUri = wallpaperUri,
+                    isLiveWallpaper = isLiveWallpaper,
+                ))
                 showSaveDialog = false
             }
         )

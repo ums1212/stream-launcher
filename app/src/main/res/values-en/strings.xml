@@ -2,4 +2,6 @@
 <resources>
     <string name="app_name">StreamLauncher</string>
     <string name="drag_cancel">Cancel</string>
+    <string name="live_wallpaper_service_label">StreamLauncher Live Wallpaper</string>
+    <string name="live_wallpaper_description">Plays a video or GIF as a live wallpaper</string>
 </resources>

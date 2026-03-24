@@ -47,6 +47,8 @@ class SettingsRepositoryImpl @Inject constructor(
     private val appDrawerGridRowsKey = intPreferencesKey("app_drawer_grid_rows")
     private val appDrawerIconSizeRatioKey = floatPreferencesKey("app_drawer_icon_size_ratio")
     private val lastShownNoticeVersionKey = stringPreferencesKey("last_shown_notice_version")
+    private val liveWallpaperIdKey = intPreferencesKey("live_wallpaper_id")
+    private val liveWallpaperUriKey = stringPreferencesKey("live_wallpaper_uri")
 
     override fun getSettings(): Flow<LauncherSettings> =
         dataStore.data.map { prefs ->
@@ -61,6 +63,8 @@ class SettingsRepositoryImpl @Inject constructor(
             val appDrawerGridColumns = prefs[appDrawerGridColumnsKey] ?: 4
             val appDrawerGridRows = prefs[appDrawerGridRowsKey] ?: 6
             val appDrawerIconSizeRatio = prefs[appDrawerIconSizeRatioKey] ?: 1.0f
+            val liveWallpaperId = prefs[liveWallpaperIdKey]
+            val liveWallpaperUri = prefs[liveWallpaperUriKey]
             LauncherSettings(
                 colorPresetIndex = colorPresetIndex,
                 gridCellImages = gridCellImages,
@@ -71,6 +75,8 @@ class SettingsRepositoryImpl @Inject constructor(
                 appDrawerGridColumns = appDrawerGridColumns,
                 appDrawerGridRows = appDrawerGridRows,
                 appDrawerIconSizeRatio = appDrawerIconSizeRatio,
+                liveWallpaperId = liveWallpaperId,
+                liveWallpaperUri = liveWallpaperUri,
             )
         }
 
@@ -152,6 +158,13 @@ class SettingsRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun setLiveWallpaper(id: Int?, uri: String?) {
+        dataStore.edit { prefs ->
+            if (id != null) prefs[liveWallpaperIdKey] = id else prefs.remove(liveWallpaperIdKey)
+            if (uri != null) prefs[liveWallpaperUriKey] = uri else prefs.remove(liveWallpaperUriKey)
+        }
+    }
+
     private fun parseCellAssignments(json: String?): Map<GridCell, List<String>> {
         val dtos = parseCellAssignmentDtos(json)
         val result = mutableMapOf<GridCell, List<String>>()
@@ -166,7 +179,7 @@ class SettingsRepositoryImpl @Inject constructor(
         if (json.isNullOrBlank()) return emptyList()
         return try {
             Json.decodeFromString(json)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             emptyList()
         }
     }
@@ -189,7 +202,7 @@ class SettingsRepositoryImpl @Inject constructor(
         if (json.isNullOrBlank()) return emptyList()
         return try {
             Json.decodeFromString(json)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             emptyList()
         }
     }

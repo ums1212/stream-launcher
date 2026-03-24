@@ -2,6 +2,107 @@
 
 ---
 
+## [2026-03-24] fix(live-wallpaper): GIF 미리보기·저장 오류 수정 및 라이브 배경화면 GIF 렌더링 개선
+
+### 목표
+
+- 라이브 배경화면 기능 구현 직후 발견된 GIF 관련 버그 3건 수정
+  1. ExoPlayer가 GIF를 지원하지 않아 미리보기 재생 실패
+  2. content:// URI에서 확장자 추출 실패로 인한 파일 저장 오류
+  3. 시스템 라이브 배경화면에서 GIF가 검은 화면 / 좌상단 원본 크기로 표시
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `feature/settings/.../ui/LiveWallpaperSettingsContent.kt` | `VideoPreview` 분기 처리: GIF → `GifPreview`(`AnimatedImageDrawable`+`ImageDecoder`+`AndroidView(ImageView)`), 동영상 → `ExoPlayerPreview`. MIME 타입 또는 확장자로 GIF 판별 |
+| `core/data/.../repository/LiveWallpaperRepositoryImpl.kt` | `resolveExtension()` 헬퍼 추가: `content://` URI는 `ContentResolver.getType()`으로 MIME 타입 조회 후 확장자 결정, 로컬 경로는 기존 방식(슬래시 포함 시 fallback) |
+| `app/.../service/VideoLiveWallpaperService.kt` | GIF/동영상 렌더링 분기: `applyUri()`에서 `.gif` 확장자 시 `startGifRendering()`, 아니면 `startVideoRendering()` 호출. GIF는 `AnimatedImageDrawable`+`Choreographer.FrameCallback`으로 매 vsync마다 canvas 직접 렌더링. CENTER_CROP 스케일 계산: `canvas.translate(offsetX, offsetY)` + `canvas.scale(scale, scale)`로 canvas 좌표계 변환 후 그리기 (setBounds 스케일이 무시되는 문제 우회). `stopCurrent()`에서 ExoPlayer와 GIF 프레임 콜백 모두 정리 |
+
+### 검증결과
+
+- `./gradlew assembleDebug` **BUILD SUCCESSFUL**
+- `./gradlew test` **BUILD SUCCESSFUL** — 전체 테스트 통과 (실패 0건)
+- GIF 파일 불러오기 → 미리보기 애니메이션 정상 재생 확인
+- GIF 만들기(저장) 정상 동작 확인
+- 라이브 배경화면 설정 후 GIF 화면 전체 꽉 채워 중앙 정렬 렌더링 확인
+
+### 설계결정 및 근거
+
+- **`AnimatedImageDrawable.setBounds()` 무효 문제**: `AnimatedImageDrawable`은 API 28+에서 하드웨어 가속 네이티브 렌더러를 사용하며, `SurfaceHolder.lockCanvas()`가 반환하는 소프트웨어 Canvas에서는 `setBounds()`로 스케일이 적용되지 않는 경우가 있음. Canvas 좌표계 자체를 `translate`+`scale`로 변환하는 방식이 확실한 우회책.
+- **content:// URI 확장자 추출 불가**: 시스템 파일 피커(`OpenDocument`)가 반환하는 `content://` URI는 경로에 파일명이 없거나 `%3A` 인코딩된 ID만 포함되어 `substringAfterLast('.')` 결과에 슬래시가 포함됨 → `File(dir, fileName)` 생성 시 부모 디렉토리 부재로 `FileNotFoundException`. MIME 타입 조회로 대체.
+- **미리보기와 서비스 렌더러 분리**: 설정 화면 미리보기는 Compose `AndroidView(ImageView)`+`AnimatedImageDrawable`, 서비스 렌더링은 `WallpaperService` Canvas 기반으로 각 컨텍스트에 맞는 독립적 구현 채택.
+
+---
+
+## [2026-03-24] feat(live-wallpaper): 라이브 배경화면 기능 구현 (동영상/GIF → 시스템 WallpaperService)
+
+### 목표
+
+- mp4 / webm / GIF 파일을 **Android 시스템 라이브 배경화면(WallpaperService)**으로 설정하는 기능 전체 구현
+- core:domain → core:data → feature:settings → app(WallpaperService) 풀스택 구현
+- 기존 프리셋 시스템에 라이브 배경화면 포함/로드 연동
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `gradle/libs.versions.toml` | `media3 = "1.5.1"` 버전 추가 + `media3-exoplayer`, `media3-ui` 라이브러리 항목 추가 |
+| `app/build.gradle.kts` | `media3-exoplayer`, `media3-ui` 의존성 추가 |
+| `feature/settings/build.gradle.kts` | `media3-exoplayer`, `media3-ui` 의존성 추가 |
+| **NEW** `core/domain/.../model/LiveWallpaper.kt` | `LiveWallpaper` 도메인 모델 (id, name, fileUri, thumbnailUri, createdAt) |
+| `core/domain/.../model/LauncherSettings.kt` | `liveWallpaperId: Int?`, `liveWallpaperUri: String?` 필드 추가 |
+| `core/domain/.../model/preset/Preset.kt` | `isLiveWallpaper: Boolean`, `liveWallpaperUri: String?` 필드 추가 |
+| **NEW** `core/domain/.../repository/LiveWallpaperRepository.kt` | `getAllLiveWallpapers()`, `getLiveWallpaperById()`, `saveLiveWallpaper()`, `deleteLiveWallpaper()` 인터페이스 |
+| `core/domain/.../repository/SettingsRepository.kt` | `setLiveWallpaper(id, uri)` 메서드 추가 |
+| **NEW** `core/domain/.../usecase/GetAllLiveWallpapersUseCase.kt` | Flow 조회 UseCase |
+| **NEW** `core/domain/.../usecase/SaveLiveWallpaperUseCase.kt` | 파일 복사 + 썸네일 생성 + Room 저장 UseCase |
+| **NEW** `core/domain/.../usecase/DeleteLiveWallpaperUseCase.kt` | Room 삭제 + 파일 정리 UseCase |
+| **NEW** `core/domain/.../usecase/SetLiveWallpaperUseCase.kt` | DataStore에 활성 라이브 배경화면 URI 저장 UseCase |
+| **NEW** `core/data/.../room/livewallpaper/LiveWallpaperEntity.kt` | Room `@Entity(tableName="live_wallpapers")` + toDomain 확장함수 |
+| **NEW** `core/data/.../room/livewallpaper/LiveWallpaperDao.kt` | `getAll()`, `getById()`, `insert()`, `deleteById()` — suspend 없이 withContext(IO) 패턴 |
+| `core/data/.../room/AppDatabase.kt` | 버전 3→5, `LiveWallpaperEntity` 추가, `MIGRATION_3_4`(preset 컬럼), `MIGRATION_4_5`(live_wallpapers 테이블 생성) |
+| `core/data/.../di/DatabaseModule.kt` | 마이그레이션 4개 등록 + `provideLiveWallpaperDao()` 추가 |
+| **NEW** `core/data/.../repository/LiveWallpaperRepositoryImpl.kt` | 파일 복사, MediaMetadataRetriever/ImageDecoder 썸네일 생성, Room CRUD, 파일 삭제 |
+| `core/data/.../repository/SettingsRepositoryImpl.kt` | `liveWallpaperIdKey` / `liveWallpaperUriKey` DataStore 키 추가, `getSettings()` 매핑 확장, `setLiveWallpaper()` 구현 |
+| **NEW** `core/data/.../di/LiveWallpaperModule.kt` | `@Binds LiveWallpaperRepositoryImpl → LiveWallpaperRepository` |
+| `core/data/.../local/room/preset/PresetEntity.kt` | `isLiveWallpaper`, `liveWallpaperUri` 컬럼 추가 + toDomain/toEntity 확장함수 반영 |
+| `core/data/.../slp/SlpManifest.kt` | `SlpWallpaperSettings`에 `isLiveWallpaper: Boolean` 추가 |
+| `core/data/.../slp/SlpPacker.kt` | 라이브 배경화면 분기: `buildLiveWallpaperEntry()`, `readRawFile()` 추가; 동영상은 WebP 변환 없이 원본 STORED; wallpaper 경로 동적 확장자 처리 |
+| `core/data/.../slp/SlpMapper.kt` | `toLocalPreset()`에서 `isLiveWallpaper`, `liveWallpaperUri` 매핑 추가 |
+| `feature/settings/.../navigation/SettingsRoute.kt` | `SettingsMenu`에 `LIVE_WALLPAPER` 추가 |
+| `feature/settings/.../model/SettingMenuItem.kt` | `SettingsActionType.LIVE_WALLPAPER` 추가; `settingMenuList`에 `SlowMotionVideo` 아이콘 메뉴 항목 추가 |
+| `feature/settings/SettingsContract.kt` | State에 `liveWallpapers`, `selectedLiveWallpaperUri`, `selectedLiveWallpaperId` 추가; Intent 6개 추가; `LaunchLiveWallpaperPicker` SideEffect 추가 |
+| `feature/settings/SettingsViewModel.kt` | 4개 UseCase 주입, init에 `getAllLiveWallpapers` collect, 6개 핸들러 추가, `savePreset`/`loadPreset` 라이브 배경화면 분기 처리 |
+| `feature/settings/.../ui/SettingsScreen.kt` | `LIVE_WALLPAPER` handleItemClick 분기 추가 |
+| `feature/settings/.../ui/SettingsDetailScreen.kt` | `when(menu)` 블록에 `LIVE_WALLPAPER → LiveWallpaperSettingsContent` 추가 |
+| **NEW** `feature/settings/.../ui/LiveWallpaperSettingsContent.kt` | "불러오기"(OpenDocument), "만들기"(이름 다이얼로그), LazyRow 목록(탭/롱프레스), ExoPlayer 미리보기, "배경화면으로 설정" 버튼 |
+| `feature/settings/.../ui/SavePresetDialog.kt` | 배경화면 섹션에 이미지/라이브 배경화면 라디오 선택 추가; `onConfirm`에 `isLiveWallpaper` 파라미터 추가 |
+| `feature/settings/.../ui/PresetSettingsContent.kt` | `SavePresetDialog` 호출에 `liveWallpapers`, `isLiveWallpaper` 파라미터 전달 |
+| `feature/settings/.../res/values/strings.xml` | 라이브 배경화면 관련 문자열 10개 추가 |
+| **NEW** `app/.../service/VideoLiveWallpaperService.kt` | `WallpaperService` 상속, 내부 `VideoEngine`, ExoPlayer SurfaceHolder 렌더링, Hilt EntryPoint로 DataStore URI 구독, onVisibilityChanged 배터리 최적화 |
+| `app/src/main/AndroidManifest.xml` | `VideoLiveWallpaperService` 서비스/intent-filter/meta-data 등록 |
+| **NEW** `app/src/main/res/xml/live_wallpaper.xml` | WallpaperService 메타데이터 (썸네일, 설명) |
+| `app/src/main/res/values/strings.xml` | `live_wallpaper_service_label`, `live_wallpaper_description` 추가 |
+| `app/.../effect/SideEffectHandlers.kt` | `LaunchLiveWallpaperPicker` SideEffect 처리: 이미 활성화 시 스낵바 안내, 미활성화 시 `ACTION_CHANGE_LIVE_WALLPAPER` 인텐트 실행 |
+| `feature/settings/SettingsViewModelTest.kt` | 4개 UseCase mock 추가 + `makeViewModel()` 파라미터 확장 |
+
+### 검증결과
+
+- `./gradlew assembleDebug` **BUILD SUCCESSFUL** (340 tasks)
+- `./gradlew test` **BUILD SUCCESSFUL** — 전체 테스트 통과 (실패 0건)
+- Room KSP `unexpected jvm signature V` 오류: DAO suspend 제거 → withContext(IO) 패턴으로 해결
+
+### 설계결정 및 근거
+
+- **DAO에 suspend 미사용**: Room 2.6.1 + KSP에서 `suspend` 함수가 `Long`/`Int` 반환 시 Java 타입 소거(name clash) 오류 발생. 기존 `PresetDao` 패턴과 동일하게 non-suspend + repository의 `withContext(Dispatchers.IO)` 조합으로 처리.
+- **썸네일 생성 실패 시 null 허용**: 동영상 형식이 다양하고 썸네일 추출이 실패할 수 있으므로 `try-catch`로 감싸고 null 반환. UI에서 placeholder 처리.
+- **Hilt EntryPoint 패턴**: `WallpaperService`는 `@AndroidEntryPoint`가 지원되지 않으므로 `EntryPointAccessors.fromApplication()`으로 `SettingsRepository`를 직접 조회. DataStore Flow를 collect하여 URI 변경 시 ExoPlayer 갱신.
+- **라이브 배경화면 SLP 포맷**: 동영상/GIF는 WebP 변환 없이 원본 바이트를 STORED 방식으로 ZIP에 포함. 확장자를 파일명에 보존(`images/wallpaper.mp4`)하여 언팩 후 타입 판별 가능.
+- **DB 마이그레이션 분리**: preset 컬럼 추가(3→4)와 live_wallpapers 테이블 생성(4→5)을 분리하여 각 마이그레이션의 책임 명확화.
+
+---
+
 ## [2026-03-20] security: 보안 취약점 수정 (SSRF·로그 유출·백업 노출·ZIP Bomb·Firebase)
 
 ### 목표
