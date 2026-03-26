@@ -294,6 +294,7 @@ class SettingsViewModel @Inject constructor(
                 if (intent.loadWallpaper && preset.hasWallpaperSettings) {
                     if (preset.isLiveWallpaper && preset.liveWallpaperUri != null) {
                         setLiveWallpaperUseCase(preset.id, preset.liveWallpaperUri)
+                        sendEffect(SettingsSideEffect.LaunchLiveWallpaperPicker)
                     } else {
                         preset.wallpaperUri?.let { uri ->
                             wallpaperHelper.setWallpaperFromPreset(uri)

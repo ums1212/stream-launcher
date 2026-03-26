@@ -2,6 +2,31 @@
 
 ---
 
+## [2026-03-26] fix(preset): 라이브 월페이퍼 프리셋 적용 시 배경화면 미반영 버그 수정
+
+### 목표
+
+- 라이브 월페이퍼가 포함된 프리셋을 다른 프리셋 적용 후 재적용하면 배경화면이 변경되지 않는 버그 수정
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `feature/settings/.../SettingsViewModel.kt` | `loadPreset()`: 라이브 월페이퍼 프리셋 적용 시 `setLiveWallpaperUseCase()` 호출 후 `sendEffect(SettingsSideEffect.LaunchLiveWallpaperPicker)` 추가 |
+
+### 검증결과
+
+- 코드 리뷰 수준 수정 (단일 라인 추가), 별도 빌드 불필요
+- 재현 시나리오: 정적 이미지 프리셋 적용 → 라이브 월페이퍼 프리셋 적용 → 배경화면 갱신 확인 필요
+
+### 설계결정 및 근거
+
+- **근본 원인**: `loadPreset()`에서 라이브 월페이퍼 경로 분기 시 `setLiveWallpaperUseCase()`만 호출하고 `LaunchLiveWallpaperPicker` SideEffect를 발행하지 않았음. 반면 설정 화면의 `setActiveLiveWallpaper()`는 두 가지를 모두 수행함.
+- **문제 흐름**: 다른 프리셋(정적 이미지)을 적용하면 `WallpaperManager.setStream()`으로 시스템 배경화면이 정적 이미지로 교체됨 → `VideoLiveWallpaperService` 비활성화. 이후 라이브 월페이퍼 프리셋 적용 시 DataStore URI만 업데이트되고 서비스가 꺼져 있으므로 아무 효과 없음.
+- **`LaunchLiveWallpaperPicker` SideEffect 동작**: 서비스가 이미 활성화된 경우 DataStore 갱신만으로 자동 반영되고, 비활성화된 경우 시스템 라이브 배경화면 선택기를 열어 `VideoLiveWallpaperService`를 다시 활성화함. 두 케이스 모두 올바르게 처리하므로 해당 SideEffect 발행이 정답.
+
+---
+
 ## [2026-03-26] fix(market-upload): Firebase Storage 경로 불일치 및 Content-Type 미설정 수정
 
 ### 목표
