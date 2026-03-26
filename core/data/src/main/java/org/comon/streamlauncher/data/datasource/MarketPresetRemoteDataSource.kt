@@ -11,6 +11,7 @@ interface MarketPresetRemoteDataSource {
     suspend fun isLikedByUser(presetId: String, uid: String): Boolean
     suspend fun toggleLike(presetId: String, uid: String): Boolean
     suspend fun incrementDownloadCount(presetId: String)
+    suspend fun softDeletePreset(presetId: String)
     fun createRecentPresetsPagingSource(): PagingSource<*, MarketPreset>
     fun createSearchPresetsPagingSource(query: String): PagingSource<*, MarketPreset>
 }

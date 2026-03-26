@@ -51,4 +51,12 @@
     <string name="preset_market_no_presets">업로드한 프리셋이 없습니다</string>
     <string name="preset_market_logout_success">로그아웃되었습니다</string>
     <string name="preset_market_side_tab_top10">Top 10</string>
+    <string name="preset_market_report">신고하기</string>
+    <string name="preset_market_delete">삭제하기</string>
+    <string name="preset_market_report_not_ready_title">알림</string>
+    <string name="preset_market_report_not_ready_message">현재 기능 개발 중입니다</string>
+    <string name="preset_market_delete_title">프리셋 삭제</string>
+    <string name="preset_market_delete_message">이 프리셋을 삭제하시겠습니까?\n삭제 후 복구할 수 없습니다.</string>
+    <string name="preset_market_delete_success">프리셋이 삭제되었습니다</string>
+    <string name="preset_market_delete_failed">삭제에 실패했습니다</string>
 </resources>

@@ -119,6 +119,10 @@ class MarketPresetRepositoryImpl @Inject constructor(
         presetRemoteDataSource.getPresetsByAuthor(uid)
     }
 
+    override suspend fun deletePreset(presetId: String): Result<Unit> = runCatching {
+        presetRemoteDataSource.softDeletePreset(presetId)
+    }
+
     // RecentPresetsPagerProvider
     override fun provide(): Flow<PagingData<MarketPreset>> =
         Pager(

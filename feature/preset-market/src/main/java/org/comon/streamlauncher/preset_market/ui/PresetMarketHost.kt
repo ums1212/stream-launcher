@@ -8,7 +8,9 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -39,7 +41,11 @@ fun PresetMarketHost(
             exitTransition = { ExitTransition.None },
             popEnterTransition = { EnterTransition.None },
         ) {
-            composable<MarketHome> {
+            composable<MarketHome> { backStackEntry ->
+                val presetDeleted by backStackEntry.savedStateHandle
+                    .getStateFlow("presetDeleted", false)
+                    .collectAsStateWithLifecycle()
+
                 MarketHomeScreen(
                     onNavigateToDetail = { navController.navigate(MarketDetail(presetId = it, fromCard = false)) },
                     onNavigateToDetailFromCard = { navController.navigate(MarketDetail(presetId = it, fromCard = true)) },
@@ -48,6 +54,8 @@ fun PresetMarketHost(
                     onBack = onBack,
                     sharedTransitionScope = sharedTransitionScope,
                     animatedVisibilityScope = this,
+                    presetDeleted = presetDeleted,
+                    onPresetDeletedConsumed = { backStackEntry.savedStateHandle["presetDeleted"] = false },
                 )
             }
             composable<MarketSearch> { backStackEntry ->
@@ -69,6 +77,12 @@ fun PresetMarketHost(
                     fromCard = route.fromCard,
                     onStartDownloadService = onStartDownloadService,
                     onStopDownloadService = onStopDownloadService,
+                    onDeleteSuccess = {
+                        navController.previousBackStackEntry
+                            ?.savedStateHandle
+                            ?.set("presetDeleted", true)
+                        navController.popBackStack()
+                    },
                 )
             }
             composable<MarketUserInfo> {

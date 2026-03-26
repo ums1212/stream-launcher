@@ -24,6 +24,7 @@ class SearchMarketPresetPagingSource(
 
             val collection = firestore.collection("presets")
             var firestoreQuery = collection
+                .whereEqualTo("isDeleted", false)
                 .whereArrayContains("searchKeywords", searchTerm)
                 .orderBy("createdAt", Query.Direction.DESCENDING)
                 .limit(params.loadSize.toLong())

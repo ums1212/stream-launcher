@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import org.comon.streamlauncher.domain.usecase.DeleteMarketPresetUseCase
 import org.comon.streamlauncher.domain.usecase.GetAllPresetsUseCase
 import org.comon.streamlauncher.domain.usecase.GetCurrentMarketUserUseCase
 import org.comon.streamlauncher.domain.usecase.GetMarketPresetDetailUseCase
@@ -29,6 +30,7 @@ class PresetDetailViewModel @Inject constructor(
     private val isDownloadedByMarketIdUseCase: IsDownloadedByMarketIdUseCase,
     private val downloadDataHolder: DownloadDataHolder,
     private val downloadProgressTracker: DownloadProgressTracker,
+    private val deleteMarketPresetUseCase: DeleteMarketPresetUseCase,
 ) : BaseViewModel<PresetDetailState, PresetDetailIntent, PresetDetailSideEffect>(PresetDetailState()) {
 
     // 로그인 후 재실행할 대기 중인 액션
@@ -65,6 +67,7 @@ class PresetDetailViewModel @Inject constructor(
             is PresetDetailIntent.ResumeDownload -> downloadProgressTracker.resume()
             is PresetDetailIntent.CancelDownload -> cancelDownload()
             is PresetDetailIntent.SignInWithGoogle -> signIn(intent.idToken)
+            is PresetDetailIntent.DeletePreset -> deletePreset()
         }
     }
 
@@ -88,12 +91,19 @@ class PresetDetailViewModel @Inject constructor(
         viewModelScope.launch {
             getMarketPresetDetailUseCase(presetId)
                 .onSuccess { preset ->
-                    updateState { copy(preset = preset, isLoading = false) }
+                    val currentUserUid = getCurrentMarketUserUseCase()?.uid
+                    updateState {
+                        copy(
+                            preset = preset,
+                            isLoading = false,
+                            isOwnPreset = currentUserUid != null && currentUserUid == preset.authorUid,
+                        )
+                    }
                     // 다운로드 여부 확인
                     val isDownloaded = isDownloadedByMarketIdUseCase(presetId)
                     updateState { copy(isAlreadyDownloaded = isDownloaded) }
                     // 좋아요 상태 확인
-                    if (getCurrentMarketUserUseCase() != null) {
+                    if (currentUserUid != null) {
                         isLikedByCurrentUserUseCase(presetId)
                             .onSuccess { liked -> updateState { copy(isLiked = liked) } }
                     }
@@ -145,6 +155,19 @@ class PresetDetailViewModel @Inject constructor(
             }
             downloadDataHolder.pendingPreset = preset
             sendEffect(PresetDetailSideEffect.StartDownloadService(preset.name))
+        }
+    }
+
+    private fun deletePreset() {
+        val presetId = currentState.preset?.id ?: return
+        viewModelScope.launch {
+            deleteMarketPresetUseCase(presetId)
+                .onSuccess {
+                    sendEffect(PresetDetailSideEffect.DeleteComplete)
+                }
+                .onFailure {
+                    sendEffect(PresetDetailSideEffect.ShowError("삭제에 실패했습니다"))
+                }
         }
     }
 

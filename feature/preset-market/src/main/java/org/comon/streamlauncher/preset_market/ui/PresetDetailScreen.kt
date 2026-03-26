@@ -21,6 +21,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -53,6 +54,7 @@ fun PresetDetailScreen(
     fromCard: Boolean = false,
     onStartDownloadService: (String) -> Unit = {},
     onStopDownloadService: () -> Unit = {},
+    onDeleteSuccess: () -> Unit = {},
     viewModel: PresetDetailViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -63,6 +65,9 @@ fun PresetDetailScreen(
     var showSignInDialog by remember { mutableStateOf(false) }
     var showLimitDialog by remember { mutableStateOf(false) }
     var showCancelDownloadDialog by remember { mutableStateOf(false) }
+    var showMenu by remember { mutableStateOf(false) }
+    var showReportNotReadyDialog by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
 
     val downloadCompleteMessage = stringResource(R.string.preset_market_download_complete)
 
@@ -81,6 +86,8 @@ fun PresetDetailScreen(
                     onStartDownloadService(effect.presetName)
                 is PresetDetailSideEffect.StopDownloadService ->
                     onStopDownloadService()
+                is PresetDetailSideEffect.DeleteComplete ->
+                    onDeleteSuccess()
             }
         }
     }
@@ -135,6 +142,40 @@ fun PresetDetailScreen(
         )
     }
 
+    if (showReportNotReadyDialog) {
+        AlertDialog(
+            onDismissRequest = { showReportNotReadyDialog = false },
+            title = { Text(stringResource(R.string.preset_market_report_not_ready_title)) },
+            text = { Text(stringResource(R.string.preset_market_report_not_ready_message)) },
+            confirmButton = {
+                TextButton(onClick = { showReportNotReadyDialog = false }) {
+                    Text(stringResource(R.string.confirm))
+                }
+            },
+        )
+    }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text(stringResource(R.string.preset_market_delete_title)) },
+            text = { Text(stringResource(R.string.preset_market_delete_message)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDeleteDialog = false
+                    viewModel.handleIntent(PresetDetailIntent.DeletePreset)
+                }) {
+                    Text(stringResource(R.string.confirm), color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            },
+        )
+    }
+
     if (showSignInHandler) {
         GoogleSignInHandler(
             onSignInSuccess = { idToken ->
@@ -155,6 +196,41 @@ fun PresetDetailScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                    }
+                },
+                actions = {
+                    if (state.preset != null) {
+                        Box {
+                            IconButton(onClick = { showMenu = true }) {
+                                Icon(Icons.Default.MoreVert, contentDescription = null)
+                            }
+                            DropdownMenu(
+                                expanded = showMenu,
+                                onDismissRequest = { showMenu = false },
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.preset_market_report)) },
+                                    onClick = {
+                                        showMenu = false
+                                        showReportNotReadyDialog = true
+                                    },
+                                )
+                                if (state.isOwnPreset) {
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                text = stringResource(R.string.preset_market_delete),
+                                                color = MaterialTheme.colorScheme.error,
+                                            )
+                                        },
+                                        onClick = {
+                                            showMenu = false
+                                            showDeleteDialog = true
+                                        },
+                                    )
+                                }
+                            }
+                        }
                     }
                 },
             )

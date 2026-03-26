@@ -1,6 +1,7 @@
 package org.comon.streamlauncher.data.remote.firestore
 
 import com.google.firebase.firestore.DocumentId
+import com.google.firebase.firestore.PropertyName
 import com.google.firebase.firestore.ServerTimestamp
 import org.comon.streamlauncher.domain.model.preset.MarketPreset
 import java.util.Date
@@ -35,10 +36,17 @@ data class MarketPresetDto(
     // .slp 포맷 (schemaVersion=2)
     val slpStorageUrl: String? = null,
 
+    // 소프트 삭제 (isDeleted=true → 마켓에서 숨김, Firebase Functions가 7일 후 실제 삭제)
+    // @PropertyName: Kotlin Boolean getter의 'is' 접두사 제거 문제 방지
+    @get:PropertyName("isDeleted")
+    @set:PropertyName("isDeleted")
+    var isDeleted: Boolean = false,
+
     @ServerTimestamp
     val createdAt: Date? = null,
     @ServerTimestamp
     val updatedAt: Date? = null,
+    val deletedAt: Long? = null,
 )
 
 fun MarketPresetDto.toDomain(): MarketPreset = MarketPreset(
@@ -88,6 +96,7 @@ fun MarketPreset.toDto(): MarketPresetDto = MarketPresetDto(
     hasWallpaperSettings = hasWallpaperSettings,
     hasThemeSettings = hasThemeSettings,
     slpStorageUrl = slpStorageUrl,
+    isDeleted = false,
 )
 
 private fun buildSearchKeywords(name: String, tags: List<String>): List<String> {

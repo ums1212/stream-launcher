@@ -26,4 +26,5 @@ interface MarketPresetRepository {
     suspend fun toggleLike(presetId: String): Result<Boolean>
     suspend fun incrementDownloadCount(presetId: String): Result<Unit>
     suspend fun getPresetsByAuthor(uid: String): Result<List<MarketPreset>>
+    suspend fun deletePreset(presetId: String): Result<Unit>
 }

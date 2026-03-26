@@ -18,6 +18,7 @@ class MarketPresetPagingSource(
         return try {
             val collection = firestore.collection("presets")
             var query = collection
+                .whereEqualTo("isDeleted", false)
                 .orderBy("createdAt", Query.Direction.DESCENDING)
                 .limit(params.loadSize.toLong())
 

@@ -2,6 +2,51 @@
 
 ---
 
+## [2026-03-26] feat(preset-market): 프리셋 상세화면 신고/삭제 컨텍스트 메뉴 및 소프트 삭제 구현
+
+### 목표
+
+- TopAppBar에 ⋮(MoreVert) 아이콘 추가 → 컨텍스트 메뉴로 "신고하기" / "삭제하기" 제공
+- 삭제하기: 본인 프리셋에만 표시, Firestore 소프트 삭제(`isDeleted=true` + `deletedAt` 타임스탬프)
+- 신고하기: 추후 개발 예정 → "현재 기능 개발 중입니다" 다이얼로그 표시
+- 삭제 후 마켓 홈으로 복귀 시 최근 업로드 목록 + Top 10 자동 새로고침
+- 기존 업로드 프리셋에 `isDeleted = false` 명시 보장 (`toDto()` 수정)
+- Kotlin Boolean 프로퍼티 직렬화 버그 수정 (`is` 접두사 제거 문제 → `@PropertyName`)
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `core/data/.../firestore/MarketPresetDto.kt` | `isDeleted: Boolean = false`, `deletedAt: Long? = null` 추가; `@get:PropertyName("isDeleted")` / `@set:PropertyName("isDeleted")` 어노테이션으로 Firestore 필드명 고정; `toDto()`에 `isDeleted = false` 명시 |
+| `core/data/.../datasource/MarketPresetRemoteDataSource.kt` | `softDeletePreset(presetId: String)` 인터페이스 추가 |
+| `core/data/.../datasource/FirebaseMarketPresetRemoteDataSource.kt` | `softDeletePreset` 구현 (`isDeleted=true` + `serverTimestamp`); `getPresetsOrderedBy` / `getPresetsByAuthor` 쿼리에 `whereEqualTo("isDeleted", false)` 필터 추가 |
+| `core/data/.../paging/MarketPresetPagingSource.kt` | 쿼리에 `whereEqualTo("isDeleted", false)` 필터 추가 |
+| `core/data/.../paging/SearchMarketPresetPagingSource.kt` | 쿼리에 `whereEqualTo("isDeleted", false)` 필터 추가 |
+| `core/data/.../repository/MarketPresetRepositoryImpl.kt` | `deletePreset` 구현 (`softDeletePreset` 위임) |
+| `core/domain/.../repository/MarketPresetRepository.kt` | `deletePreset(presetId): Result<Unit>` 인터페이스 추가 |
+| `core/domain/.../usecase/DeleteMarketPresetUseCase.kt` | 신규 생성 |
+| `preset_market/PresetDetailContract.kt` | `isOwnPreset: Boolean` 상태 추가; `DeletePreset` Intent, `DeleteComplete` SideEffect 추가 |
+| `preset_market/PresetDetailViewModel.kt` | `DeleteMarketPresetUseCase` 주입; `loadPreset`에서 `isOwnPreset` 계산; `deletePreset()` 핸들러 추가 |
+| `preset_market/ui/PresetDetailScreen.kt` | TopAppBar actions에 ⋮ 아이콘 + `DropdownMenu` 추가; 신고 개발중 다이얼로그 / 삭제 확인 다이얼로그 추가; `onDeleteSuccess` 콜백 파라미터 추가; `DeleteComplete` → `onDeleteSuccess()` 즉시 호출 |
+| `preset_market/ui/PresetMarketHost.kt` | `onDeleteSuccess` 구현: previousBackStackEntry savedStateHandle에 `presetDeleted=true` 설정 후 `popBackStack()`; `MarketHome` 컴포저블에서 savedStateHandle 관찰 후 `MarketHomeScreen`으로 전달 |
+| `preset_market/ui/MarketHomeScreen.kt` | `presetDeleted`/`onPresetDeletedConsumed` 파라미터 추가; `LaunchedEffect(presetDeleted)`에서 `recentPresets.refresh()` + `LoadTopPresets` Intent 동시 실행 + 성공 스낵바 표시 |
+| `preset_market/res/values/strings.xml` | 신고/삭제 관련 문자열 8개 추가 |
+
+### 검증결과
+
+- `assembleDebug` BUILD SUCCESSFUL
+- Gradle 데몬 스테일 캐시로 인한 KSP 오류 발생 시 `./gradlew --stop` 후 재빌드로 해결
+
+### 설계결정 및 근거
+
+- **소프트 삭제 방식**: `isDeleted=true` + `deletedAt` 타임스탬프로 마킹. 실제 삭제는 Firebase Functions가 7일 후 일괄 처리(Functions 미구현). 즉시 삭제 대신 7일 유예를 두어 실수 복구 가능성 확보.
+- **Firestore 쿼리 필터**: 기존 모든 쿼리(`getPresetsOrderedBy`, `getPresetsByAuthor`, PagingSource 2개)에 `whereEqualTo("isDeleted", false)` 추가. 기존 문서에 `isDeleted` 필드가 없으면 필터에서 제외되므로 Node.js 마이그레이션 스크립트로 `deleted → isDeleted` 필드 일괄 변환 필요.
+- **`@PropertyName` 어노테이션**: Kotlin `Boolean` 프로퍼티 `isDeleted`는 JVM getter 이름이 `isDeleted()`이고 Firestore SDK가 JavaBeans 규칙으로 `is` 접두사를 제거해 Firestore 필드명이 `deleted`로 저장되는 버그. `@get:PropertyName("isDeleted")` + `@set:PropertyName("isDeleted")`로 강제 지정.
+- **삭제 후 새로고침 (Navigation SavedStateHandle)**: 화면 간 결과 전달에 Navigation Compose 권장 패턴인 `previousBackStackEntry.savedStateHandle` 사용. `presetDeleted = true` 플래그를 홈 화면에서 감지해 `recentPresets.refresh()` (Paging) + `LoadTopPresets` Intent (일반 List) 동시 실행. 소비 후 즉시 `false`로 초기화해 재진입 시 중복 새로고침 방지.
+- **신고하기 미구현**: 서버 신고 처리 로직 설계 전 UI만 선점. 클릭 시 "현재 기능 개발 중입니다" 다이얼로그로 안내.
+
+---
+
 ## [2026-03-26] fix(settings): 새 프리셋 다이얼로그 배경화면 선택 UI 개선 및 전환 취소 복원
 
 ### 목표

@@ -14,6 +14,7 @@ data class PresetDetailState(
     val error: String? = null,
     val downloadProgress: PresetOperationProgress? = null,
     val isAlreadyDownloaded: Boolean = false,
+    val isOwnPreset: Boolean = false,
 ) : UiState
 
 sealed interface PresetDetailIntent : UiIntent {
@@ -24,6 +25,7 @@ sealed interface PresetDetailIntent : UiIntent {
     data object ResumeDownload : PresetDetailIntent
     data object CancelDownload : PresetDetailIntent
     data class SignInWithGoogle(val idToken: String) : PresetDetailIntent
+    data object DeletePreset : PresetDetailIntent
 }
 
 sealed interface PresetDetailSideEffect : UiSideEffect {
@@ -33,4 +35,5 @@ sealed interface PresetDetailSideEffect : UiSideEffect {
     data object PresetLimitExceeded : PresetDetailSideEffect
     data class StartDownloadService(val presetName: String) : PresetDetailSideEffect
     data object StopDownloadService : PresetDetailSideEffect
+    data object DeleteComplete : PresetDetailSideEffect
 }

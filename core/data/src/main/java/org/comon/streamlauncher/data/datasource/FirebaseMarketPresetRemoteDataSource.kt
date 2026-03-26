@@ -23,6 +23,7 @@ class FirebaseMarketPresetRemoteDataSource @Inject constructor(
 
     override suspend fun getPresetsOrderedBy(field: String, limit: Int): List<MarketPreset> =
         presetsCollection
+            .whereEqualTo("isDeleted", false)
             .orderBy(field, Query.Direction.DESCENDING)
             .limit(limit.toLong())
             .get()
@@ -38,6 +39,7 @@ class FirebaseMarketPresetRemoteDataSource @Inject constructor(
     override suspend fun getPresetsByAuthor(uid: String): List<MarketPreset> =
         presetsCollection
             .whereEqualTo("authorUid", uid)
+            .whereEqualTo("isDeleted", false)
             .orderBy("createdAt", Query.Direction.DESCENDING)
             .get()
             .await()
@@ -87,6 +89,12 @@ class FirebaseMarketPresetRemoteDataSource @Inject constructor(
     override suspend fun incrementDownloadCount(presetId: String) {
         presetsCollection.document(presetId)
             .update("downloadCount", FieldValue.increment(1))
+            .await()
+    }
+
+    override suspend fun softDeletePreset(presetId: String) {
+        presetsCollection.document(presetId)
+            .update("isDeleted", true, "deletedAt", FieldValue.serverTimestamp())
             .await()
     }
 
