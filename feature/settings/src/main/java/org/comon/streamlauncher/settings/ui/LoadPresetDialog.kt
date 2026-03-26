@@ -34,11 +34,11 @@ internal fun LoadPresetDialog(
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 Text(stringResource(R.string.preset_items_to_load), style = MaterialTheme.typography.titleSmall)
-                CheckboxRow(stringResource(R.string.preset_item_home), loadHome) { loadHome = it }
-                CheckboxRow(stringResource(R.string.preset_item_feed), loadFeed) { loadFeed = it }
-                CheckboxRow(stringResource(R.string.preset_item_drawer), loadDrawer) { loadDrawer = it }
-                CheckboxRow(stringResource(R.string.preset_item_wallpaper), loadWallpaper) { loadWallpaper = it }
-                CheckboxRow(stringResource(R.string.preset_item_theme), loadTheme) { loadTheme = it }
+                CheckboxRow(stringResource(R.string.preset_item_home), loadHome, onCheckedChange = { loadHome = it })
+                CheckboxRow(stringResource(R.string.preset_item_feed), loadFeed, onCheckedChange = { loadFeed = it })
+                CheckboxRow(stringResource(R.string.preset_item_drawer), loadDrawer, onCheckedChange = { loadDrawer = it })
+                CheckboxRow(stringResource(R.string.preset_item_wallpaper), loadWallpaper, onCheckedChange = { loadWallpaper = it })
+                CheckboxRow(stringResource(R.string.preset_item_theme), loadTheme, onCheckedChange = { loadTheme = it })
             }
         },
         confirmButton = {

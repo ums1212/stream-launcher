@@ -98,7 +98,8 @@
       "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew :core:data:kspDebugKotlin --stacktrace)",
       "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-17\" git -C D:/comon/StreamLauncher log --oneline -5)",
       "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew :app:assembleDebug :core:data:assembleDebug)",
-      "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew :core:domain:compileDebugKotlin :app:assembleDebug --daemon)"
+      "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew :core:domain:compileDebugKotlin :app:assembleDebug --daemon)",
+      "Bash(JAVA_HOME=\"C:/Program Files/Java/jdk-17\" ./gradlew :feature:settings:compileDebugKotlin --info)"
     ]
   }
 }

@@ -2,6 +2,35 @@
 
 ---
 
+## [2026-03-26] refactor(settings): CheckboxRow/RadioButtonRow 컴포넌트 추출 및 다이얼로그 리팩토링
+
+### 목표
+
+- 프리셋 추가 다이얼로그(`SavePresetDialog`)의 배경화면 섹션 인라인 Row를 재사용 가능한 컴포넌트로 추출
+- 체크박스·라디오버튼 Row 전체 클릭 영역 지원 통일
+- Compose 컨벤션 준수: `@Composable` 파라미터는 항상 마지막에 위치하여 trailing lambda 바인딩
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `feature/settings/.../ui/CheckboxRow.kt` | `innerContent: (@Composable () -> Unit)? = null` 파라미터 추가 (마지막 위치); `checked == true && innerContent != null`이면 `Column(padding start=16.dp)`로 innerContent 렌더링 |
+| `feature/settings/.../ui/RadioButtonRow.kt` | 신규 생성; `label`, `selected`, `onClick`, `innerContent` 파라미터; Row 전체 `.clickable`, `RadioButton` + `Text(color=primary)`; `selected == true && innerContent != null`이면 innerContent 렌더링 |
+| `feature/settings/.../ui/SavePresetDialog.kt` | 배경화면 섹션 인라인 Row → `CheckboxRow(innerContent = { ... })` trailing lambda 방식으로 교체; 이미지 선택·라이브 배경화면 선택 Row → `RadioButtonRow`로 교체; 라이브 배경화면 선택 AlertDialog의 Row → `RadioButtonRow`로 교체; 불필요한 import 제거 |
+| `feature/settings/.../ui/LoadPresetDialog.kt` | `CheckboxRow` 호출 5개를 `onCheckedChange = { ... }` named parameter 방식으로 변경 (trailing lambda가 `innerContent`에 바인딩되는 문제 방지) |
+
+### 검증결과
+
+- `:feature:settings:assembleDebug` BUILD SUCCESSFUL (3회 확인)
+
+### 설계결정 및 근거
+
+- **`innerContent` 위치**: Kotlin/Compose 컨벤션상 `@Composable` lambda 파라미터는 마지막에 두어야 trailing lambda(`{ }`) 문법을 쓸 수 있음. `innerContent`를 마지막으로 고정하고, `onCheckedChange`는 named parameter(`onCheckedChange = { }`)로 명시적으로 전달.
+- **`CheckboxRow` 확장 vs 신규 컴포넌트**: 배경화면 체크박스가 하위 라디오 항목을 포함하는 구조는 "체크하면 펼쳐지는 서브 항목" 패턴이므로 `CheckboxRow` 자체에 `innerContent` 슬롯을 추가하는 것이 자연스러움.
+- **`RadioButtonRow` 텍스트 색상**: 기존 `TextButton`의 primary 색상 톤을 유지하기 위해 `Text(color = MaterialTheme.colorScheme.primary)` 적용.
+
+---
+
 ## [2026-03-26] fix(feed-settings): YouTube 채널 ID 한글 핸들 검증 버그 수정
 
 ### 목표

@@ -7,7 +7,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.Checkbox
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -15,10 +16,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
 @Composable
-internal fun CheckboxRow(
+internal fun RadioButtonRow(
     label: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
+    selected: Boolean,
+    onClick: () -> Unit,
     innerContent: (@Composable () -> Unit)? = null,
 ) {
     Column {
@@ -26,14 +27,14 @@ internal fun CheckboxRow(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { onCheckedChange(!checked) }
+                .clickable { onClick() }
                 .padding(vertical = 4.dp)
         ) {
-            Checkbox(checked = checked, onCheckedChange = onCheckedChange)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(label)
+            RadioButton(selected = selected, onClick = onClick)
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(label, color = MaterialTheme.colorScheme.primary)
         }
-        if (checked && innerContent != null) {
+        if (selected && innerContent != null) {
             Column(modifier = Modifier.padding(start = 16.dp)) {
                 innerContent()
             }
