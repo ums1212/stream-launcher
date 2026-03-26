@@ -23,6 +23,7 @@ class DownloadMarketPresetUseCase @Inject constructor(
     private val saveAppDrawerSettingsUseCase: SaveAppDrawerSettingsUseCase,
     private val saveColorPresetUseCase: SaveColorPresetUseCase,
     private val wallpaperHelper: WallpaperHelper,
+    private val setLiveWallpaperUseCase: SetLiveWallpaperUseCase,
 ) {
     suspend operator fun invoke(marketPreset: MarketPreset): Result<Unit> = runCatching {
         val result = unpackager.downloadAndUnpack(marketPreset)
@@ -32,8 +33,11 @@ class DownloadMarketPresetUseCase @Inject constructor(
         marketRepository.incrementDownloadCount(marketPreset.id)
     }
 
-    /** 런처 설정 즉시 적용 */
-    private suspend fun applySettings(localPreset: Preset) {
+    /**
+     * 런처 설정 즉시 적용.
+     * @return 라이브 배경화면이 적용된 경우 해당 URI, 아니면 null
+     */
+    private suspend fun applySettings(localPreset: Preset): String? {
         if (localPreset.hasTopLeftImage) saveGridCellImageUseCase(GridCell.TOP_LEFT, localPreset.topLeftIdleUri, localPreset.topLeftExpandedUri)
         if (localPreset.hasTopRightImage) saveGridCellImageUseCase(GridCell.TOP_RIGHT, localPreset.topRightIdleUri, localPreset.topRightExpandedUri)
         if (localPreset.hasBottomLeftImage) saveGridCellImageUseCase(GridCell.BOTTOM_LEFT, localPreset.bottomLeftIdleUri, localPreset.bottomLeftExpandedUri)
@@ -43,7 +47,15 @@ class DownloadMarketPresetUseCase @Inject constructor(
             saveAppDrawerSettingsUseCase(localPreset.appDrawerColumns, localPreset.appDrawerRows, localPreset.appDrawerIconSizeRatio)
         }
         if (localPreset.hasThemeSettings) localPreset.themeColorHex?.toIntOrNull()?.let { saveColorPresetUseCase(it) }
-        if (localPreset.hasWallpaperSettings) localPreset.wallpaperUri?.let { wallpaperHelper.setWallpaperFromPreset(it) }
+        if (localPreset.hasWallpaperSettings) {
+            if (localPreset.isLiveWallpaper && localPreset.liveWallpaperUri != null) {
+                setLiveWallpaperUseCase(null, localPreset.liveWallpaperUri)
+                return localPreset.liveWallpaperUri
+            } else {
+                localPreset.wallpaperUri?.let { wallpaperHelper.setWallpaperFromPreset(it) }
+            }
+        }
+        return null
     }
 
     fun downloadWithProgress(marketPreset: MarketPreset): Flow<PresetOperationProgress> = flow {
@@ -57,12 +69,12 @@ class DownloadMarketPresetUseCase @Inject constructor(
 
             // Step 2: 저장 + 설정 적용
             presetRepository.savePreset(result.localPreset)
-            applySettings(result.localPreset)
+            val appliedLiveWallpaperUri = applySettings(result.localPreset)
             emit(PresetOperationProgress(presetName, 2, totalSteps))
 
             // Step 3: 카운트 증가
             marketRepository.incrementDownloadCount(marketPreset.id)
-            emit(PresetOperationProgress(presetName, totalSteps, totalSteps, isCompleted = true))
+            emit(PresetOperationProgress(presetName, totalSteps, totalSteps, isCompleted = true, liveWallpaperUri = appliedLiveWallpaperUri))
         } catch (_: UnknownHostException) {
             unpackager.cleanupPresetDir(marketPreset.id)
             emit(PresetOperationProgress(presetName, 0, totalSteps, error = "네트워크 연결 없음"))

@@ -4,6 +4,9 @@ import android.app.Notification
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.app.WallpaperManager
+import android.content.ActivityNotFoundException
+import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
@@ -69,6 +72,7 @@ class PresetDownloadService : Service() {
                     val errorMsg = progress.error
                     when {
                         progress.isCompleted -> {
+                            maybeActivateLiveWallpaper(progress.liveWallpaperUri)
                             showCompletedNotification(presetName)
                             delay(1000L)
                             progressTracker.clear()
@@ -107,6 +111,28 @@ class PresetDownloadService : Service() {
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    private fun maybeActivateLiveWallpaper(liveWallpaperUri: String?) {
+        if (liveWallpaperUri == null) return
+        val wallpaperManager = getSystemService(WallpaperManager::class.java)
+        val isAlreadyActive = wallpaperManager.wallpaperInfo?.serviceName == VideoLiveWallpaperService::class.java.name
+        if (isAlreadyActive) return  // DataStore 갱신만으로 서비스가 자동 업데이트됨
+        try {
+            val component = ComponentName(this, VideoLiveWallpaperService::class.java)
+            startActivity(
+                Intent(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER)
+                    .putExtra(WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT, component)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+        } catch (_: ActivityNotFoundException) {
+            try {
+                startActivity(
+                    Intent(WallpaperManager.ACTION_LIVE_WALLPAPER_CHOOSER)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                )
+            } catch (_: Exception) { /* 무시 */ }
+        }
+    }
 
     private fun buildProgressNotification(presetName: String, progress: Float): Notification {
         val openIntent = PendingIntent.getActivity(

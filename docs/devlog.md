@@ -2,6 +2,36 @@
 
 ---
 
+## [2026-03-26] fix(preset-market): 마켓 다운로드 프리셋의 라이브 월페이퍼 미적용 버그 수정
+
+### 목표
+
+- 프리셋 마켓에서 라이브 월페이퍼가 포함된 프리셋을 다운로드해도 배경화면이 적용되지 않는 버그 수정
+- 기존 마켓 프리셋 재업로드 없이 재다운로드만으로 정상 동작하도록 처리
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `core/domain/.../model/preset/PresetOperationProgress.kt` | `liveWallpaperUri: String? = null` 필드 추가 — 라이브 월페이퍼 포함 다운로드 완료 시 서비스 계층에 URI 전달 |
+| `core/domain/.../usecase/DownloadMarketPresetUseCase.kt` | `SetLiveWallpaperUseCase` 생성자 주입 추가; `applySettings()`에서 `isLiveWallpaper && liveWallpaperUri != null` 분기 추가 → `setLiveWallpaperUseCase(null, uri)` 호출; 반환형 `String?`으로 변경; `downloadWithProgress()` 최종 emit 시 `liveWallpaperUri` 포함 |
+| `app/.../service/PresetDownloadService.kt` | `WallpaperManager`, `ComponentName`, `ActivityNotFoundException` import 추가; 완료 시 `maybeActivateLiveWallpaper(uri)` 호출; `maybeActivateLiveWallpaper()` 메서드 추가 — 서비스 활성화 여부 확인 후 `ACTION_CHANGE_LIVE_WALLPAPER` 인텐트 실행 |
+
+### 검증결과
+
+- `:app:compileDebugKotlin` BUILD SUCCESSFUL (경고 없음)
+- `assembleDebug`는 Android Studio 파일 잠금(Windows)으로 bundleLibCompileToJarDebug 실패 — 코드 컴파일 자체는 정상
+- `SlpMapper.toLocalPreset()` 확인: 기존 `.slp` 파일에서 `isLiveWallpaper`/`liveWallpaperUri` 이미 올바르게 추출됨 → 마켓 프리셋 재업로드 불필요
+
+### 설계결정 및 근거
+
+- **근본 원인**: `DownloadMarketPresetUseCase.applySettings()`의 기존 코드 `localPreset.wallpaperUri?.let { wallpaperHelper.setWallpaperFromPreset(it) }` 는 라이브 월페이퍼 프리셋에서 `wallpaperUri == null`이기 때문에 아무것도 실행되지 않았음. `liveWallpaperUri`를 전혀 처리하지 않은 누락 버그.
+- **DataStore 기반 반응형 설계 활용**: `VideoLiveWallpaperService`는 DataStore의 `live_wallpaper_uri`를 `distinctUntilChanged()`로 관찰함. 서비스가 이미 활성화된 경우 DataStore에 URI만 저장해도 자동으로 새 영상/GIF를 렌더링함.
+- **서비스 비활성 케이스 처리**: `PresetDownloadService`에서 완료 시 `WallpaperManager.wallpaperInfo?.serviceName` 확인 후 비활성 상태면 `ACTION_CHANGE_LIVE_WALLPAPER` 인텐트로 시스템 월페이퍼 선택기 실행 → `FLAG_ACTIVITY_NEW_TASK` 필수 (Service 컨텍스트).
+- **Hilt 주입 자동 처리**: `SetLiveWallpaperUseCase`는 `@Inject constructor`이므로 생성자에 추가하는 것만으로 Hilt가 자동 제공, 별도 DI 모듈 수정 불필요.
+
+---
+
 ## [2026-03-26] fix(preset): 라이브 월페이퍼 프리셋 적용 시 배경화면 미반영 버그 수정
 
 ### 목표
