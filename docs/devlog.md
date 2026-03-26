@@ -2,6 +2,31 @@
 
 ---
 
+## [2026-03-26] fix(feed-settings): YouTube 채널 ID 한글 핸들 검증 버그 수정
+
+### 목표
+
+- 피드 설정에서 `@이오몽`처럼 한글이 포함된 YouTube 핸들 입력 시 유효성 검증 실패로 저장이 불가한 버그 수정
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `core/domain/.../util/InputValidator.kt` | `YT_CHANNEL_REGEX` 핸들 패턴 `@[a-zA-Z0-9._-]+` → `@[\p{L}a-zA-Z0-9._-]+` (유니코드 letter 클래스 추가) |
+| `core/domain/.../util/InputValidatorTest.kt` | 한글 핸들 테스트 케이스 추가: `@이오몽` → `true` |
+
+### 검증결과
+
+- `:core:domain:test` BUILD SUCCESSFUL — 기존 테스트 전부 통과 + 신규 테스트 1건 통과
+
+### 설계결정 및 근거
+
+- **원인**: `YT_CHANNEL_REGEX`가 `@[a-zA-Z0-9._-]+`로 ASCII 문자만 허용. YouTube는 실제로 한글·일본어 등 유니코드 문자를 핸들로 지원하므로 정규식이 현실과 불일치.
+- **수정**: JVM 정규식의 `\p{L}` (Unicode General Category "Letter") 클래스를 추가. ASCII 영문자 범위를 `\p{L}`이 이미 포함하지만 기존 `[a-zA-Z0-9._-]` 부분을 그대로 유지하여 가독성과 명시성 확보.
+- **보안 고려**: `\p{L}`은 공백·특수문자·제어문자를 포함하지 않으므로 인젝션 위험 없음. 숫자(`0-9`)·점·밑줄·하이픈은 기존 허용 문자 그대로 유지.
+
+---
+
 ## [2026-03-26] fix(live-wallpaper): VideoLiveWallpaperService 메모리 누수 수정
 
 ### 목표

@@ -99,4 +99,9 @@ class InputValidatorTest {
     fun `유효하지 않은 YouTube 채널 ID - 핸들 특수문자 포함`() {
         assertFalse(InputValidator.isValidYoutubeChannelId("@channel!handle"))
     }
+
+    @Test
+    fun `유효한 YouTube 채널 ID - 한글 핸들`() {
+        assertTrue(InputValidator.isValidYoutubeChannelId("@이오몽"))
+    }
 }
