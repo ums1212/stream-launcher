@@ -2,6 +2,37 @@
 
 ---
 
+## [2026-03-26] fix(settings): 새 프리셋 다이얼로그 배경화면 선택 UI 개선 및 전환 취소 복원
+
+### 목표
+
+- 배경화면 선택 후 텍스트가 "선택됨"으로 바뀌는 대신 원래 텍스트를 유지하고 체크 표시 + 썸네일을 표시
+- 이미지 ↔ 라이브 배경화면 전환 중 피커를 취소하면 이전 선택 상태로 원복
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `feature/settings/.../ui/SavePresetDialog.kt` | 이미지 선택 라디오버튼: label 고정 + 선택 시 " ✓" 추가 + `AsyncImage` 72dp 썸네일 표시 |
+| | 라이브 배경화면 라디오버튼: label 고정(이름 표시 제거) + 선택 시 " ✓" 추가 + `thumbnailUri`(없으면 `fileUri`) 썸네일 표시 |
+| | 라디오버튼 클릭 시 상대 선택 즉시 초기화 → 단, 이전 값을 `pendingPrevious*`에 저장 |
+| | 이미지 피커 결과 `null`(취소) 시 라이브 배경화면 선택으로 복원 |
+| | 라이브 배경화면 피커 다이얼로그 dismiss 시 이미지 선택으로 복원; 확인 버튼 클릭 시 `pendingPreviousWallpaperUri = null`로 복원 방지 |
+| | import 추가: `coil.compose.AsyncImage`, `RoundedCornerShape`, `clip`, `ContentScale`, `size` |
+
+### 검증결과
+
+- `:feature:settings:assembleDebug` BUILD SUCCESSFUL (2회 확인)
+
+### 설계결정 및 근거
+
+- **텍스트 고정 + ✓ 표기**: 텍스트가 동적으로 바뀌면 레이아웃이 불안정하고 선택 상태를 파악하기 어려움. 원래 텍스트는 유지하고 체크 기호로 선택 여부를 보조 표기.
+- **썸네일 위치**: `RadioButtonRow`의 `innerContent` 슬롯(선택 시만 표시, `padding start=16.dp`)을 활용해 별도 레이아웃 없이 자연스럽게 삽입.
+- **취소 시 복원 전략 (`pendingPrevious*`)**: 전환 클릭 시점에 이전 값을 임시 저장하고, 피커 취소/다이얼로그 dismiss 시 복원. 확인(정상 선택) 시에는 임시 저장값을 null로 소거해 복원 로직이 실행되지 않도록 함. 이미지 피커의 경우 `PickVisualMedia` 결과 콜백이 `null` 반환 = 취소임을 활용.
+- **라이브 배경화면 피커 dismiss vs confirm**: 현재 피커 다이얼로그에는 취소 버튼이 없고 dismiss(바깥 터치/뒤로가기)가 취소 역할을 함. `onDismissRequest`에서만 복원하고 confirm 클릭 시에는 `pendingPreviousWallpaperUri = null` 처리.
+
+---
+
 ## [2026-03-26] refactor(settings): CheckboxRow/RadioButtonRow 컴포넌트 추출 및 다이얼로그 리팩토링
 
 ### 목표

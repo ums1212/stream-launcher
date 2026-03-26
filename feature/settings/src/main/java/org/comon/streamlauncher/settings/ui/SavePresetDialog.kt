@@ -7,7 +7,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
@@ -20,8 +22,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
 import org.comon.streamlauncher.domain.model.LiveWallpaper
 import org.comon.streamlauncher.settings.R
 
@@ -49,11 +54,22 @@ internal fun SavePresetDialog(
     var useLiveWallpaper by remember { mutableStateOf(false) }
     var selectedLiveWallpaperId by remember { mutableStateOf<Int?>(null) }
     var showLiveWallpaperPicker by remember { mutableStateOf(false) }
+    // 전환 취소 시 복원을 위한 임시 저장
+    var pendingPreviousWallpaperUri by remember { mutableStateOf<String?>(null) }
+    var pendingPreviousLiveWallpaperId by remember { mutableStateOf<Int?>(null) }
 
     val selectedLiveWallpaperUri = liveWallpapers.find { it.id == selectedLiveWallpaperId }?.fileUri
 
     val wallpaperPicker = rememberLauncherForActivityResult(PickVisualMedia()) { uri ->
-        selectedWallpaperUri = uri?.toString()
+        if (uri != null) {
+            selectedWallpaperUri = uri.toString()
+            pendingPreviousLiveWallpaperId = null
+        } else if (pendingPreviousLiveWallpaperId != null) {
+            // 이미지 피커 취소 → 라이브 배경화면 선택으로 복원
+            useLiveWallpaper = true
+            selectedLiveWallpaperId = pendingPreviousLiveWallpaperId
+            pendingPreviousLiveWallpaperId = null
+        }
     }
 
     val isConfirmEnabled = !saveWallpaper || when {
@@ -91,26 +107,56 @@ internal fun SavePresetDialog(
                     },
                 ) {
                     RadioButtonRow(
-                        label = if (selectedWallpaperUri != null) stringResource(R.string.preset_wallpaper_selected)
-                                else stringResource(R.string.preset_wallpaper_select_image),
+                        label = stringResource(R.string.preset_wallpaper_select_image) +
+                                if (selectedWallpaperUri != null) " ✓" else "",
                         selected = !useLiveWallpaper,
                         onClick = {
+                            if (useLiveWallpaper) {
+                                pendingPreviousLiveWallpaperId = selectedLiveWallpaperId
+                                selectedLiveWallpaperId = null
+                            }
                             useLiveWallpaper = false
                             wallpaperPicker.launch(PickVisualMediaRequest(PickVisualMedia.ImageOnly))
                         },
-                    )
+                    ) {
+                        if (selectedWallpaperUri != null) {
+                            AsyncImage(
+                                model = selectedWallpaperUri,
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .size(72.dp)
+                                    .clip(RoundedCornerShape(8.dp)),
+                                contentScale = ContentScale.Crop,
+                            )
+                        }
+                    }
                     if (liveWallpapers.isNotEmpty()) {
                         RadioButtonRow(
-                            label = if (selectedLiveWallpaperId != null)
-                                        liveWallpapers.find { it.id == selectedLiveWallpaperId }?.name
-                                            ?: stringResource(R.string.live_wallpaper_select_for_preset)
-                                    else stringResource(R.string.live_wallpaper_select_for_preset),
+                            label = stringResource(R.string.live_wallpaper_select_for_preset) +
+                                    if (selectedLiveWallpaperId != null) " ✓" else "",
                             selected = useLiveWallpaper,
                             onClick = {
+                                if (!useLiveWallpaper) {
+                                    pendingPreviousWallpaperUri = selectedWallpaperUri
+                                    selectedWallpaperUri = null
+                                }
                                 useLiveWallpaper = true
                                 showLiveWallpaperPicker = true
                             },
-                        )
+                        ) {
+                            val selectedLw = liveWallpapers.find { it.id == selectedLiveWallpaperId }
+                            val thumbUri = selectedLw?.thumbnailUri ?: selectedLw?.fileUri
+                            if (thumbUri != null) {
+                                AsyncImage(
+                                    model = thumbUri,
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .size(72.dp)
+                                        .clip(RoundedCornerShape(8.dp)),
+                                    contentScale = ContentScale.Crop,
+                                )
+                            }
+                        }
                     }
                 }
 
@@ -144,7 +190,16 @@ internal fun SavePresetDialog(
     // 라이브 배경화면 선택 다이얼로그
     if (showLiveWallpaperPicker) {
         AlertDialog(
-            onDismissRequest = { showLiveWallpaperPicker = false },
+            onDismissRequest = {
+                showLiveWallpaperPicker = false
+                // 취소 시: 이전 이미지 선택 상태로 복원
+                if (pendingPreviousWallpaperUri != null) {
+                    useLiveWallpaper = false
+                    selectedWallpaperUri = pendingPreviousWallpaperUri
+                    selectedLiveWallpaperId = null
+                    pendingPreviousWallpaperUri = null
+                }
+            },
             title = { Text(stringResource(R.string.live_wallpaper_select_for_preset)) },
             text = {
                 Column {
@@ -158,7 +213,10 @@ internal fun SavePresetDialog(
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showLiveWallpaperPicker = false }) {
+                TextButton(onClick = {
+                    showLiveWallpaperPicker = false
+                    pendingPreviousWallpaperUri = null  // 확인 시 복원 불필요
+                }) {
                     Text(stringResource(R.string.preset_confirm))
                 }
             },
