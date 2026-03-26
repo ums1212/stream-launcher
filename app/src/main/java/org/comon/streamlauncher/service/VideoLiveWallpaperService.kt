@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import androidx.core.graphics.withTranslation
 
 /**
  * 동영상/GIF 파일을 시스템 라이브 배경화면으로 재생하는 WallpaperService.
@@ -66,6 +67,8 @@ class VideoLiveWallpaperService : WallpaperService() {
 
         override fun onDestroy() {
             super.onDestroy()
+            stopCurrent()
+            surfaceHolder = null
             scope.cancel()
         }
 
@@ -143,12 +146,11 @@ class VideoLiveWallpaperService : WallpaperService() {
                             val offsetX = (sw - dw * scale) / 2f
                             val offsetY = (sh - dh * scale) / 2f
                             canvas.drawColor(android.graphics.Color.BLACK)
-                            val saveCount = canvas.save()
-                            canvas.translate(offsetX, offsetY)
-                            canvas.scale(scale, scale)
-                            drawable.setBounds(0, 0, dw, dh)
-                            drawable.draw(canvas)
-                            canvas.restoreToCount(saveCount)
+                            canvas.withTranslation(offsetX, offsetY) {
+                                canvas.scale(scale, scale)
+                                drawable.setBounds(0, 0, dw, dh)
+                                drawable.draw(canvas)
+                            }
                         } finally {
                             h.unlockCanvasAndPost(canvas)
                         }

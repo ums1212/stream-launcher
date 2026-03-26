@@ -2,6 +2,34 @@
 
 ---
 
+## [2026-03-26] fix(live-wallpaper): VideoLiveWallpaperService 메모리 누수 수정
+
+### 목표
+
+- LeakCanary가 보고한 `VideoLiveWallpaperService` 메모리 누수 2건 수정
+- 단순 파괴 시: retained 57초, 정적↔라이브 번갈아 적용 시: `IWallpaperEngineWrapper` 343개 오브젝트 / 23.6 kB retained 현상 제거
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `app/.../service/VideoLiveWallpaperService.kt` | `VideoEngine.onDestroy()`에 `stopCurrent()` 및 `surfaceHolder = null` 추가 (기존: `scope.cancel()`만 호출) |
+
+### 검증결과
+
+- 1차 리포트: `IWallpaperEngineWrapper` → `VideoLiveWallpaperService` (retained 57초 / 63 objects / 3.9 kB)
+- 2차 리포트 (번갈아 적용 시, fix 후): `IWallpaperEngineWrapper` → 343 objects / 23.6 kB — `surfaceHolder` 미해제 추가 확인 → `surfaceHolder = null` 추가 수정
+
+### 설계결정 및 근거
+
+- **1차 누수 원인**: `onDestroy()`에서 `scope.cancel()`만 호출하고 `stopCurrent()`를 호출하지 않아 `Choreographer.FrameCallback`이 전역 싱글톤에 계속 등록된 채로 남음. GIF 재생 중 `doFrame()` 내부에서 `postFrameCallback(this)`로 자기 자신을 반복 등록하는 구조이므로 `removeFrameCallback()`이 호출되지 않으면 파괴 후에도 참조 유지.
+- **2차 누수 원인**: Samsung 기기에서 정적↔라이브 배경화면 전환 시 `onSurfaceDestroyed` 없이 `onDestroy`가 직접 호출되는 경우가 있음. 이때 `surfaceHolder`가 non-null 상태로 남아 `Surface` → `IGraphicBufferProducer` → 시스템 BufferQueue 관련 객체들(+280개)이 `IWallpaperEngineWrapper` retained 집합에 포함됨.
+- **`stopCurrent()` 역할**: ExoPlayer `release()`, `Choreographer.removeFrameCallback()`, `gifDrawable.stop()` + null 처리를 모두 수행. `onSurfaceDestroyed`에서도 호출되지만 Samsung처럼 해당 콜백이 스킵될 경우 `onDestroy`에서의 호출이 유일한 보호막.
+- **정리 순서**: `stopCurrent()` → `surfaceHolder = null` → `scope.cancel()` 순으로 리소스를 먼저 해제한 뒤 코루틴 취소.
+- **남는 한계**: `IWallpaperEngineWrapper`(JNI 전역 참조) → `VideoEngine` → `VideoLiveWallpaperService` 참조 자체는 Android/Samsung 프레임워크 구조상 앱 레벨에서 제거 불가. 위 fix 적용 후 retained 오브젝트는 `scope` + 취소된 코루틴 state machine 수준(~50-80개)으로 최소화됨.
+
+---
+
 ## [2026-03-26] fix(preset-market): 마켓 다운로드 프리셋의 라이브 월페이퍼 미적용 버그 수정
 
 ### 목표
