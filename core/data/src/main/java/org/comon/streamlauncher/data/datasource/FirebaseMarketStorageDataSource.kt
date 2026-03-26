@@ -2,6 +2,7 @@ package org.comon.streamlauncher.data.datasource
 
 import android.net.Uri
 import com.google.firebase.storage.FirebaseStorage
+import com.google.firebase.storage.StorageMetadata
 import kotlinx.coroutines.tasks.await
 import java.io.File
 import javax.inject.Inject
@@ -14,14 +15,20 @@ class FirebaseMarketStorageDataSource @Inject constructor(
 
     override suspend fun uploadBytes(bytes: ByteArray, storagePath: String): String {
         val ref = storage.reference.child(storagePath)
-        ref.putBytes(bytes).await()
+        val metadata = StorageMetadata.Builder()
+            .setContentType("image/webp")
+            .build()
+        ref.putBytes(bytes, metadata).await()
         return ref.downloadUrl.await().toString()
     }
 
     override suspend fun uploadFile(localFilePath: String, storagePath: String): String {
         val file = File(localFilePath)
         val ref = storage.reference.child(storagePath)
-        ref.putFile(Uri.fromFile(file)).await()
+        val metadata = StorageMetadata.Builder()
+            .setContentType("application/octet-stream")
+            .build()
+        ref.putFile(Uri.fromFile(file), metadata).await()
         return ref.downloadUrl.await().toString()
     }
 

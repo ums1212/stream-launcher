@@ -2,6 +2,34 @@
 
 ---
 
+## [2026-03-26] fix(market-upload): Firebase Storage 경로 불일치 및 Content-Type 미설정 수정
+
+### 목표
+
+- GIF 라이브 월페이퍼 포함 프리셋을 마켓에 업로드할 때 발생하는 Firebase Storage 403 Permission denied 오류 해결
+- Storage 보안 규칙 경로 불일치 및 SDK Content-Type 미설정 두 가지 근본 원인 수정
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| **Firebase Storage Rules** (콘솔) | `match /market_presets/` → `match /presets/` 로 경로 수정 (업로드 코드 경로 `presets/$uid/$presetId.slp` 와 일치) |
+| `core/data/.../datasource/FirebaseMarketStorageDataSource.kt` | `uploadFile()`: `StorageMetadata.Builder().setContentType("application/octet-stream")` 명시적 설정 후 `putFile(uri, metadata)` 호출로 변경 |
+| `core/data/.../datasource/FirebaseMarketStorageDataSource.kt` | `uploadBytes()`: `StorageMetadata.Builder().setContentType("image/webp")` 명시적 설정 후 `putBytes(bytes, metadata)` 호출로 변경 |
+
+### 검증결과
+
+- Firebase Console Storage Rules 경로 수정 후 `.slp` 업로드 세션 정상 개시 확인
+- Content-Type 명시 후 규칙의 `contentType.matches('image/.*|application/zip|application/octet-stream')` 조건 통과
+
+### 설계결정 및 근거
+
+- **경로 불일치**: 업로드 코드(`UploadPresetToMarketUseCase`)는 `presets/$uid/...` 경로를 사용하는데 Storage 규칙은 `market_presets/` 만 허용하고 있었음. 나머지 모든 경로는 기본 deny 규칙에 걸려 403 반환. 코드 경로가 이미 `presets/`로 굳어져 있으므로 규칙 쪽을 맞추는 것이 안전.
+- **Content-Type null 문제**: Firebase Storage SDK는 `.slp` 같은 비표준 확장자 파일을 `putFile(uri)` 로 올릴 때 Content-Type을 null 또는 미설정으로 전송함. Storage 보안 규칙에서 `request.resource.contentType.matches(...)` 호출 시 null이면 평가 자체가 실패해 deny 처리됨. `StorageMetadata`로 명시적 설정이 필수.
+- **uploadBytes도 동일 처리**: 이미지 업로드에 쓰이는 `uploadBytes()`도 Content-Type을 명시하지 않고 있었음. 함께 `image/webp`로 명시해 규칙 일관성 확보.
+
+---
+
 ## [2026-03-24] fix(live-wallpaper): GIF 미리보기·저장 오류 수정 및 라이브 배경화면 GIF 렌더링 개선
 
 ### 목표
