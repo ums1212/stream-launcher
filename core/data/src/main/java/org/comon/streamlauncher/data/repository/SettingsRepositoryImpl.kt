@@ -158,6 +158,9 @@ class SettingsRepositoryImpl @Inject constructor(
         }
     }
 
+    override fun getLiveWallpaperUri(): Flow<String?> =
+        dataStore.data.map { prefs -> prefs[liveWallpaperUriKey] }
+
     override suspend fun setLiveWallpaper(id: Int?, uri: String?) {
         dataStore.edit { prefs ->
             if (id != null) prefs[liveWallpaperIdKey] = id else prefs.remove(liveWallpaperIdKey)

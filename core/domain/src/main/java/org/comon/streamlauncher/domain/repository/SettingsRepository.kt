@@ -18,4 +18,5 @@ interface SettingsRepository {
     suspend fun getLastShownNoticeVersion(): String?
     suspend fun setLastShownNoticeVersion(version: String)
     suspend fun setLiveWallpaper(id: Int?, uri: String?)
+    fun getLiveWallpaperUri(): Flow<String?>
 }

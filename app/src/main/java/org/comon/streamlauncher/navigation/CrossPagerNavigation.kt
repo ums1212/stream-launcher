@@ -34,7 +34,10 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.lerp
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.snapshotFlow
+import org.comon.streamlauncher.service.PagerScrollState
 import org.comon.streamlauncher.ui.component.AppIcon
 import org.comon.streamlauncher.ui.dragdrop.LocalDragDropState
 import org.comon.streamlauncher.ui.modifier.glassEffect
@@ -102,6 +105,13 @@ fun CrossPagerNavigation(
             verticalPagerState.animateScrollToPage(1, animationSpec = tween(300))
             horizontalPagerState.animateScrollToPage(1, animationSpec = tween(300))
         }
+    }
+
+    // 스와이프 중 라이브 배경화면 렌더링 일시 중지 (프레임 드랍 방지)
+    LaunchedEffect(verticalPagerState, horizontalPagerState) {
+        snapshotFlow { verticalPagerState.isScrollInProgress }
+            .combine(snapshotFlow { horizontalPagerState.isScrollInProgress }) { v, h -> v || h }
+            .collect { scrolling -> PagerScrollState.setScrolling(scrolling) }
     }
 
     // DownPage(2)에서 벗어날 때 키보드 숨기기

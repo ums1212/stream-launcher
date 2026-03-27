@@ -7,6 +7,7 @@ import android.view.Choreographer
 import android.view.SurfaceHolder
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -14,7 +15,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -28,6 +28,12 @@ import androidx.core.graphics.withTranslation
  *
  * WallpaperService는 @AndroidEntryPoint Hilt 주입이 지원되지 않으므로
  * EntryPointAccessors를 통해 SettingsRepository에 접근합니다.
+ *
+ * 최적화:
+ * - ExoPlayer 생성/prepare를 IO 디스패처에서 실행해 메인 스레드 블로킹 제거
+ * - DefaultLoadControl 버퍼를 최소화해 첫 프레임 지연 단축
+ * - liveWallpaperUri만 읽는 경량 Flow로 불필요한 JSON 파싱 제거
+ * - PagerScrollState로 스와이프 중 렌더링 일시 중지
  */
 class VideoLiveWallpaperService : WallpaperService() {
 
@@ -41,16 +47,18 @@ class VideoLiveWallpaperService : WallpaperService() {
         private val scope = CoroutineScope(Dispatchers.Main + Job())
         private var currentUri: String? = null
         private var surfaceHolder: SurfaceHolder? = null
+        private var scrollObserverJob: Job? = null
 
         override fun onSurfaceCreated(holder: SurfaceHolder) {
             super.onSurfaceCreated(holder)
             surfaceHolder = holder
             startObservingUri(holder)
+            startObservingScrollState()
         }
 
         override fun onVisibilityChanged(visible: Boolean) {
             super.onVisibilityChanged(visible)
-            if (visible) {
+            if (visible && !PagerScrollState.isScrolling.value) {
                 player?.play()
                 if (gifDrawable?.isRunning == false) gifDrawable?.start()
             } else {
@@ -62,19 +70,23 @@ class VideoLiveWallpaperService : WallpaperService() {
         override fun onSurfaceDestroyed(holder: SurfaceHolder) {
             super.onSurfaceDestroyed(holder)
             stopCurrent()
+            scrollObserverJob?.cancel()
+            scrollObserverJob = null
             surfaceHolder = null
         }
 
         override fun onDestroy() {
             super.onDestroy()
             stopCurrent()
+            scrollObserverJob?.cancel()
+            scrollObserverJob = null
             surfaceHolder = null
             scope.cancel()
         }
 
         private fun startObservingUri(holder: SurfaceHolder) {
             scope.launch {
-                getSettingsFlow()
+                getLiveWallpaperUriFlow()
                     .distinctUntilChanged()
                     .collect { uri ->
                         if (uri != null && uri != currentUri) {
@@ -85,22 +97,44 @@ class VideoLiveWallpaperService : WallpaperService() {
             }
         }
 
-        private fun getSettingsFlow() = try {
+        private fun startObservingScrollState() {
+            scrollObserverJob?.cancel()
+            scrollObserverJob = scope.launch {
+                PagerScrollState.isScrolling.collect { scrolling ->
+                    if (scrolling) pauseRendering() else resumeRendering()
+                }
+            }
+        }
+
+        private fun pauseRendering() {
+            player?.pause()
+            frameCallback?.let { Choreographer.getInstance().removeFrameCallback(it) }
+        }
+
+        private fun resumeRendering() {
+            if (!isVisible) return
+            player?.play()
+            frameCallback?.let { Choreographer.getInstance().postFrameCallback(it) }
+        }
+
+        /**
+         * liveWallpaperUri만 읽는 경량 Flow.
+         * getSettings() 전체 파싱(JSON) 없이 단일 키만 조회한다.
+         */
+        private fun getLiveWallpaperUriFlow() = try {
             val entryPoint = dagger.hilt.android.EntryPointAccessors.fromApplication(
                 applicationContext,
                 LiveWallpaperEntryPoint::class.java,
             )
-            entryPoint.settingsRepository().getSettings().map { it.liveWallpaperUri }
+            entryPoint.settingsRepository().getLiveWallpaperUri()
         } catch (_: Exception) {
             flowOf(null)
         }
 
         private fun stopCurrent() {
-            // 비디오 해제
             player?.release()
             player = null
 
-            // GIF 해제
             frameCallback?.let { Choreographer.getInstance().removeFrameCallback(it) }
             frameCallback = null
             gifDrawable?.stop()
@@ -141,7 +175,6 @@ class VideoLiveWallpaperService : WallpaperService() {
                             val sh = frame.height()
                             val dw = drawable.intrinsicWidth.takeIf { it > 0 } ?: sw
                             val dh = drawable.intrinsicHeight.takeIf { it > 0 } ?: sh
-                            // CENTER_CROP: canvas 자체를 변환해 AnimatedImageDrawable 스케일 적용
                             val scale = maxOf(sw.toFloat() / dw, sh.toFloat() / dh)
                             val offsetX = (sw - dw * scale) / 2f
                             val offsetY = (sh - dh * scale) / 2f
@@ -159,21 +192,52 @@ class VideoLiveWallpaperService : WallpaperService() {
                 }
                 frameCallback = cb
                 drawable.start()
-                Choreographer.getInstance().postFrameCallback(cb)
+                if (!PagerScrollState.isScrolling.value) {
+                    Choreographer.getInstance().postFrameCallback(cb)
+                }
             }
         }
 
+        /**
+         * ExoPlayer를 IO 스레드에서 생성·prepare한 뒤 메인 스레드에서 재생 시작.
+         *
+         * - ExoPlayer.Builder().build()와 prepare()의 초기 코덱 탐색이
+         *   메인 스레드를 블로킹하지 않도록 Dispatchers.IO에서 실행.
+         * - DefaultLoadControl 버퍼를 라이브 배경화면 특성에 맞게 최소화:
+         *   짧은 루프 영상이므로 대용량 선버퍼가 불필요하고 첫 프레임 지연만 늘린다.
+         */
         private fun startVideoRendering(holder: SurfaceHolder, uri: String) {
-            val surface = holder.surface
-            if (!surface.isValid) return
+            scope.launch {
+                val loadControl = DefaultLoadControl.Builder()
+                    .setBufferDurationsMs(
+                        /* minBufferMs    */ 500,
+                        /* maxBufferMs    */ 2_000,
+                        /* bufferForPlaybackMs           */ 250,
+                        /* bufferForPlaybackAfterRebuffer */ 500,
+                    )
+                    .build()
 
-            player = ExoPlayer.Builder(this@VideoLiveWallpaperService).build().apply {
-                setVideoSurface(surface)
-                repeatMode = Player.REPEAT_MODE_ALL
-                volume = 0f
-                setMediaItem(MediaItem.fromUri(uri))
-                prepare()
-                play()
+                val builtPlayer = withContext(Dispatchers.IO) {
+                    ExoPlayer.Builder(this@VideoLiveWallpaperService)
+                        .setLoadControl(loadControl)
+                        .build()
+                        .apply {
+                            repeatMode = Player.REPEAT_MODE_ALL
+                            volume = 0f
+                            setMediaItem(MediaItem.fromUri(uri))
+                            prepare()
+                        }
+                }
+
+                // Surface 연결 및 재생은 메인 스레드에서
+                val surface = holder.surface
+                if (!surface.isValid) {
+                    builtPlayer.release()
+                    return@launch
+                }
+                builtPlayer.setVideoSurface(surface)
+                player = builtPlayer
+                if (!PagerScrollState.isScrolling.value) builtPlayer.play()
             }
         }
     }

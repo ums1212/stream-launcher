@@ -2,6 +2,40 @@
 
 ---
 
+## [2026-03-27] perf(wallpaper): 라이브 배경화면 초기 프레임 드랍 및 스와이프 렉 최적화
+
+### 목표
+
+- 라이브 배경화면 최초 적용 시 발생하는 프레임 드랍 제거
+- 스와이프 중 라이브 배경화면과 Compose Pager 애니메이션의 GPU 경쟁 해소
+- 삼성 One UI 런처와 동일한 전략: 스와이프 중 라이브 배경화면 렌더링 일시 중지
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `app/.../service/PagerScrollState.kt` | 신규 — Pager 스크롤 상태를 WallpaperService에 전달하는 in-memory `StateFlow` 싱글톤 |
+| `app/.../navigation/CrossPagerNavigation.kt` | `snapshotFlow + combine`으로 양쪽 Pager 스크롤 합산 → `PagerScrollState.setScrolling()` 호출 |
+| `app/.../service/VideoLiveWallpaperService.kt` | ① `pauseRendering()`/`resumeRendering()` 추가 (ExoPlayer pause + Choreographer 콜백 제거/등록) ② `PagerScrollState` 구독으로 스와이프 중 렌더링 일시 중지 ③ ExoPlayer 생성·prepare를 `Dispatchers.IO`로 이동 ④ `DefaultLoadControl` 버퍼 최소화(재생 시작 250ms) ⑤ `getLiveWallpaperUri()` 경량 Flow 사용 |
+| `core/domain/.../repository/SettingsRepository.kt` | `getLiveWallpaperUri(): Flow<String?>` 인터페이스 추가 |
+| `core/data/.../repository/SettingsRepositoryImpl.kt` | `getLiveWallpaperUri()` 구현 — `dataStore.data.map { prefs[liveWallpaperUriKey] }` (JSON 파싱 없음) |
+
+### 검증결과
+
+- `assembleDebug` BUILD SUCCESSFUL
+- 스와이프 중 배경화면 일시 정지 → 스와이프 종료 후 즉시 재개 확인 (로직 검토)
+- 기존 드래그앤드롭, 키보드 숨김, BackHandler 동작 영향 없음
+
+### 설계결정 및 근거
+
+- **in-memory StateFlow 싱글톤 (`PagerScrollState`)**: `VideoLiveWallpaperService`는 `@AndroidEntryPoint` 미지원으로 Hilt 직접 주입 불가. 같은 프로세스 내 `object` 싱글톤으로 IPC 없이 즉각 전달. `StateFlow.conflation`이 빠른 on/off를 자동 debounce해 불필요한 pause/resume 반복 방지.
+- **`onVisibilityChanged` 수정**: visible이 되더라도 스크롤 중이면 resume 차단. 스크롤 종료 후 `resumeRendering()`에서 `isVisible` 체크로 실제 보이는 상태일 때만 재생.
+- **ExoPlayer IO 이동**: `ExoPlayer.Builder().build()`의 렌더러 할당·코덱 조회, `prepare()`의 컨테이너 파싱이 메인 스레드를 순간 블로킹하는 것이 초기 렉의 주 원인. `withContext(Dispatchers.IO)`로 이동 후 Surface 연결만 메인 스레드에서 수행.
+- **버퍼 최소화**: 기본 `DefaultLoadControl`은 재생 시작 전 2,500ms 이상 버퍼를 요구. 라이브 배경화면은 짧은 루프 영상이므로 250ms로 낮춰 첫 프레임 지연 대폭 단축. max 2,000ms는 루프 길이를 고려한 상한.
+- **`getLiveWallpaperUri()` 경량 Flow**: 기존 `getSettings().map { it.liveWallpaperUri }`는 emit마다 `gridCellImages`·`cellAssignments` JSON을 파싱. WallpaperService는 URI만 필요하므로 단일 키 조회 Flow를 별도 추가해 불필요한 CPU 작업 제거.
+
+---
+
 ## [2026-03-27] feat(preset-market): 프리셋 신고하기 기능 구현 (신고 화면, 이미지 첨부, Firestore 저장)
 
 ### 목표
