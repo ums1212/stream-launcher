@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.Flow
 import org.comon.streamlauncher.data.datasource.MarketAuthDataSource
 import org.comon.streamlauncher.data.datasource.MarketPresetRemoteDataSource
 import org.comon.streamlauncher.data.datasource.MarketStorageDataSource
+import org.comon.streamlauncher.data.util.AnimationDetector
 import org.comon.streamlauncher.data.util.ImageCompressor
 import org.comon.streamlauncher.domain.model.preset.MarketPreset
 import org.comon.streamlauncher.domain.model.preset.MarketUser
@@ -88,6 +89,34 @@ class MarketPresetRepositoryImpl @Inject constructor(
             }
             storageDataSource.uploadBytes(bytes, storagePath)
         }
+
+    override suspend fun uploadPreviewImage(
+        localUri: String,
+        storagePath: String,
+        maxWidth: Int,
+        quality: Int,
+        maxSizeBytes: Long,
+    ): Result<String> = runCatching {
+        val uri = localUri.toUri()
+        if (AnimationDetector.isAnimated(context, uri)) {
+            val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                ?: error("이미지를 열 수 없습니다: $localUri")
+            require(bytes.size <= maxSizeBytes) {
+                "이미지 크기가 ${maxSizeBytes / (1024 * 1024)}MB를 초과합니다"
+            }
+            val mimeType = context.contentResolver.getType(uri) ?: "image/webp"
+            val contentType = if (mimeType == "image/gif") "image/gif" else "image/webp"
+            val finalPath = if (contentType == "image/gif") storagePath.replace(".webp", ".gif") else storagePath
+            storageDataSource.uploadBytes(bytes, finalPath, contentType)
+        } else {
+            val bytes = if (localUri.startsWith("/")) {
+                ImageCompressor.compressToWebP(File(localUri), maxWidth, quality)
+            } else {
+                ImageCompressor.compressToWebP(context, uri, maxWidth, quality)
+            }
+            storageDataSource.uploadBytes(bytes, storagePath)
+        }
+    }
 
     override suspend fun uploadSlpFile(localPath: String, storagePath: String): Result<String> =
         runCatching {

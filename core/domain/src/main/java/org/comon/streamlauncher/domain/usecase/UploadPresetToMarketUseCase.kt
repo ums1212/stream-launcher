@@ -43,9 +43,9 @@ class UploadPresetToMarketUseCase @Inject constructor(
                 repository.uploadImage(it, "presets/$uid/$presetId/thumbnail.webp", maxWidth = 480, quality = 70).getOrNull()
             } ?: ""
 
-            // 4. 프리뷰 이미지 개별 업로드
+            // 4. 프리뷰 이미지 개별 업로드 (애니메이션 GIF/WebP는 원본 유지)
             val previewImageUrls = previewUris.mapIndexedNotNull { index, uri ->
-                repository.uploadImage(uri, "presets/$uid/$presetId/preview_$index.webp", maxWidth = 720, quality = 70).getOrNull()
+                repository.uploadPreviewImage(uri, "presets/$uid/$presetId/preview_$index.webp", maxWidth = 720, quality = 70).getOrNull()
             }
 
             // 5. Firestore 문서 생성
@@ -90,9 +90,9 @@ class UploadPresetToMarketUseCase @Inject constructor(
                     repository.uploadImage(it, "presets/$uid/$presetId/thumbnail.webp", maxWidth = 480, quality = 70).getOrNull()
                 } ?: ""
 
-                // 프리뷰 이미지 개별 업로드
+                // 프리뷰 이미지 개별 업로드 (애니메이션 GIF/WebP는 원본 유지)
                 val previewImageUrls = previewUris.mapIndexedNotNull { index, uri ->
-                    repository.uploadImage(uri, "presets/$uid/$presetId/preview_$index.webp", maxWidth = 720, quality = 70).getOrNull()
+                    repository.uploadPreviewImage(uri, "presets/$uid/$presetId/preview_$index.webp", maxWidth = 720, quality = 70).getOrNull()
                 }
 
                 val finalPreset = packed.presetTemplate.copy(

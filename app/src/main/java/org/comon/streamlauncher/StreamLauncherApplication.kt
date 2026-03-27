@@ -14,6 +14,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import coil.ImageLoader
 import coil.ImageLoaderFactory
+import coil.decode.ImageDecoderDecoder
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
 import com.google.android.gms.ads.MobileAds
@@ -55,6 +56,7 @@ class StreamLauncherApplication : Application(), ImageLoaderFactory, Configurati
             }
             .components {
                 add(AppIconFetcher.Factory())
+                add(ImageDecoderDecoder.Factory())
             }
             .crossfade(true)
             .build()

@@ -2,6 +2,43 @@
 
 ---
 
+## [2026-03-27] feat(preset-market): 애니메이션 GIF/WebP 프리뷰 이미지 지원 및 업로드 용량 제한
+
+### 목표
+
+- 프리셋 마켓 업로드 시 GIF/애니메이션 WebP 프리뷰 이미지의 애니메이션을 유지하여 상세화면에서 그대로 재생
+- 프리뷰 이미지 업로드 용량 제한 20MB 적용
+- 마켓 홈화면 썸네일은 기존과 동일하게 정적 이미지 유지
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `gradle/libs.versions.toml` | `coil-gif` 라이브러리 추가 (`io.coil-kt:coil-gif`, version.ref = "coil") |
+| `app/build.gradle.kts` | `implementation(libs.coil.gif)` 추가 |
+| `app/.../StreamLauncherApplication.kt` | `newImageLoader()`의 `.components` 블록에 `ImageDecoderDecoder.Factory()` 등록 |
+| `core/data/.../util/AnimationDetector.kt` | 신규 생성 — GIF(MIME type), 애니메이션 WebP(RIFF ANIM 청크 바이트 검색) 판별 유틸리티 |
+| `core/data/.../datasource/MarketStorageDataSource.kt` | `uploadBytes`에 `contentType: String = "image/webp"` 파라미터 추가 |
+| `core/data/.../datasource/FirebaseMarketStorageDataSource.kt` | `uploadBytes` 구현에서 하드코딩 `"image/webp"` 대신 `contentType` 파라미터 사용 |
+| `core/domain/.../repository/MarketPresetRepository.kt` | `uploadPreviewImage()` 메서드 추가 (maxSizeBytes 기본값 20MB) |
+| `core/data/.../repository/MarketPresetRepositoryImpl.kt` | `uploadPreviewImage()` 구현 — 애니메이션이면 원본 바이트 그대로 업로드, 정적이면 기존 WebP 압축 경로 유지 |
+| `core/domain/.../usecase/UploadPresetToMarketUseCase.kt` | 프리뷰 이미지 업로드를 `uploadImage` → `uploadPreviewImage`로 전환 (썸네일은 `uploadImage` 유지) |
+
+### 검증결과
+
+- `assembleDebug` BUILD SUCCESSFUL
+- `test` BUILD SUCCESSFUL (기존 테스트 회귀 없음)
+
+### 설계결정 및 근거
+
+- **`coil-gif`를 `app` 모듈에 추가**: `ImageDecoderDecoder`를 실제로 참조·등록하는 코드가 `StreamLauncherApplication`(app 모듈)에 있으므로, 의존성은 그 모듈에 선언. `feature:preset-market`은 `AsyncImage`를 파라미터 없이 호출하며 Coil의 `LocalContext.current.imageLoader`를 통해 전역 싱글턴 `ImageLoader`를 자동으로 사용.
+- **`ImageLoaderFactory` 전역 등록 방식**: `Application : ImageLoaderFactory` 패턴으로 등록하면 앱 내 모든 모듈의 `AsyncImage`가 별도 설정 없이 동일한 `ImageLoader`를 사용 → 마켓 상세화면 애니메이션 렌더링 자동 지원.
+- **썸네일은 항상 정적 유지**: `UploadPresetToMarketUseCase`에서 썸네일 업로드는 기존 `uploadImage`(`ImageCompressor.compressToWebP`) 경로를 그대로 사용. 마켓 홈 카드/리스트는 `thumbnailUrl`을 표시하므로 코드 변경 없이 정적 이미지 유지.
+- **AnimationDetector 바이트 검색**: `ImageInfo.isAnimated`는 API 31+ 한정이므로 RIFF 컨테이너 내 `ANIM` 청크(4바이트 시그니처) 직접 검색으로 API 28 이상에서 호환성 확보.
+- **기존 업로드 프리셋 영향 없음**: 이전에 업로드된 프리셋의 `previewImageUrls`는 모두 정적 WebP이므로 `ImageDecoderDecoder` 등록 후에도 첫 프레임만 표시되며 동작 변화 없음.
+
+---
+
 ## [2026-03-26] feat(preset-market): 프리셋 상세화면 신고/삭제 컨텍스트 메뉴 및 소프트 삭제 구현
 
 ### 목표

@@ -13,10 +13,10 @@ class FirebaseMarketStorageDataSource @Inject constructor(
     private val storage: FirebaseStorage,
 ) : MarketStorageDataSource {
 
-    override suspend fun uploadBytes(bytes: ByteArray, storagePath: String): String {
+    override suspend fun uploadBytes(bytes: ByteArray, storagePath: String, contentType: String): String {
         val ref = storage.reference.child(storagePath)
         val metadata = StorageMetadata.Builder()
-            .setContentType("image/webp")
+            .setContentType(contentType)
             .build()
         ref.putBytes(bytes, metadata).await()
         return ref.downloadUrl.await().toString()
