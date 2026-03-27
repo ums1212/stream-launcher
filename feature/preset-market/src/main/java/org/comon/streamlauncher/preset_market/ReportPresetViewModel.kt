@@ -10,7 +10,8 @@ import org.comon.streamlauncher.domain.usecase.ReportMarketPresetUseCase
 import org.comon.streamlauncher.domain.usecase.UploadReportImageUseCase
 import org.comon.streamlauncher.preset_market.navigation.MarketReport
 import org.comon.streamlauncher.ui.BaseViewModel
-import java.net.UnknownHostException
+import org.comon.streamlauncher.network.error.getErrorMessage
+import org.comon.streamlauncher.network.error.isNetworkDisconnected
 import javax.inject.Inject
 
 @HiltViewModel
@@ -61,14 +62,12 @@ class ReportPresetViewModel @Inject constructor(
         viewModelScope.launch {
             val imageUrl: String? = if (imageUri != null) {
                 uploadReportImageUseCase(imageUri, reporter.uid)
-                    .onFailure {
+                    .onFailure { error ->
                         updateState { copy(isSubmitting = false) }
-                        val isNetworkError = it is UnknownHostException ||
-                            it.javaClass.name == "com.google.firebase.FirebaseNetworkException"
-                        if (isNetworkError) {
-                            sendEffect(ReportPresetSideEffect.NetworkError)
+                        if (error.isNetworkDisconnected() || error.javaClass.name == "com.google.firebase.FirebaseNetworkException") {
+                            sendEffect(ReportPresetSideEffect.ShowNetworkError)
                         } else {
-                            sendEffect(ReportPresetSideEffect.ShowError("이미지 업로드에 실패하였습니다. 잠시 후 다시 시도해주세요."))
+                            sendEffect(ReportPresetSideEffect.ShowError(error.getErrorMessage("이미지 업로드")))
                         }
                         return@launch
                     }
@@ -86,14 +85,12 @@ class ReportPresetViewModel @Inject constructor(
                 imageUrl = imageUrl,
             ).onSuccess {
                 sendEffect(ReportPresetSideEffect.ReportSuccess)
-            }.onFailure { e ->
+            }.onFailure { error ->
                 updateState { copy(isSubmitting = false) }
-                val isNetworkError = e is UnknownHostException ||
-                    e.javaClass.name == "com.google.firebase.FirebaseNetworkException"
-                if (isNetworkError) {
-                    sendEffect(ReportPresetSideEffect.NetworkError)
+                if (error.isNetworkDisconnected() || error.javaClass.name == "com.google.firebase.FirebaseNetworkException") {
+                    sendEffect(ReportPresetSideEffect.ShowNetworkError)
                 } else {
-                    sendEffect(ReportPresetSideEffect.ShowError("신고 처리가 실패하였습니다. 잠시 후 다시 시도해주세요."))
+                    sendEffect(ReportPresetSideEffect.ShowError(error.getErrorMessage("신고 처리")))
                 }
             }
         }

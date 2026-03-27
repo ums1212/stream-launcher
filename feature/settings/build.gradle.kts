@@ -45,6 +45,7 @@ kotlin {
 dependencies {
     implementation(project(":core:domain"))
     implementation(project(":core:ui"))
+    implementation(project(":core:network"))
 
     implementation(libs.kotlinx.serialization.json)
 

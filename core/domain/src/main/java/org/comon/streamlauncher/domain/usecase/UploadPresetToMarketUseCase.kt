@@ -106,12 +106,12 @@ class UploadPresetToMarketUseCase @Inject constructor(
             } finally {
                 packager.deleteTempFile(packed.slpFilePath)
             }
-        } catch (_: UnknownHostException) {
-            emit(PresetOperationProgress(presetName, completed, totalSteps, error = "네트워크 연결을 확인하세요"))
-        } catch (_: IOException) {
-            emit(PresetOperationProgress(presetName, completed, totalSteps, error = "네트워크 연결을 확인하세요"))
+        } catch (e: UnknownHostException) {
+            emit(PresetOperationProgress(presetName, completed, totalSteps, error = e))
+        } catch (e: IOException) {
+            emit(PresetOperationProgress(presetName, completed, totalSteps, error = e))
         } catch (e: Exception) {
-            emit(PresetOperationProgress(presetName, completed, totalSteps, error = e.message ?: "업로드 실패"))
+            emit(PresetOperationProgress(presetName, completed, totalSteps, error = e))
         }
     }
 }

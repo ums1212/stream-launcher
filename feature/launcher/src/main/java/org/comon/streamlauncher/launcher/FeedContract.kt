@@ -28,4 +28,5 @@ sealed interface FeedIntent : UiIntent {
 sealed interface FeedSideEffect : UiSideEffect {
     data class OpenUrl(val url: String) : FeedSideEffect
     data class ShowError(val message: String) : FeedSideEffect
+    data object ShowNetworkError : FeedSideEffect
 }

@@ -22,4 +22,5 @@ sealed interface PresetMarketUserInfoSideEffect : UiSideEffect {
     data class NavigateToDetail(val presetId: String) : PresetMarketUserInfoSideEffect
     data class ShowError(val message: String) : PresetMarketUserInfoSideEffect
     data object SignedOut : PresetMarketUserInfoSideEffect
+    data object ShowNetworkError : PresetMarketUserInfoSideEffect
 }

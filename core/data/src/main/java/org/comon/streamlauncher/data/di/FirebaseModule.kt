@@ -23,5 +23,9 @@ object FirebaseModule {
 
     @Provides
     @Singleton
-    fun provideFirebaseStorage(): FirebaseStorage = FirebaseStorage.getInstance()
+    fun provideFirebaseStorage(): FirebaseStorage = FirebaseStorage.getInstance().apply {
+        maxUploadRetryTimeMillis = 10000L
+        maxDownloadRetryTimeMillis = 10000L
+        maxOperationRetryTimeMillis = 10000L
+    }
 }

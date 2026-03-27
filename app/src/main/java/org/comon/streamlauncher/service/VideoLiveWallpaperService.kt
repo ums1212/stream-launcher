@@ -35,6 +35,7 @@ import androidx.core.graphics.withTranslation
  * - liveWallpaperUri만 읽는 경량 Flow로 불필요한 JSON 파싱 제거
  * - PagerScrollState로 스와이프 중 렌더링 일시 중지
  */
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class VideoLiveWallpaperService : WallpaperService() {
 
     override fun onCreateEngine(): Engine = VideoEngine()

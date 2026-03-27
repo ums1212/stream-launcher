@@ -16,6 +16,8 @@ import org.comon.streamlauncher.domain.usecase.ToggleMarketPresetLikeUseCase
 import org.comon.streamlauncher.preset_market.download.DownloadDataHolder
 import org.comon.streamlauncher.preset_market.download.DownloadProgressTracker
 import org.comon.streamlauncher.ui.BaseViewModel
+import org.comon.streamlauncher.network.error.getErrorMessage
+import org.comon.streamlauncher.network.error.isNetworkDisconnected
 import javax.inject.Inject
 
 @HiltViewModel
@@ -51,7 +53,12 @@ class PresetDetailViewModel @Inject constructor(
                         sendEffect(PresetDetailSideEffect.DownloadComplete)
                     }
                     progress?.error != null -> {
-                        sendEffect(PresetDetailSideEffect.ShowError("다운로드에 실패했습니다"))
+                        val error = progress.error!!
+                        if (error.isNetworkDisconnected()) {
+                            sendEffect(PresetDetailSideEffect.ShowNetworkError)
+                        } else {
+                            sendEffect(PresetDetailSideEffect.ShowError(error.getErrorMessage("다운로드")))
+                        }
                     }
                 }
             }
@@ -109,9 +116,13 @@ class PresetDetailViewModel @Inject constructor(
                             .onSuccess { liked -> updateState { copy(isLiked = liked) } }
                     }
                 }
-                .onFailure {
+                .onFailure { error ->
                     updateState { copy(isLoading = false) }
-                    sendEffect(PresetDetailSideEffect.ShowError("프리셋 정보를 불러올 수 없습니다"))
+                    if (error.isNetworkDisconnected()) {
+                        sendEffect(PresetDetailSideEffect.ShowNetworkError)
+                    } else {
+                        sendEffect(PresetDetailSideEffect.ShowError(error.getErrorMessage("프리셋 정보 불러오기")))
+                    }
                 }
         }
     }
@@ -134,8 +145,12 @@ class PresetDetailViewModel @Inject constructor(
                         )
                     }
                 }
-                .onFailure {
-                    sendEffect(PresetDetailSideEffect.ShowError("좋아요 처리에 실패했습니다"))
+                .onFailure { error ->
+                    if (error.isNetworkDisconnected()) {
+                        sendEffect(PresetDetailSideEffect.ShowNetworkError)
+                    } else {
+                        sendEffect(PresetDetailSideEffect.ShowError(error.getErrorMessage("좋아요 처리")))
+                    }
                 }
         }
     }
@@ -166,8 +181,12 @@ class PresetDetailViewModel @Inject constructor(
                 .onSuccess {
                     sendEffect(PresetDetailSideEffect.DeleteComplete)
                 }
-                .onFailure {
-                    sendEffect(PresetDetailSideEffect.ShowError("삭제에 실패했습니다"))
+                .onFailure { error ->
+                    if (error.isNetworkDisconnected()) {
+                        sendEffect(PresetDetailSideEffect.ShowNetworkError)
+                    } else {
+                        sendEffect(PresetDetailSideEffect.ShowError(error.getErrorMessage("삭제")))
+                    }
                 }
         }
     }
@@ -180,9 +199,13 @@ class PresetDetailViewModel @Inject constructor(
                     pendingAction?.invoke()
                     pendingAction = null
                 }
-                .onFailure {
+                .onFailure { error ->
                     pendingAction = null
-                    sendEffect(PresetDetailSideEffect.ShowError("로그인에 실패했습니다. 다시 시도해주세요"))
+                    if (error.isNetworkDisconnected()) {
+                        sendEffect(PresetDetailSideEffect.ShowNetworkError)
+                    } else {
+                        sendEffect(PresetDetailSideEffect.ShowError(error.getErrorMessage("로그인")))
+                    }
                 }
         }
     }

@@ -22,6 +22,7 @@ import org.comon.streamlauncher.R
 import org.comon.streamlauncher.settings.upload.UploadDataHolder
 import org.comon.streamlauncher.settings.upload.UploadProgressTracker
 import org.comon.streamlauncher.domain.usecase.UploadPresetToMarketUseCase
+import org.comon.streamlauncher.network.error.getErrorMessage
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -40,13 +41,19 @@ class PresetUploadService : Service() {
         val tags = uploadDataHolder.pendingTags
 
         if (preset == null) {
-            showErrorNotification("업로드 실패", "업로드 데이터를 찾을 수 없습니다")
+            val appCtx = applicationContext
+            val mgr = appCtx.getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+            showErrorNotification(appCtx, mgr, "업로드 실패", "업로드 데이터를 찾을 수 없습니다")
             stopSelf()
             return START_NOT_STICKY
         }
 
-        val presetName = preset.name
-        val progressNotification = buildProgressNotification(presetName, 0f)
+        val appContext = applicationContext
+        val presetNameStr = preset.name
+        val manager = appContext.getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        val useCase = uploadPresetToMarketUseCase
+        val tracker = progressTracker
+        val progressNotification = buildProgressNotification(appContext, presetNameStr, 0f)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             ServiceCompat.startForeground(
@@ -60,26 +67,26 @@ class PresetUploadService : Service() {
         }
 
         scope.launch {
-            uploadPresetToMarketUseCase.uploadWithProgress(preset, previewUris, description, tags)
+            useCase.uploadWithProgress(preset, previewUris, description, tags)
                 .collect { progress ->
-                    progressTracker.awaitResume()
-                    progressTracker.update(progress)
+                    tracker.awaitResume()
+                    tracker.update(progress)
                     val errorMsg = progress.error
                     when {
                         progress.isCompleted -> {
-                            showCompletedNotification(presetName)
+                            showCompletedNotification(appContext, manager, presetNameStr)
                             delay(1000L)
-                            progressTracker.clear()
-                            stopSelf()
+                            tracker.clear()
+                            appContext.stopService(Intent(appContext, PresetUploadService::class.java))
                         }
                         errorMsg != null -> {
-                            showErrorNotification(presetName, errorMsg)
+                            showErrorNotification(appContext, manager, presetNameStr, errorMsg.getErrorMessage("업로드"))
                             delay(1000L)
-                            progressTracker.clear()
-                            stopSelf()
+                            tracker.clear()
+                            appContext.stopService(Intent(appContext, PresetUploadService::class.java))
                         }
                         else -> {
-                            updateProgressNotification(presetName, progress.percentage)
+                            updateProgressNotification(appContext, manager, presetNameStr, progress.percentage)
                         }
                     }
                 }
@@ -97,73 +104,72 @@ class PresetUploadService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    private fun buildProgressNotification(presetName: String, progress: Float): Notification {
-        val openIntent = PendingIntent.getActivity(
-            this,
-            0,
-            Intent(this, MainActivity::class.java),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
-        val progressInt = (progress * 100).toInt()
-        return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle("'$presetName' 업로드 중")
-            .setContentText("$progressInt% 완료")
-            .setProgress(100, progressInt, progressInt == 0)
-            .setOngoing(true)
-            .setOnlyAlertOnce(true)
-            .setContentIntent(openIntent)
-            .build()
-    }
-
-    private fun updateProgressNotification(presetName: String, progress: Float) {
-        val notification = buildProgressNotification(presetName, progress)
-        val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-        manager.notify(NOTIFICATION_ID, notification)
-    }
-
-    private fun showCompletedNotification(presetName: String) {
-        val openIntent = PendingIntent.getActivity(
-            this,
-            0,
-            Intent(this, MainActivity::class.java),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
-        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle("업로드 완료")
-            .setContentText("'$presetName'이 마켓에 업로드되었습니다")
-            .setAutoCancel(true)
-            .setContentIntent(openIntent)
-            .build()
-        val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-        manager.cancel(NOTIFICATION_ID)
-        manager.notify(NOTIFICATION_RESULT_ID, notification)
-    }
-
-    private fun showErrorNotification(presetName: String, message: String) {
-        val openIntent = PendingIntent.getActivity(
-            this,
-            0,
-            Intent(this, MainActivity::class.java),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
-        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle("업로드 실패")
-            .setContentText("'$presetName': $message")
-            .setAutoCancel(true)
-            .setContentIntent(openIntent)
-            .build()
-        val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-        manager.cancel(NOTIFICATION_ID)
-        manager.notify(NOTIFICATION_RESULT_ID, notification)
-    }
-
     companion object {
         const val CHANNEL_ID = "preset_upload"
         const val NOTIFICATION_ID = 9001
         const val NOTIFICATION_RESULT_ID = 9002
         const val EXTRA_PRESET_NAME = "extra_preset_name"
+
+        private fun buildProgressNotification(context: android.content.Context, presetName: String, progress: Float): Notification {
+            val openIntent = PendingIntent.getActivity(
+                context,
+                0,
+                Intent(context, MainActivity::class.java),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+            val progressInt = (progress * 100).toInt()
+            return NotificationCompat.Builder(context, CHANNEL_ID)
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .setContentTitle("'$presetName' 업로드 중")
+                .setContentText("$progressInt% 완료")
+                .setProgress(100, progressInt, progressInt == 0)
+                .setOngoing(true)
+                .setOnlyAlertOnce(true)
+                .setContentIntent(openIntent)
+                .build()
+        }
+
+        private fun updateProgressNotification(context: android.content.Context, manager: NotificationManager, presetName: String, progress: Float) {
+            val notification = buildProgressNotification(context, presetName, progress)
+            manager.notify(NOTIFICATION_ID, notification)
+        }
+
+        private fun showCompletedNotification(context: android.content.Context, manager: NotificationManager, presetName: String) {
+            val openIntent = PendingIntent.getActivity(
+                context,
+                0,
+                Intent(context, MainActivity::class.java),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+            val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .setContentTitle("업로드 완료")
+                .setContentText("'$presetName'이 마켓에 업로드되었습니다")
+                .setAutoCancel(true)
+                .setContentIntent(openIntent)
+                .build()
+            manager.cancel(NOTIFICATION_ID)
+            manager.notify(NOTIFICATION_RESULT_ID, notification)
+        }
+
+        private fun showErrorNotification(context: android.content.Context, manager: NotificationManager, presetName: String, message: String) {
+            val openIntent = PendingIntent.getActivity(
+                context,
+                0,
+                Intent(context, MainActivity::class.java),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+            val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .setContentTitle("업로드 실패")
+                .setContentText("'$presetName': $message")
+                .setAutoCancel(true)
+                .setContentIntent(openIntent)
+                .build()
+            manager.cancel(NOTIFICATION_ID)
+            manager.notify(NOTIFICATION_RESULT_ID, notification)
+        }
     }
 }
+
+

@@ -23,5 +23,5 @@ sealed interface ReportPresetIntent : UiIntent {
 sealed interface ReportPresetSideEffect : UiSideEffect {
     data object ReportSuccess : ReportPresetSideEffect
     data class ShowError(val message: String) : ReportPresetSideEffect
-    data object NetworkError : ReportPresetSideEffect
+    data object ShowNetworkError : ReportPresetSideEffect
 }

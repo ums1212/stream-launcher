@@ -60,14 +60,18 @@ fun ReportPresetScreen(
                 is ReportPresetSideEffect.ReportSuccess -> onReportSuccess()
                 is ReportPresetSideEffect.ShowError ->
                     snackbarHostState.showSnackbar(message = effect.message)
-                is ReportPresetSideEffect.NetworkError -> {
+                is ReportPresetSideEffect.ShowNetworkError -> {
                     val result = snackbarHostState.showSnackbar(
                         message = networkErrorMessage,
                         actionLabel = networkSettingsLabel,
                         duration = SnackbarDuration.Long,
                     )
                     if (result == SnackbarResult.ActionPerformed) {
-                        context.startActivity(Intent(Settings.ACTION_WIRELESS_SETTINGS))
+                        try {
+                            context.startActivity(Intent(Settings.ACTION_WIRELESS_SETTINGS).apply {
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            })
+                        } catch (_: Exception) {}
                     }
                 }
             }

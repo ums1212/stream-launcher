@@ -12,6 +12,8 @@ import org.comon.streamlauncher.domain.usecase.GetLauncherSettingsUseCase
 import org.comon.streamlauncher.domain.usecase.GetChzzkLiveStatusUseCase
 import org.comon.streamlauncher.domain.usecase.GetYoutubeLiveStatusUseCase
 import org.comon.streamlauncher.ui.BaseViewModel
+import org.comon.streamlauncher.network.error.getErrorMessage
+import org.comon.streamlauncher.network.error.isNetworkDisconnected
 import javax.inject.Inject
 
 private const val MIN_REFRESH_INTERVAL_MS = 60_000L
@@ -97,9 +99,13 @@ class FeedViewModel @Inject constructor(
                                 updateState { copy(feedItems = items, isLoading = false) }
                                 lastRefreshMillis = System.currentTimeMillis()
                             },
-                            onFailure = { _ ->
+                            onFailure = { error ->
                                 updateState { copy(isLoading = false) }
-                                sendEffect(FeedSideEffect.ShowError("피드를 불러올 수 없습니다"))
+                                if (error.isNetworkDisconnected()) {
+                                    sendEffect(FeedSideEffect.ShowNetworkError)
+                                } else {
+                                    sendEffect(FeedSideEffect.ShowError(error.getErrorMessage("피드 불러오기")))
+                                }
                             },
                         )
                     }

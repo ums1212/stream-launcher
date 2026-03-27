@@ -7,6 +7,8 @@ import org.comon.streamlauncher.domain.usecase.GetCurrentMarketUserUseCase
 import org.comon.streamlauncher.domain.usecase.GetUserPresetsUseCase  // core:domain에 위치
 import org.comon.streamlauncher.domain.usecase.SignOutUseCase
 import org.comon.streamlauncher.ui.BaseViewModel
+import org.comon.streamlauncher.network.error.getErrorMessage
+import org.comon.streamlauncher.network.error.isNetworkDisconnected
 import javax.inject.Inject
 
 @HiltViewModel
@@ -46,7 +48,11 @@ class PresetMarketUserInfoViewModel @Inject constructor(
                 }
                 .onFailure { e ->
                     updateState { copy(isLoading = false) }
-                    sendEffect(PresetMarketUserInfoSideEffect.ShowError("프리셋 목록을 불러올 수 없습니다"))
+                    if (e.isNetworkDisconnected()) {
+                        sendEffect(PresetMarketUserInfoSideEffect.ShowNetworkError)
+                    } else {
+                        sendEffect(PresetMarketUserInfoSideEffect.ShowError(e.getErrorMessage("프리셋 목록 불러오기")))
+                    }
                 }
         }
     }

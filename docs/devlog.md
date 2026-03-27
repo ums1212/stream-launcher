@@ -2,6 +2,41 @@
 
 ---
 
+## [2026-03-27] refactor(network): 네트워크 에러 핸들링 구조화 및 백그라운드 서비스 메모리 누수 수정
+
+### 목표
+
+- 산발적으로 존재하던 오류 메시지("네트워크 연결을 확인하세요", "업로드 실패" 등)를 중앙화하여 처리
+- 인터넷 미연결(오프라인) 시 항상 "네트워크 연결을 확인해주세요" 메시지와 **네트워크 설정 이동 버튼**이 노출되도록 개선
+- Firebase Storage 오프라인 시 무한 로딩 대기 현상 해결
+- 백그라운드 다운로드/업로드 서비스(`PresetDownloadService`, `PresetUploadService`)에서 발생하던 메모리 누수 해결
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `core/network/.../error/NetworkErrorHelper.kt` | `Throwable.isNetworkDisconnected()` 확장함수 리팩토링. `UnknownHostException` 등 기본 통신 예외 외에도 `FirebaseNetworkException`을 재귀적으로 탐색하여 Firebase 에러도 네트워크 단절로 인식하도록 로직 추가. `getErrorMessage("작업명")` 확장함수를 선언하여 통일된 에러 메시지 텍스트 반환. |
+| `core/domain/.../model/preset/PresetOperationProgress.kt` | `error` 필드를 `String?`에서 `Throwable?`로 변경. 도메인 계층에서 발생한 예외를 그대로 UI 레이어까지 전달하여 확장함수 적용 가능하도록 개선. |
+| `core/domain/.../usecase/UploadPresetToMarketUseCase.kt` 외 1건 | 예외 발생 시 문자열이 아닌 `Throwable`(Exception) 인스턴스 자체를 `error` 필드에 방출(emit)하도록 수정. |
+| `core/data/.../di/FirebaseModule.kt` | `provideFirebaseStorage()`에서 인스턴스 생성 시 `maxUploadRetryTimeMillis`, `maxDownloadRetryTimeMillis`, `maxOperationRetryTimeMillis`를 모두 10000L(10초)로 설정. 오프라인 시 무기한 재시도(Exponential Backoff)를 방지하고 Fail-fast 동작 유도. |
+| `feature/settings/.../SettingsViewModel.kt` 등 다수 | 각 Feature 계약(`*Contract.kt`)에 `ShowNetworkError` SideEffect 추가. ViewModel에서 `error.isNetworkDisconnected()` 반환값에 따라 `ShowNetworkError` 혹은 일반 `ShowError`로 분기. |
+| `app/.../service/PresetUploadService.kt` 외 1건 | `Service` 인스턴스 내부의 `launch` 블록에서 `this`(Service) 참조를 제거. 알림 관리 코드를 `companion object`의 `Context`를 받는 메서드(`showProgressNotification` 등)로 분리하고, Coroutine 내부에서는 필요한 `Context`를 `applicationContext`와 같은 지역 변수로 미리 캡처하여 전달하는 방식으로 메모리 누수 방지. 에러 콜백 시에도 동일하게 `Throwable.getErrorMessage()`를 사용하여 통일된 메시지 알림 표시. |
+
+### 검증결과
+
+- 인터넷/와이파이 차단 시 업로드/다운로드를 시도하면 즉각적으로 앱 우측 하단에 "설정" 이동 버튼이 달린 스낵바 노출 확인
+- 네트워크 미연결 상태에서 Firebase Storage 로직 대기 시간이 10초를 넘기지 않고 안정적으로 Exception 반환 확인
+- LeakCanary 메모리 누수 경고 해소 (Service 소멸 시 Coroutine 내 암묵적 참조 누수 제거 완료)
+
+### 설계결정 및 근거
+
+- **에러 핸들링 일원화 및 확장에 대비**: `String`만 넘기는 방식은 네트워크 에러 판별(`isNetworkDisconnected`)을 원천적으로 막는 구조적 한계가 존재했음. 이를 `Throwable`로 전면 교체하여, 향후 API 실패 응답 파싱(Retrofit HttpException) 등 다양한 에러 타입을 분기할 수 있는 기반을 마련함.
+- **Firebase 예외 인식 방식 개선**: `core:network` 모듈에 Firebase SDK 의존성을 추가하지 않기 위해, 리플렉션을 통한 클래스 이름 검사(`javaClass.simpleName == "FirebaseNetworkException"`) 패턴 사용. `StorageException` 같은 래퍼 예외를 대비해 `cause` 체인을 재귀 탐색하도록 구현.
+- **Service 메모리 누수 우회**: Android `Service` 내 긴 백그라운드 Coroutine에서 `this`를 캡처하면 `onDestroy()` 호출 이후에도 GC 타겟이 되지 않는 고질적인 문제(LeakCanary 감지)를 `companion object` 메서드로 UI 로직을 분리하는 기법으로 우회하여 수정.
+- **Firebase Timeout 강제 지정**: `UploadTask` 특성상 백그라운드 업로드 보장이라는 철학 때문에 오프라인 시 계속해서 Exponential Backoff 상태로 무한 대기하는 증상을 시스템 레벨에서 10000ms로 강제 제한하여 응답성을 쾌적하게 개선함.
+
+---
+
 ## [2026-03-27] perf(wallpaper): 라이브 배경화면 초기 프레임 드랍 및 스와이프 렉 최적화
 
 ### 목표

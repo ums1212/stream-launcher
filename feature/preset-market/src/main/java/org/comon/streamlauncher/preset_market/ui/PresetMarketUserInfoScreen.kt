@@ -25,6 +25,8 @@ import org.comon.streamlauncher.preset_market.PresetMarketUserInfoIntent
 import org.comon.streamlauncher.preset_market.PresetMarketUserInfoSideEffect
 import org.comon.streamlauncher.preset_market.PresetMarketUserInfoViewModel
 import org.comon.streamlauncher.preset_market.R
+import android.content.Intent
+import android.provider.Settings
 import org.comon.streamlauncher.preset_market.ui.component.PresetStatsRow
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -37,12 +39,27 @@ fun PresetMarketUserInfoScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     LaunchedEffect(Unit) {
         viewModel.effect.collect { effect ->
             when (effect) {
                 is PresetMarketUserInfoSideEffect.NavigateToDetail -> onNavigateToDetail(effect.presetId)
                 is PresetMarketUserInfoSideEffect.ShowError -> snackbarHostState.showSnackbar(effect.message)
+                is PresetMarketUserInfoSideEffect.ShowNetworkError -> {
+                    val result = snackbarHostState.showSnackbar(
+                        message = "네트워크 연결을 확인해주세요",
+                        actionLabel = "설정",
+                        duration = SnackbarDuration.Long,
+                    )
+                    if (result == SnackbarResult.ActionPerformed) {
+                        try {
+                            context.startActivity(Intent(Settings.ACTION_WIRELESS_SETTINGS).apply {
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            })
+                        } catch (_: Exception) {}
+                    }
+                }
                 is PresetMarketUserInfoSideEffect.SignedOut -> onBack()
             }
         }

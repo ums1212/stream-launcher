@@ -41,6 +41,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.comon.streamlauncher.preset_market.*
 import org.comon.streamlauncher.preset_market.R
+import android.content.Intent
+import android.provider.Settings
 import org.comon.streamlauncher.ui.component.GoogleSignInRequiredDialog
 import org.comon.streamlauncher.ui.component.PagerIndicator
 
@@ -61,6 +63,7 @@ fun PresetDetailScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     var showSignInHandler by remember { mutableStateOf(false) }
     var showSignInDialog by remember { mutableStateOf(false) }
@@ -78,6 +81,20 @@ fun PresetDetailScreen(
                     snackbarHostState.showSnackbar(message = downloadCompleteMessage)
                 is PresetDetailSideEffect.ShowError ->
                     snackbarHostState.showSnackbar(message = effect.message)
+                is PresetDetailSideEffect.ShowNetworkError -> {
+                    val result = snackbarHostState.showSnackbar(
+                        message = "네트워크 연결을 확인해주세요",
+                        actionLabel = "설정",
+                        duration = SnackbarDuration.Long,
+                    )
+                    if (result == SnackbarResult.ActionPerformed) {
+                        try {
+                            context.startActivity(Intent(Settings.ACTION_WIRELESS_SETTINGS).apply {
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            })
+                        } catch (_: Exception) {}
+                    }
+                }
                 is PresetDetailSideEffect.RequireSignIn ->
                     showSignInDialog = true
                 is PresetDetailSideEffect.PresetLimitExceeded ->

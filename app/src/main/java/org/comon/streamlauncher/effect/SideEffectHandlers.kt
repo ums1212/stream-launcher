@@ -6,7 +6,9 @@ import android.content.ComponentName
 import android.content.Intent
 import android.provider.Settings
 import android.util.Log
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalContext
@@ -58,6 +60,20 @@ fun HomeSideEffectHandler(
                         context.startActivity(Intent(Settings.ACTION_SETTINGS))
                     }
                 }
+                is HomeSideEffect.ShowNetworkError -> {
+                    val result = snackbarHostState.showSnackbar(
+                        message = "네트워크 연결을 확인해주세요",
+                        actionLabel = "설정",
+                        duration = SnackbarDuration.Long,
+                    )
+                    if (result == SnackbarResult.ActionPerformed) {
+                        try {
+                            context.startActivity(Intent(Settings.ACTION_WIRELESS_SETTINGS).apply {
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            })
+                        } catch (_: Exception) {}
+                    }
+                }
             }
         }
     }
@@ -83,6 +99,20 @@ fun FeedSideEffectHandler(
                     Log.e("FeedSideEffectHandler", "Feed Error: ${effect.message}")
                     snackbarHostState.currentSnackbarData?.dismiss()
                     snackbarHostState.showSnackbar(effect.message)
+                }
+                is FeedSideEffect.ShowNetworkError -> {
+                    val result = snackbarHostState.showSnackbar(
+                        message = "네트워크 연결을 확인해주세요",
+                        actionLabel = "설정",
+                        duration = SnackbarDuration.Long,
+                    )
+                    if (result == SnackbarResult.ActionPerformed) {
+                        try {
+                            context.startActivity(Intent(Settings.ACTION_WIRELESS_SETTINGS).apply {
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            })
+                        } catch (_: Exception) {}
+                    }
                 }
             }
         }
@@ -119,6 +149,20 @@ fun SettingsSideEffectHandler(
                     context.stopService(Intent(context, PresetUploadService::class.java))
                 is SettingsSideEffect.ShowError ->
                     snackbarHostState.showSnackbar(effect.message)
+                is SettingsSideEffect.ShowNetworkError -> {
+                    val result = snackbarHostState.showSnackbar(
+                        message = "네트워크 연결을 확인해주세요",
+                        actionLabel = "설정",
+                        duration = SnackbarDuration.Long,
+                    )
+                    if (result == SnackbarResult.ActionPerformed) {
+                        try {
+                            context.startActivity(Intent(Settings.ACTION_WIRELESS_SETTINGS).apply {
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            })
+                        } catch (_: Exception) {}
+                    }
+                }
                 is SettingsSideEffect.LaunchLiveWallpaperPicker -> {
                     val component = ComponentName(context, VideoLiveWallpaperService::class.java)
                     val wallpaperManager = WallpaperManager.getInstance(context)

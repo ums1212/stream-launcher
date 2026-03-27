@@ -38,4 +38,5 @@ sealed interface PresetDetailSideEffect : UiSideEffect {
     data object StopDownloadService : PresetDetailSideEffect
     data object DeleteComplete : PresetDetailSideEffect
     data object NavigateToReport : PresetDetailSideEffect
+    data object ShowNetworkError : PresetDetailSideEffect
 }

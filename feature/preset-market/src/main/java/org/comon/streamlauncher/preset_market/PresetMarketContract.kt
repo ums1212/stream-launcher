@@ -33,6 +33,7 @@ sealed interface PresetMarketSideEffect : UiSideEffect {
     data object NavigateToSearch : PresetMarketSideEffect
     data object NavigateToUserInfo : PresetMarketSideEffect
     data class ShowError(val message: String) : PresetMarketSideEffect
+    data object ShowNetworkError : PresetMarketSideEffect
     data object RequireSignIn : PresetMarketSideEffect
     data object SignInSuccess : PresetMarketSideEffect
 }

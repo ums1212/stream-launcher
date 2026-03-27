@@ -14,6 +14,8 @@ import org.comon.streamlauncher.domain.usecase.ObserveAuthStateUseCase
 import org.comon.streamlauncher.domain.usecase.SignInWithGoogleUseCase
 import org.comon.streamlauncher.domain.usecase.SignOutUseCase
 import org.comon.streamlauncher.ui.BaseViewModel
+import org.comon.streamlauncher.network.error.getErrorMessage
+import org.comon.streamlauncher.network.error.isNetworkDisconnected
 import javax.inject.Inject
 
 @HiltViewModel
@@ -66,7 +68,11 @@ class PresetMarketViewModel @Inject constructor(
                 )
             }
             if (error != null) {
-                sendEffect(PresetMarketSideEffect.ShowError("인기 프리셋을 불러올 수 없습니다"))
+                if (error.isNetworkDisconnected()) {
+                    sendEffect(PresetMarketSideEffect.ShowNetworkError)
+                } else {
+                    sendEffect(PresetMarketSideEffect.ShowError(error.getErrorMessage("인기 프리셋 불러오기")))
+                }
             }
         }
     }
@@ -78,8 +84,12 @@ class PresetMarketViewModel @Inject constructor(
                     updateState { copy(currentUser = user) }
                     sendEffect(PresetMarketSideEffect.SignInSuccess)
                 }
-                .onFailure {
-                    sendEffect(PresetMarketSideEffect.ShowError("로그인에 실패했습니다. 다시 시도해주세요"))
+                .onFailure { error ->
+                    if (error.isNetworkDisconnected()) {
+                        sendEffect(PresetMarketSideEffect.ShowNetworkError)
+                    } else {
+                        sendEffect(PresetMarketSideEffect.ShowError(error.getErrorMessage("로그인")))
+                    }
                 }
         }
     }

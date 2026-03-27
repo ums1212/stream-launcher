@@ -21,6 +21,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.paging.compose.collectAsLazyPagingItems
 import kotlinx.coroutines.launch
+import android.content.Intent
+import android.provider.Settings
 import org.comon.streamlauncher.preset_market.*
 import org.comon.streamlauncher.preset_market.R
 import org.comon.streamlauncher.ui.component.GoogleSignInRequiredDialog
@@ -49,6 +51,7 @@ fun MarketHomeScreen(
     var showSignInDialog by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val context = androidx.compose.ui.platform.LocalContext.current
     val isCompactLandscape = calculateIsCompactHeight()
 
     val signInSuccessMessage = stringResource(R.string.preset_market_sign_in_success)
@@ -78,6 +81,20 @@ fun MarketHomeScreen(
                 is PresetMarketSideEffect.NavigateToSearch -> onNavigateToSearch()
                 is PresetMarketSideEffect.NavigateToUserInfo -> onNavigateToUserInfo()
                 is PresetMarketSideEffect.ShowError -> snackbarHostState.showSnackbar(effect.message)
+                is PresetMarketSideEffect.ShowNetworkError -> {
+                    val result = snackbarHostState.showSnackbar(
+                        message = "네트워크 연결을 확인해주세요",
+                        actionLabel = "설정",
+                        duration = SnackbarDuration.Long,
+                    )
+                    if (result == SnackbarResult.ActionPerformed) {
+                        try {
+                            context.startActivity(Intent(Settings.ACTION_WIRELESS_SETTINGS).apply {
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            })
+                        } catch (_: Exception) {}
+                    }
+                }
                 is PresetMarketSideEffect.RequireSignIn -> showSignInDialog = true
                 is PresetMarketSideEffect.SignInSuccess -> snackbarHostState.showSnackbar(signInSuccessMessage)
             }

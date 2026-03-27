@@ -75,15 +75,15 @@ class DownloadMarketPresetUseCase @Inject constructor(
             // Step 3: 카운트 증가
             marketRepository.incrementDownloadCount(marketPreset.id)
             emit(PresetOperationProgress(presetName, totalSteps, totalSteps, isCompleted = true, liveWallpaperUri = appliedLiveWallpaperUri))
-        } catch (_: UnknownHostException) {
+        } catch (e: UnknownHostException) {
             unpackager.cleanupPresetDir(marketPreset.id)
-            emit(PresetOperationProgress(presetName, 0, totalSteps, error = "네트워크 연결 없음"))
+            emit(PresetOperationProgress(presetName, 0, totalSteps, error = e))
         } catch (e: IOException) {
             unpackager.cleanupPresetDir(marketPreset.id)
-            emit(PresetOperationProgress(presetName, 0, totalSteps, error = e.message ?: "IO 오류"))
+            emit(PresetOperationProgress(presetName, 0, totalSteps, error = e))
         } catch (e: Exception) {
             unpackager.cleanupPresetDir(marketPreset.id)
-            emit(PresetOperationProgress(presetName, 0, totalSteps, error = e.message ?: "알 수 없는 오류"))
+            emit(PresetOperationProgress(presetName, 0, totalSteps, error = e))
         }
     }
 }

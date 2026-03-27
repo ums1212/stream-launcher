@@ -28,6 +28,8 @@ import org.comon.streamlauncher.settings.upload.UploadDataHolder
 import org.comon.streamlauncher.settings.upload.UploadProgressTracker
 import org.comon.streamlauncher.settings.model.ImageType
 import org.comon.streamlauncher.ui.BaseViewModel
+import org.comon.streamlauncher.network.error.getErrorMessage
+import org.comon.streamlauncher.network.error.isNetworkDisconnected
 import javax.inject.Inject
 
 @HiltViewModel
@@ -103,8 +105,12 @@ class SettingsViewModel @Inject constructor(
                     }
                     sendEffect(SettingsSideEffect.UploadSuccess)
                 } else {
-                    progress?.error?.let {
-                        sendEffect(SettingsSideEffect.UploadError("업로드에 실패했습니다"))
+                    progress?.error?.let { error ->
+                        if (error.isNetworkDisconnected()) {
+                            sendEffect(SettingsSideEffect.ShowNetworkError)
+                        } else {
+                            sendEffect(SettingsSideEffect.UploadError(error.getErrorMessage("업로드")))
+                        }
                     }
                 }
             }
@@ -158,7 +164,13 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             signInWithGoogleUseCase(idToken)
                 .onSuccess { pendingUploadIntent?.let { handleIntent(it) } }
-                .onFailure { sendEffect(SettingsSideEffect.UploadError("로그인에 실패했습니다. 다시 시도해주세요")) }
+                .onFailure { error ->
+                    if (error.isNetworkDisconnected()) {
+                        sendEffect(SettingsSideEffect.ShowNetworkError)
+                    } else {
+                        sendEffect(SettingsSideEffect.UploadError(error.getErrorMessage("로그인")))
+                    }
+                }
         }
     }
 
@@ -202,7 +214,10 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             runCatching {
                 saveFeedSettingsUseCase(chzzkChannelId, youtubeChannelId)
-            }.onFailure { sendEffect(SettingsSideEffect.ShowError("피드 설정 저장에 실패했습니다")) }
+            }.onFailure { error ->
+                if (error.isNetworkDisconnected()) sendEffect(SettingsSideEffect.ShowNetworkError)
+                else sendEffect(SettingsSideEffect.ShowError(error.getErrorMessage("피드 설정 저장")))
+            }
         }
     }
 
@@ -217,7 +232,10 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             runCatching {
                 saveAppDrawerSettingsUseCase(columns, rows, iconSizeRatio)
-            }.onFailure { sendEffect(SettingsSideEffect.ShowError("앱 서랍 설정 저장에 실패했습니다")) }
+            }.onFailure { error ->
+                if (error.isNetworkDisconnected()) sendEffect(SettingsSideEffect.ShowNetworkError)
+                else sendEffect(SettingsSideEffect.ShowError(error.getErrorMessage("앱 서랍 설정 저장")))
+            }
         }
     }
 
@@ -267,7 +285,10 @@ class SettingsViewModel @Inject constructor(
                 liveWallpaperUri = if (intent.isLiveWallpaper) intent.wallpaperUri else null,
             )
             runCatching { savePresetUseCase(preset) }
-                .onFailure { sendEffect(SettingsSideEffect.ShowError("프리셋 저장에 실패했습니다")) }
+                .onFailure { error ->
+                    if (error.isNetworkDisconnected()) sendEffect(SettingsSideEffect.ShowNetworkError)
+                    else sendEffect(SettingsSideEffect.ShowError(error.getErrorMessage("프리셋 저장")))
+                }
         }
     }
 
@@ -301,7 +322,10 @@ class SettingsViewModel @Inject constructor(
                         }
                     }
                 }
-            }.onFailure { sendEffect(SettingsSideEffect.ShowError("프리셋 적용에 실패했습니다")) }
+            }.onFailure { error ->
+                if (error.isNetworkDisconnected()) sendEffect(SettingsSideEffect.ShowNetworkError)
+                else sendEffect(SettingsSideEffect.ShowError(error.getErrorMessage("프리셋 적용")))
+            }
         }
     }
 
@@ -320,7 +344,10 @@ class SettingsViewModel @Inject constructor(
             runCatching {
                 deletePresetUseCase(preset)
                 preset.wallpaperUri?.let { wallpaperHelper.deletePresetWallpaper(it) }
-            }.onFailure { sendEffect(SettingsSideEffect.ShowError("프리셋 삭제에 실패했습니다")) }
+            }.onFailure { error ->
+                if (error.isNetworkDisconnected()) sendEffect(SettingsSideEffect.ShowNetworkError)
+                else sendEffect(SettingsSideEffect.ShowError(error.getErrorMessage("프리셋 삭제")))
+            }
         }
     }
 
@@ -330,7 +357,10 @@ class SettingsViewModel @Inject constructor(
             runCatching {
                 val lw = saveLiveWallpaperUseCase(name, uri)
                 updateState { copy(selectedLiveWallpaperId = lw.id, selectedLiveWallpaperUri = lw.fileUri) }
-            }.onFailure { sendEffect(SettingsSideEffect.ShowError("라이브 배경화면 저장에 실패했습니다")) }
+            }.onFailure { error ->
+                if (error.isNetworkDisconnected()) sendEffect(SettingsSideEffect.ShowNetworkError)
+                else sendEffect(SettingsSideEffect.ShowError(error.getErrorMessage("라이브 배경화면 저장")))
+            }
         }
     }
 
@@ -339,7 +369,10 @@ class SettingsViewModel @Inject constructor(
             runCatching {
                 setLiveWallpaperUseCase(id, uri)
                 sendEffect(SettingsSideEffect.LaunchLiveWallpaperPicker)
-            }.onFailure { sendEffect(SettingsSideEffect.ShowError("라이브 배경화면 설정에 실패했습니다")) }
+            }.onFailure { error ->
+                if (error.isNetworkDisconnected()) sendEffect(SettingsSideEffect.ShowNetworkError)
+                else sendEffect(SettingsSideEffect.ShowError(error.getErrorMessage("라이브 배경화면 설정")))
+            }
         }
     }
 
@@ -351,14 +384,20 @@ class SettingsViewModel @Inject constructor(
                 if (state.selectedLiveWallpaperId == id) {
                     updateState { copy(selectedLiveWallpaperId = null, selectedLiveWallpaperUri = null) }
                 }
-            }.onFailure { sendEffect(SettingsSideEffect.ShowError("라이브 배경화면 삭제에 실패했습니다")) }
+            }.onFailure { error ->
+                if (error.isNetworkDisconnected()) sendEffect(SettingsSideEffect.ShowNetworkError)
+                else sendEffect(SettingsSideEffect.ShowError(error.getErrorMessage("라이브 배경화면 삭제")))
+            }
         }
     }
 
     private fun clearActiveLiveWallpaper() {
         viewModelScope.launch {
             runCatching { setLiveWallpaperUseCase(null, null) }
-                .onFailure { sendEffect(SettingsSideEffect.ShowError("라이브 배경화면 해제에 실패했습니다")) }
+                .onFailure { error ->
+                    if (error.isNetworkDisconnected()) sendEffect(SettingsSideEffect.ShowNetworkError)
+                    else sendEffect(SettingsSideEffect.ShowError(error.getErrorMessage("라이브 배경화면 해제")))
+                }
         }
     }
 
