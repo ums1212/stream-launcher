@@ -90,6 +90,16 @@ class MarketPresetRepositoryImpl @Inject constructor(
             storageDataSource.uploadBytes(bytes, storagePath)
         }
 
+    override suspend fun uploadImageGetPath(localUri: String, storagePath: String, maxWidth: Int, quality: Int): Result<String> =
+        runCatching {
+            val bytes = if (localUri.startsWith("/")) {
+                ImageCompressor.compressToWebP(File(localUri), maxWidth, quality)
+            } else {
+                ImageCompressor.compressToWebP(context, localUri.toUri(), maxWidth, quality)
+            }
+            storageDataSource.uploadBytesGetPath(bytes, storagePath)
+        }
+
     override suspend fun uploadPreviewImage(
         localUri: String,
         storagePath: String,
@@ -150,6 +160,31 @@ class MarketPresetRepositoryImpl @Inject constructor(
 
     override suspend fun deletePreset(presetId: String): Result<Unit> = runCatching {
         presetRemoteDataSource.softDeletePreset(presetId)
+    }
+
+    override suspend fun reportPreset(
+        reporterUid: String,
+        reporterDisplayName: String,
+        presetId: String,
+        presetName: String,
+        presetAuthorUid: String,
+        presetAuthorDisplayName: String,
+        reason: String,
+        imageUrl: String?,
+    ): Result<Unit> = runCatching {
+        val data = buildMap<String, Any> {
+            put("reporterUid", reporterUid)
+            put("reporterDisplayName", reporterDisplayName)
+            put("presetId", presetId)
+            put("presetName", presetName)
+            put("presetAuthorUid", presetAuthorUid)
+            put("presetAuthorDisplayName", presetAuthorDisplayName)
+            put("reason", reason)
+            put("createdAt", com.google.firebase.firestore.FieldValue.serverTimestamp())
+            put("status", "pending")
+            imageUrl?.let { put("imageUrl", it) }
+        }
+        presetRemoteDataSource.reportPreset(data)
     }
 
     // RecentPresetsPagerProvider

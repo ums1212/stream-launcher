@@ -55,6 +55,7 @@ fun PresetDetailScreen(
     onStartDownloadService: (String) -> Unit = {},
     onStopDownloadService: () -> Unit = {},
     onDeleteSuccess: () -> Unit = {},
+    onNavigateToReport: (presetId: String, presetName: String, authorUid: String, authorDisplayName: String) -> Unit = { _, _, _, _ -> },
     viewModel: PresetDetailViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -66,7 +67,6 @@ fun PresetDetailScreen(
     var showLimitDialog by remember { mutableStateOf(false) }
     var showCancelDownloadDialog by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
-    var showReportNotReadyDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
 
     val downloadCompleteMessage = stringResource(R.string.preset_market_download_complete)
@@ -88,6 +88,10 @@ fun PresetDetailScreen(
                     onStopDownloadService()
                 is PresetDetailSideEffect.DeleteComplete ->
                     onDeleteSuccess()
+                is PresetDetailSideEffect.NavigateToReport -> {
+                    val preset = state.preset ?: return@collect
+                    onNavigateToReport(preset.id, preset.name, preset.authorUid, preset.authorDisplayName)
+                }
             }
         }
     }
@@ -137,19 +141,6 @@ fun PresetDetailScreen(
                     showCancelDownloadDialog = false
                 }) {
                     Text(stringResource(R.string.preset_market_cancel_download_resume))
-                }
-            },
-        )
-    }
-
-    if (showReportNotReadyDialog) {
-        AlertDialog(
-            onDismissRequest = { showReportNotReadyDialog = false },
-            title = { Text(stringResource(R.string.preset_market_report_not_ready_title)) },
-            text = { Text(stringResource(R.string.preset_market_report_not_ready_message)) },
-            confirmButton = {
-                TextButton(onClick = { showReportNotReadyDialog = false }) {
-                    Text(stringResource(R.string.confirm))
                 }
             },
         )
@@ -208,13 +199,15 @@ fun PresetDetailScreen(
                                 expanded = showMenu,
                                 onDismissRequest = { showMenu = false },
                             ) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.preset_market_report)) },
-                                    onClick = {
-                                        showMenu = false
-                                        showReportNotReadyDialog = true
-                                    },
-                                )
+                                if (!state.isOwnPreset) {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.preset_market_report)) },
+                                        onClick = {
+                                            showMenu = false
+                                            viewModel.handleIntent(PresetDetailIntent.ReportPreset)
+                                        },
+                                    )
+                                }
                                 if (state.isOwnPreset) {
                                     DropdownMenuItem(
                                         text = {

@@ -103,4 +103,8 @@ class FirebaseMarketPresetRemoteDataSource @Inject constructor(
 
     override fun createSearchPresetsPagingSource(query: String): PagingSource<*, MarketPreset> =
         SearchMarketPresetPagingSource(firestore, query)
+
+    override suspend fun reportPreset(data: Map<String, Any>) {
+        firestore.collection("reports").document().set(data).await()
+    }
 }

@@ -20,6 +20,8 @@ interface MarketPresetRepository {
     ): Result<List<MarketPreset>>
     suspend fun uploadPreset(preset: MarketPreset): Result<String>
     suspend fun uploadImage(localUri: String, storagePath: String, maxWidth: Int = 1080, quality: Int = 80): Result<String>
+    /** getDownloadUrl 없이 gs:// 경로만 반환 (신고 이미지 등 앱 표시 불필요한 경우) */
+    suspend fun uploadImageGetPath(localUri: String, storagePath: String, maxWidth: Int = 1080, quality: Int = 80): Result<String>
     suspend fun uploadPreviewImage(
         localUri: String,
         storagePath: String,
@@ -34,4 +36,14 @@ interface MarketPresetRepository {
     suspend fun incrementDownloadCount(presetId: String): Result<Unit>
     suspend fun getPresetsByAuthor(uid: String): Result<List<MarketPreset>>
     suspend fun deletePreset(presetId: String): Result<Unit>
+    suspend fun reportPreset(
+        reporterUid: String,
+        reporterDisplayName: String,
+        presetId: String,
+        presetName: String,
+        presetAuthorUid: String,
+        presetAuthorDisplayName: String,
+        reason: String,
+        imageUrl: String? = null,
+    ): Result<Unit>
 }

@@ -68,6 +68,7 @@ class PresetDetailViewModel @Inject constructor(
             is PresetDetailIntent.CancelDownload -> cancelDownload()
             is PresetDetailIntent.SignInWithGoogle -> signIn(intent.idToken)
             is PresetDetailIntent.DeletePreset -> deletePreset()
+            is PresetDetailIntent.ReportPreset -> ensureSignedIn { sendEffect(PresetDetailSideEffect.NavigateToReport) }
         }
     }
 

@@ -22,6 +22,15 @@ class FirebaseMarketStorageDataSource @Inject constructor(
         return ref.downloadUrl.await().toString()
     }
 
+    override suspend fun uploadBytesGetPath(bytes: ByteArray, storagePath: String, contentType: String): String {
+        val ref = storage.reference.child(storagePath)
+        val metadata = StorageMetadata.Builder()
+            .setContentType(contentType)
+            .build()
+        ref.putBytes(bytes, metadata).await()
+        return "gs://${storage.reference.bucket}/$storagePath"
+    }
+
     override suspend fun uploadFile(localFilePath: String, storagePath: String): String {
         val file = File(localFilePath)
         val ref = storage.reference.child(storagePath)

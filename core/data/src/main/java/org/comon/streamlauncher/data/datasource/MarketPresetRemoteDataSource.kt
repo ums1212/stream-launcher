@@ -14,4 +14,5 @@ interface MarketPresetRemoteDataSource {
     suspend fun softDeletePreset(presetId: String)
     fun createRecentPresetsPagingSource(): PagingSource<*, MarketPreset>
     fun createSearchPresetsPagingSource(query: String): PagingSource<*, MarketPreset>
+    suspend fun reportPreset(data: Map<String, Any>)
 }

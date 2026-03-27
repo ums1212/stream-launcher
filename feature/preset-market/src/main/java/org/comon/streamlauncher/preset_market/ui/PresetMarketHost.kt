@@ -17,6 +17,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import org.comon.streamlauncher.preset_market.navigation.MarketDetail
 import org.comon.streamlauncher.preset_market.navigation.MarketHome
+import org.comon.streamlauncher.preset_market.navigation.MarketReport
 import org.comon.streamlauncher.preset_market.navigation.MarketSearch
 import org.comon.streamlauncher.preset_market.navigation.MarketUserInfo
 
@@ -45,6 +46,9 @@ fun PresetMarketHost(
                 val presetDeleted by backStackEntry.savedStateHandle
                     .getStateFlow("presetDeleted", false)
                     .collectAsStateWithLifecycle()
+                val presetReported by backStackEntry.savedStateHandle
+                    .getStateFlow("presetReported", false)
+                    .collectAsStateWithLifecycle()
 
                 MarketHomeScreen(
                     onNavigateToDetail = { navController.navigate(MarketDetail(presetId = it, fromCard = false)) },
@@ -56,6 +60,8 @@ fun PresetMarketHost(
                     animatedVisibilityScope = this,
                     presetDeleted = presetDeleted,
                     onPresetDeletedConsumed = { backStackEntry.savedStateHandle["presetDeleted"] = false },
+                    presetReported = presetReported,
+                    onPresetReportedConsumed = { backStackEntry.savedStateHandle["presetReported"] = false },
                 )
             }
             composable<MarketSearch> { backStackEntry ->
@@ -83,12 +89,32 @@ fun PresetMarketHost(
                             ?.set("presetDeleted", true)
                         navController.popBackStack()
                     },
+                    onNavigateToReport = { presetId, presetName, authorUid, authorDisplayName ->
+                        navController.navigate(
+                            MarketReport(
+                                presetId = presetId,
+                                presetName = presetName,
+                                presetAuthorUid = authorUid,
+                                presetAuthorDisplayName = authorDisplayName,
+                            )
+                        )
+                    },
                 )
             }
             composable<MarketUserInfo> {
                 PresetMarketUserInfoScreen(
                     onBack = { navController.popBackStack() },
                     onNavigateToDetail = { navController.navigate(MarketDetail(presetId = it)) },
+                )
+            }
+            composable<MarketReport> {
+                ReportPresetScreen(
+                    onBack = { navController.popBackStack() },
+                    onReportSuccess = {
+                        navController.getBackStackEntry(MarketHome)
+                            .savedStateHandle["presetReported"] = true
+                        navController.popBackStack(MarketHome, inclusive = false)
+                    },
                 )
             }
         }

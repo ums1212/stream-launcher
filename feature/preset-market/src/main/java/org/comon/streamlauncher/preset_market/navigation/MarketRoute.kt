@@ -15,3 +15,11 @@ data class MarketSearch(val query: String = ""): MarketRoute
 
 @Serializable
 object MarketUserInfo: MarketRoute
+
+@Serializable
+data class MarketReport(
+    val presetId: String,
+    val presetName: String,
+    val presetAuthorUid: String,
+    val presetAuthorDisplayName: String,
+): MarketRoute

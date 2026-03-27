@@ -39,6 +39,8 @@ fun MarketHomeScreen(
     modifier: Modifier = Modifier,
     presetDeleted: Boolean = false,
     onPresetDeletedConsumed: () -> Unit = {},
+    presetReported: Boolean = false,
+    onPresetReportedConsumed: () -> Unit = {},
     viewModel: PresetMarketViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -51,6 +53,7 @@ fun MarketHomeScreen(
 
     val signInSuccessMessage = stringResource(R.string.preset_market_sign_in_success)
     val deleteSuccessMessage = stringResource(R.string.preset_market_delete_success)
+    val reportSuccessMessage = stringResource(R.string.preset_market_report_success)
 
     LaunchedEffect(presetDeleted) {
         if (presetDeleted) {
@@ -58,6 +61,13 @@ fun MarketHomeScreen(
             viewModel.handleIntent(PresetMarketIntent.LoadTopPresets)
             onPresetDeletedConsumed()
             snackbarHostState.showSnackbar(deleteSuccessMessage)
+        }
+    }
+
+    LaunchedEffect(presetReported) {
+        if (presetReported) {
+            snackbarHostState.showSnackbar(reportSuccessMessage)
+            onPresetReportedConsumed()
         }
     }
 

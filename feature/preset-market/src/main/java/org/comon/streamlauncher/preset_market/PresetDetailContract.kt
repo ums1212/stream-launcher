@@ -26,6 +26,7 @@ sealed interface PresetDetailIntent : UiIntent {
     data object CancelDownload : PresetDetailIntent
     data class SignInWithGoogle(val idToken: String) : PresetDetailIntent
     data object DeletePreset : PresetDetailIntent
+    data object ReportPreset : PresetDetailIntent
 }
 
 sealed interface PresetDetailSideEffect : UiSideEffect {
@@ -36,4 +37,5 @@ sealed interface PresetDetailSideEffect : UiSideEffect {
     data class StartDownloadService(val presetName: String) : PresetDetailSideEffect
     data object StopDownloadService : PresetDetailSideEffect
     data object DeleteComplete : PresetDetailSideEffect
+    data object NavigateToReport : PresetDetailSideEffect
 }

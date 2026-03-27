@@ -2,6 +2,52 @@
 
 ---
 
+## [2026-03-27] feat(preset-market): 프리셋 신고하기 기능 구현 (신고 화면, 이미지 첨부, Firestore 저장)
+
+### 목표
+
+- 프리셋 상세화면 "신고하기" 플레이스홀더를 실제 신고 기능으로 교체
+- 신고 사유 입력 + 이미지 첨부(선택) → Firestore `reports` 컬렉션에 저장
+- 신고 성공 시 마켓 홈 복귀 + 스낵바 표시; 실패 시 신고 화면 스낵바; 네트워크 오류 시 설정 이동 버튼
+- 자기 프리셋에는 신고하기 메뉴 숨김
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `core/domain/.../repository/MarketPresetRepository.kt` | `reportPreset()` (imageUrl nullable 포함), `uploadImageGetPath()` 인터페이스 추가 |
+| `core/domain/.../usecase/ReportMarketPresetUseCase.kt` | 신규 생성 — `repository.reportPreset()` 위임 |
+| `core/domain/.../usecase/UploadReportImageUseCase.kt` | 신규 생성 — `repository.uploadImageGetPath()` 위임, 경로: `report-images/{uid}_{timestamp}` |
+| `core/data/.../datasource/MarketStorageDataSource.kt` | `uploadBytesGetPath()` 인터페이스 추가 (getDownloadUrl 없이 `gs://` 경로 반환) |
+| `core/data/.../datasource/FirebaseMarketStorageDataSource.kt` | `uploadBytesGetPath()` 구현 — `putBytes().await()` 후 `gs://{bucket}/{path}` 반환 |
+| `core/data/.../repository/MarketPresetRepositoryImpl.kt` | `reportPreset()` 구현 (buildMap + serverTimestamp + optional imageUrl), `uploadImageGetPath()` 구현 |
+| `feature/preset-market/.../navigation/MarketRoute.kt` | `MarketReport(presetId, presetName, presetAuthorUid, presetAuthorDisplayName)` 라우트 추가 |
+| `feature/preset-market/.../ReportPresetContract.kt` | 신규 생성 — State(reporter/author/presetName/reason/selectedImageUri/isSubmitting), Intent(UpdateReason/SelectImage/RemoveImage/Submit), SideEffect(ReportSuccess/ShowError/NetworkError) |
+| `feature/preset-market/.../ReportPresetViewModel.kt` | 신규 생성 — `savedStateHandle.toRoute<MarketReport>()`, 이미지 업로드 후 신고 제출, 람다 수신자 섀도잉 방지(로컬 변수 캡처) |
+| `feature/preset-market/.../ui/ReportPresetScreen.kt` | 신규 생성 — 신고정보 섹션, OutlinedTextField(사유), 이미지 첨부(PickVisualMedia), 썸네일 + 취소 버튼, bottomBar 제출 버튼, 네트워크 오류 스낵바(설정 이동 액션) |
+| `feature/preset-market/.../PresetDetailContract.kt` | `ReportPreset` Intent, `NavigateToReport` SideEffect 추가 |
+| `feature/preset-market/.../PresetDetailViewModel.kt` | `ReportPreset` 핸들러: `ensureSignedIn { sendEffect(NavigateToReport) }` |
+| `feature/preset-market/.../ui/PresetDetailScreen.kt` | 신고 플레이스홀더 다이얼로그 제거, `onNavigateToReport` 파라미터 추가, `!isOwnPreset`일 때만 신고 메뉴 표시 |
+| `feature/preset-market/.../ui/PresetMarketHost.kt` | `composable<MarketReport>` 추가 (onReportSuccess: savedStateHandle["presetReported"]=true 후 popBackStack(MarketHome)), MarketHome/Detail 연결 |
+| `feature/preset-market/.../ui/MarketHomeScreen.kt` | `presetReported`/`onPresetReportedConsumed` 파라미터 추가, `LaunchedEffect(presetReported)`: showSnackbar 후 onConsumed 순서 보장 |
+| `feature/preset-market/res/values/strings.xml` | 신고 관련 문자열 추가, 플레이스홀더 문자열(`report_not_ready_*`) 제거 |
+
+### 검증결과
+
+- `assembleDebug` BUILD SUCCESSFUL
+- Firebase Storage 403 오류: `getDownloadUrl` 호출을 제거하고 `gs://` 경로만 반환하는 `uploadBytesGetPath()` 신규 메서드로 해결
+- KSP `core:domain` 신규 파일 인식 오류: `./gradlew :core:domain:jar --rerun-tasks` 강제 재빌드로 해결
+
+### 설계결정 및 근거
+
+- **`uploadImageGetPath()` vs `uploadImage()`**: 신고 이미지는 앱에서 표시할 필요 없이 관리자 대시보드에서만 사용. `getDownloadUrl()`을 호출하면 Storage 보안 규칙에서 `allow read` 권한이 필요하지만, 신고 이미지는 비공개 유지가 원칙이므로 `gs://` 경로만 저장하는 별도 메서드를 추가해 Storage 읽기 규칙을 열지 않아도 되는 구조로 설계.
+- **`FirebaseNetworkException` 클래스명 문자열 비교**: `feature:preset-market`이 `core:data`에 직접 의존하지 않으므로 Firebase 타입을 참조할 수 없음. `e.javaClass.name == "com.google.firebase.FirebaseNetworkException"` 패턴으로 네트워크 오류 감지.
+- **람다 수신자 섀도잉 방지**: `updateState { copy(presetName = presetName) }` 내부에서 `this`가 `ReportPresetState`로 바뀌면 ViewModel 프로퍼티 `presetName` 대신 State의 `presetName = ""`을 참조. `val name = presetName` 로컬 변수 캡처로 해결.
+- **스낵바 취소 버그 수정**: `LaunchedEffect(presetReported)` 내에서 `onPresetReportedConsumed()`를 먼저 호출하면 key가 `false`로 변경되어 LaunchedEffect가 재시작되고 `showSnackbar()` 코루틴이 취소됨. 순서를 `showSnackbar()` → `onConsumed()` 로 바꿔 스낵바 표시 완료 후 소비.
+- **`savedStateHandle.toRoute<T>()`**: 타입 안전 라우트에서 한국어 문자열을 포함한 경로 인수는 `savedStateHandle.get<String>()` 직접 접근 시 URL 디코딩 불일치가 발생. Navigation 2.8.x의 `toRoute<T>()` 확장함수로 일관된 역직렬화 보장.
+
+---
+
 ## [2026-03-27] feat(preset-market): 애니메이션 GIF/WebP 프리뷰 이미지 지원 및 업로드 용량 제한
 
 ### 목표
