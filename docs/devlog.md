@@ -2,6 +2,50 @@
 
 ---
 
+## [2026-03-28] feat(settings): 건의하기 기능 구현
+
+### 목표
+
+- 설정 화면에 "건의하기" 메뉴 추가
+- 로그인 없이 이메일(선택), 본문, 스크린샷(PNG/JPG/WebP, 10MB 이하)을 Firestore `suggestions` 컬렉션에 저장
+- 추후 웹 대시보드에서 건의 내용 확인 가능한 구조로 설계
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `core/domain/.../repository/SuggestionRepository.kt` | **신규** — `submitSuggestion()` + `uploadSuggestionImage()` 인터페이스 |
+| `core/domain/.../usecase/SubmitSuggestionUseCase.kt` | **신규** — `operator fun invoke(email, body, imageUrl?, appVersion, deviceInfo)` |
+| `core/domain/.../usecase/UploadSuggestionImageUseCase.kt` | **신규** — `"suggestion-images/{timestamp}"` 경로로 Storage 업로드 |
+| `core/data/.../repository/SuggestionRepositoryImpl.kt` | **신규** — Firestore `suggestions` 컬렉션 저장, `ImageCompressor.compressToWebPWithMaxSize()` 사용. 기존 `MarketStorageDataSource` 재사용 |
+| `core/data/.../di/SuggestionModule.kt` | **신규** — `@Binds @Singleton` Hilt 바인딩 |
+| `core/data/.../util/ImageCompressor.kt` | `compressToWebPWithMaxSize()` 메서드 추가 — quality 10 단계씩 감소(최소 30), 초과 시 maxWidth 절반 재시도 |
+| `feature/settings/.../suggestion/SuggestionContract.kt` | **신규** — `SuggestionState` / `SuggestionIntent` / `SuggestionSideEffect` MVI 계약 |
+| `feature/settings/.../suggestion/SuggestionViewModel.kt` | **신규** — `@HiltViewModel`, 이미지 업로드 → 건의 제출 순서 처리, 네트워크 에러 분기 |
+| `feature/settings/.../suggestion/SuggestionContent.kt` | **신규** — `PickVisualMedia` 이미지 선택 후 MIME 타입 검증(PNG/JPG/WebP), 스낵바 내장, 제출 성공 시 `onBack()` 호출 |
+| `feature/settings/.../model/SettingMenuItem.kt` | `SUGGESTION` enum 추가, `Icons.Rounded.Feedback` 메뉴 항목 추가(`lerpFraction=1.0`) |
+| `feature/settings/.../navigation/SettingsRoute.kt` | `SettingsMenu.SUGGESTION` 추가 |
+| `feature/settings/.../ui/SettingsScreen.kt` | `handleItemClick` SUGGESTION 분기 추가 |
+| `feature/settings/.../ui/SettingsDetailScreen.kt` | title/content `when` 블록 SUGGESTION 분기 추가, `SuggestionContent(onBack)` 전달 |
+| `feature/settings/src/main/res/values/strings.xml` | 건의하기 관련 문자열 13개 추가 |
+
+### 검증결과
+
+- `:feature:settings:compileDebugKotlin` BUILD SUCCESSFUL (Kotlin 컴파일 오류 없음)
+- `:app:assembleDebug` BUILD SUCCESSFUL (Android Studio jar 잠금 이슈 해소 후 확인)
+- `./gradlew test` 전체 테스트 BUILD SUCCESSFUL (이전 세션 기준)
+
+### 설계결정 및 근거
+
+- **별도 Repository 분리**: `MarketPresetRepository`에 건의 기능을 합치지 않고 `SuggestionRepository`를 신규 생성. 로그인 불필요/별도 Firestore 컬렉션(`suggestions`)이라는 도메인 경계가 명확히 다르므로 단일 책임 원칙 준수.
+- **`MarketStorageDataSource` 재사용**: Storage 업로드 로직(`uploadBytesGetPath`)은 동일하므로 새 DataSource 없이 재사용. 신규 DataSource 생성은 과잉 설계.
+- **10MB 크기 제한을 Repository에서 처리**: `compressToWebPWithMaxSize()`를 `ImageCompressor`에 추가하여 압축 → 크기 검사 → 재압축의 반복 로직을 데이터 레이어에 캡슐화. UI/ViewModel은 URI만 전달.
+- **MIME 타입 검증을 Composable에서 처리**: 갤러리(Photo Picker)는 이미지 전체를 허용하되 선택 직후 `contentResolver.getType(uri)`로 PNG/JPG/WebP 여부를 확인. Repository까지 내려보내지 않고 UI 경계에서 빠르게 차단.
+- **SubmitSuccess 후 onBack 호출**: 성공 스낵바 표시(snackbar.showSnackbar suspend) 완료 후 자동 뒤로가기. `isSubmitting=true` 상태에서 화면이 멈추는 문제 해결.
+- **Firestore/Storage 보안 규칙**: `suggestions` — 비인증 create 허용, body 1~2000자·email 200자 이하·status=="pending" 서버 측 검증. `suggestion-images` — 비인증 write 허용, 10MB 이하, `image/(png|jpeg|webp)`만 허용, read 차단(Admin SDK 전용).
+
+---
+
 ## [2026-03-27] refactor(network): 네트워크 에러 핸들링 구조화 및 백그라운드 서비스 메모리 누수 수정
 
 ### 목표

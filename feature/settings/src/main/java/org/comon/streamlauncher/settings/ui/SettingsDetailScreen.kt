@@ -21,6 +21,7 @@ import org.comon.streamlauncher.settings.R
 import org.comon.streamlauncher.settings.SettingsIntent
 import org.comon.streamlauncher.settings.SettingsState
 import org.comon.streamlauncher.settings.navigation.SettingsMenu
+import org.comon.streamlauncher.settings.suggestion.SuggestionContent
 import org.comon.streamlauncher.ui.modifier.glassEffect
 import org.comon.streamlauncher.ui.theme.StreamLauncherTheme
 
@@ -43,6 +44,7 @@ fun SettingsDetailScreen(
             SettingsMenu.APP_DRAWER -> R.string.settings_app_drawer
             SettingsMenu.PRESET -> R.string.settings_preset
             SettingsMenu.LIVE_WALLPAPER -> R.string.settings_live_wallpaper
+            SettingsMenu.SUGGESTION -> R.string.settings_suggestion
         }
     )
     val accentPrimary = StreamLauncherTheme.colors.accentPrimary
@@ -98,6 +100,7 @@ fun SettingsDetailScreen(
                     state = state,
                     onIntent = onIntent,
                 )
+                SettingsMenu.SUGGESTION -> SuggestionContent(onBack = onBack)
             }
         }
     }

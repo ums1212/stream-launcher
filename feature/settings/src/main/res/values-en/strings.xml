@@ -85,6 +85,35 @@
     <string name="grid_cell_bottom_left">Bottom Left</string>
     <string name="grid_cell_bottom_right">Bottom Right</string>
 
+    <!-- Live Wallpaper -->
+    <string name="settings_live_wallpaper">Live Wallpaper</string>
+    <string name="live_wallpaper_load">Load</string>
+    <string name="live_wallpaper_create">Create</string>
+    <string name="live_wallpaper_set_as_bg">Set as Wallpaper</string>
+    <string name="live_wallpaper_name_label">Wallpaper Name</string>
+    <string name="live_wallpaper_name_hint">Enter a name</string>
+    <string name="live_wallpaper_delete_confirm">Delete this live wallpaper?</string>
+    <string name="live_wallpaper_select_for_preset">Select Live Wallpaper</string>
+    <string name="live_wallpaper_empty">No saved live wallpapers</string>
+    <string name="live_wallpaper_clear">Remove Live Wallpaper</string>
+    <string name="settings_chzzk_id_format_error">Must be a 32-character hex string</string>
+    <string name="settings_youtube_id_format_error">Must be in UC… or @handle format</string>
+
+    <!-- SuggestionContent -->
+    <string name="settings_suggestion">Feedback</string>
+    <string name="suggestion_email_label">Email (optional)</string>
+    <string name="suggestion_email_hint">Email address for replies</string>
+    <string name="suggestion_body_label">Feedback</string>
+    <string name="suggestion_body_hint">Feel free to share your suggestions or ideas</string>
+    <string name="suggestion_image_add">Attach Screenshot</string>
+    <string name="suggestion_image_change">Change Screenshot</string>
+    <string name="suggestion_image_remove">Remove Image</string>
+    <string name="suggestion_submit">Submit</string>
+    <string name="suggestion_success">Your feedback has been submitted. Thank you!</string>
+    <string name="suggestion_image_format_error">Only PNG, JPG, and WebP images are supported</string>
+    <string name="suggestion_network_error">Please check your network connection</string>
+    <string name="suggestion_network_settings">Settings</string>
+
     <!-- NoticeDialog -->
     <string name="settings_notice">Notice</string>
     <string name="notice_title">Notice</string>
