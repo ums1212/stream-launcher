@@ -3,6 +3,7 @@ package org.comon.streamlauncher.domain.usecase
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import org.comon.streamlauncher.domain.model.GridCell
+import org.comon.streamlauncher.domain.model.WallpaperOrientation
 import org.comon.streamlauncher.domain.model.preset.PresetOperationProgress
 import org.comon.streamlauncher.domain.model.preset.MarketPreset
 import org.comon.streamlauncher.domain.model.preset.Preset
@@ -49,10 +50,15 @@ class DownloadMarketPresetUseCase @Inject constructor(
         if (localPreset.hasThemeSettings) localPreset.themeColorHex?.toIntOrNull()?.let { saveColorPresetUseCase(it) }
         if (localPreset.hasWallpaperSettings) {
             if (localPreset.isLiveWallpaper && localPreset.liveWallpaperUri != null) {
-                setLiveWallpaperUseCase(null, localPreset.liveWallpaperUri)
-                return localPreset.liveWallpaperUri
+                setLiveWallpaperUseCase(null, localPreset.liveWallpaperUri, WallpaperOrientation.PORTRAIT)
             } else {
                 localPreset.wallpaperUri?.let { wallpaperHelper.setWallpaperFromPreset(it) }
+            }
+            if (localPreset.isLiveWallpaperLandscape && localPreset.liveWallpaperLandscapeUri != null) {
+                setLiveWallpaperUseCase(null, localPreset.liveWallpaperLandscapeUri, WallpaperOrientation.LANDSCAPE)
+            }
+            if (localPreset.isLiveWallpaper && localPreset.liveWallpaperUri != null) {
+                return localPreset.liveWallpaperUri
             }
         }
         return null

@@ -47,7 +47,7 @@ object SlpPacker {
         val outFile = File(outDir, "$presetId.slp")
 
         val imageEntries = buildImageEntries(preset)
-        val liveWallpaperEntry = buildLiveWallpaperEntry(preset)
+        val liveWallpaperEntries = buildLiveWallpaperEntries(preset)
         val previewEntries = previewUris.mapIndexed { i, uri -> "previews/preview_$i.webp" to uri }
 
         val manifest = buildManifest(preset, previewUris, description, tags, authorUid, authorDisplayName)
@@ -76,7 +76,7 @@ object SlpPacker {
             }
 
             // 라이브 배경화면(동영상/GIF) — 원본 바이트 그대로 STORED
-            liveWallpaperEntry?.let { (entryPath, localUri) ->
+            liveWallpaperEntries.forEach { (entryPath, localUri) ->
                 val bytes = readRawFile(localUri)
                 if (bytes.isNotEmpty()) {
                     val crc = CRC32().also { it.update(bytes) }
@@ -134,6 +134,12 @@ object SlpPacker {
                     preset.wallpaperUri?.isLocalUri() == true -> "images/wallpaper.webp"
                     else -> null
                 },
+                wallpaperLandscape = if (preset.isLiveWallpaperLandscape) {
+                    val lwUri = preset.liveWallpaperLandscapeUri
+                    if (lwUri?.isLocalUri() == true) {
+                        "images/wallpaper_landscape.${lwUri.substringAfterLast('.', "mp4")}"
+                    } else null
+                } else null,
             ),
             previews  = previewPaths,
             cellFlags = SlpCellFlags(
@@ -155,9 +161,10 @@ object SlpPacker {
                 iconSizeRatio = preset.appDrawerIconSizeRatio,
             ) else null,
             wallpaperSettings = if (preset.hasWallpaperSettings) SlpWallpaperSettings(
-                enabled          = true,
-                enableParallax   = preset.enableParallax,
-                isLiveWallpaper  = preset.isLiveWallpaper,
+                enabled                  = true,
+                enableParallax           = preset.enableParallax,
+                isLiveWallpaper          = preset.isLiveWallpaper,
+                isLiveWallpaperLandscape = preset.isLiveWallpaperLandscape,
             ) else null,
             themeSettings = if (preset.hasThemeSettings) SlpThemeSettings(
                 enabled  = true,
@@ -182,13 +189,21 @@ object SlpPacker {
             if (!preset.isLiveWallpaper) preset.wallpaperUri?.takeIf { it.isLocalUri() }?.let { "images/wallpaper.webp" to it } else null,
         )
 
-    private fun buildLiveWallpaperEntry(preset: Preset): Pair<String, String>? {
-        if (!preset.isLiveWallpaper) return null
-        val lwUri = preset.liveWallpaperUri ?: return null
-        if (!lwUri.isLocalUri()) return null
-        val ext = lwUri.substringAfterLast('.', "mp4")
-        return "images/wallpaper.$ext" to lwUri
-    }
+    private fun buildLiveWallpaperEntries(preset: Preset): List<Pair<String, String>> =
+        listOfNotNull(
+            if (preset.isLiveWallpaper) {
+                val lwUri = preset.liveWallpaperUri
+                if (lwUri?.isLocalUri() == true) {
+                    "images/wallpaper.${lwUri.substringAfterLast('.', "mp4")}" to lwUri
+                } else null
+            } else null,
+            if (preset.isLiveWallpaperLandscape) {
+                val lwUri = preset.liveWallpaperLandscapeUri
+                if (lwUri?.isLocalUri() == true) {
+                    "images/wallpaper_landscape.${lwUri.substringAfterLast('.', "mp4")}" to lwUri
+                } else null
+            } else null,
+        )
 
     private fun readRawFile(uri: String): ByteArray =
         try { File(uri).readBytes() } catch (_: Exception) { ByteArray(0) }

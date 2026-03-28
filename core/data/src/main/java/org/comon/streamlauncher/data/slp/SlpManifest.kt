@@ -32,6 +32,7 @@ data class SlpImagePaths(
     val bottomRightIdle: String? = null,
     val bottomRightExpanded: String? = null,
     val wallpaper: String? = null,
+    val wallpaperLandscape: String? = null,
 )
 
 @Serializable
@@ -63,6 +64,7 @@ data class SlpWallpaperSettings(
     val enabled: Boolean = false,
     val enableParallax: Boolean = false,
     val isLiveWallpaper: Boolean = false,
+    val isLiveWallpaperLandscape: Boolean = false,
 )
 
 @Serializable

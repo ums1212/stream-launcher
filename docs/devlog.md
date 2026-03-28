@@ -2,6 +2,57 @@
 
 ---
 
+## [2026-03-28] feat(preset): 프리셋/마켓 저장·로드·업로드·다운로드에 landscape 배경화면 지원 추가
+
+### 목표
+
+- 프리셋 저장/로드 및 마켓 업로드/다운로드 흐름에서 portrait/landscape 방향별 배경화면을 모두 반영
+- `Preset` 모델, Room DB, SLP 포맷 전체에 landscape 라이브 배경화면 필드를 추가하고 하위 호환성 유지
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `core/domain/.../model/preset/Preset.kt` | `isLiveWallpaperLandscape`, `liveWallpaperLandscapeUri` 필드 추가 |
+| `core/data/.../local/room/preset/PresetEntity.kt` | landscape 필드 2개 추가; `toDomain()` / `toEntity()` 매퍼 반영 |
+| `core/data/.../local/room/AppDatabase.kt` | version 5→6; `MIGRATION_5_6` 추가 (ALTER TABLE 2개) |
+| `core/data/.../di/DatabaseModule.kt` | `MIGRATION_5_6` 마이그레이션 등록 |
+| `core/data/.../slp/SlpManifest.kt` | `SlpImagePaths.wallpaperLandscape`, `SlpWallpaperSettings.isLiveWallpaperLandscape` 추가 |
+| `core/data/.../slp/SlpPacker.kt` | `buildManifest()`에 landscape 경로 추가; `buildLiveWallpaperEntry()` → `buildLiveWallpaperEntries()` (portrait+landscape) |
+| `core/data/.../slp/SlpMapper.kt` | `toLocalPreset()`에 `isLiveWallpaperLandscape`, `liveWallpaperLandscapeUri` 매핑 추가 |
+| `core/domain/.../usecase/DownloadMarketPresetUseCase.kt` | `applySettings()`에서 portrait/landscape 각각 `WallpaperOrientation` 명시; landscape도 별도 적용 |
+| `feature/settings/.../SettingsContract.kt` | `SavePreset` intent에 `wallpaperLandscapeUri`, `isLiveWallpaperLandscape` 추가 |
+| `feature/settings/.../SettingsViewModel.kt` | `savePreset()` — Preset 생성 시 landscape 필드 포함; `loadPreset()` — landscape 배경화면도 LANDSCAPE orientation으로 적용 |
+| `feature/settings/.../ui/SavePresetDialog.kt` | landscape 라이브 배경화면 선택 섹션 + 별도 picker 다이얼로그 추가; `onConfirm` 람다에 landscape 파라미터 추가 |
+| `feature/settings/.../ui/PresetSettingsContent.kt` | landscape 파라미터를 `SavePreset` intent에 전달 |
+| `feature/settings/res/values/strings.xml` | `preset_wallpaper_landscape_optional`, `preset_wallpaper_landscape_none` 추가 |
+
+### 검증결과
+
+- `:feature:settings:compileDebugKotlin` BUILD SUCCESSFUL (Kotlin 컴파일 성공)
+- Android Studio 파일 잠금으로 인해 `assembleDebug` / `test` 전체 실행은 Android Studio 종료 후 별도 확인 필요
+- 기존 portrait 전용 프리셋은 `isLiveWallpaperLandscape = false` (기본값)로 자동 호환
+
+### 설계결정 및 근거
+
+**Room DB version 6 마이그레이션**
+
+landscape 필드(`isLiveWallpaperLandscape`, `liveWallpaperLandscapeUri`)를 `presets` 테이블에 nullable/default 컬럼으로 추가하는 단순 ALTER TABLE이므로 기존 데이터 보존 가능. 테이블 재생성 불필요.
+
+**SLP 포맷 하위 호환성 유지**
+
+`SlpManifest`는 `@Serializable`에 기본값을 모두 제공하고, `SlpUnpacker`는 `ignoreUnknownKeys = true`로 파싱한다. 구버전 SLP(landscape 없음) → 새 앱: `wallpaperLandscape = null`, `isLiveWallpaperLandscape = false` 기본값으로 정상 동작. 새 SLP → 구버전 앱: 미지 키 무시, landscape 배경화면만 누락하고 나머지 정상 동작. `formatVersion`은 1 유지 (non-breaking change).
+
+**`DownloadMarketPresetUseCase` 수정 — 기존 `return` 로직 보존**
+
+기존 코드는 live wallpaper 적용 후 URI를 반환해 진행률 Flow의 `liveWallpaperUri` 필드에 전달했다. portrait URI를 우선 반환값으로 유지하면서 landscape도 추가 적용하도록 순서를 조정했다.
+
+**`SavePresetDialog` — landscape는 선택사항**
+
+portrait 배경화면은 필수 선택(체크박스 활성화 시)이지만, landscape는 선택사항으로 처리한다. 세로 배경화면만 설정한 기존 사용자가 프리셋을 저장할 때 landscape 항목을 강제하지 않도록 "없음" 옵션 포함.
+
+---
+
 ## [2026-03-28] feat(wallpaper): portrait/landscape 방향별 배경화면 지원 + 정적 이미지 WallpaperService 통합
 
 ### 목표

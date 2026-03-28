@@ -49,6 +49,8 @@ data class PresetEntity(
     val marketPresetId: String? = null,
     val isLiveWallpaper: Boolean = false,
     val liveWallpaperUri: String? = null,
+    val isLiveWallpaperLandscape: Boolean = false,
+    val liveWallpaperLandscapeUri: String? = null,
 )
 
 fun PresetEntity.toDomain() = Preset(
@@ -83,6 +85,8 @@ fun PresetEntity.toDomain() = Preset(
     marketPresetId = marketPresetId,
     isLiveWallpaper = isLiveWallpaper,
     liveWallpaperUri = liveWallpaperUri,
+    isLiveWallpaperLandscape = isLiveWallpaperLandscape,
+    liveWallpaperLandscapeUri = liveWallpaperLandscapeUri,
 )
 
 fun Preset.toEntity() = PresetEntity(
@@ -117,4 +121,6 @@ fun Preset.toEntity() = PresetEntity(
     marketPresetId = marketPresetId,
     isLiveWallpaper = isLiveWallpaper,
     liveWallpaperUri = liveWallpaperUri,
+    isLiveWallpaperLandscape = isLiveWallpaperLandscape,
+    liveWallpaperLandscapeUri = liveWallpaperLandscapeUri,
 )

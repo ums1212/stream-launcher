@@ -11,7 +11,7 @@ import org.comon.streamlauncher.data.local.room.preset.PresetEntity
 
 @Database(
     entities = [PresetEntity::class, LiveWallpaperEntity::class],
-    version = 5,
+    version = 6,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -98,6 +98,14 @@ abstract class AppDatabase : RoomDatabase() {
                         createdAt INTEGER NOT NULL
                     )
                 """.trimIndent())
+            }
+        }
+
+        // presets 테이블에 landscape 라이브 배경화면 컬럼 추가
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE presets ADD COLUMN isLiveWallpaperLandscape INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE presets ADD COLUMN liveWallpaperLandscapeUri TEXT DEFAULT NULL")
             }
         }
     }

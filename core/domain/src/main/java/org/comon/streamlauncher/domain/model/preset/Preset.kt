@@ -44,4 +44,6 @@ data class Preset(
     // 6. Live Wallpaper Settings
     val isLiveWallpaper: Boolean = false,
     val liveWallpaperUri: String? = null,
+    val isLiveWallpaperLandscape: Boolean = false,
+    val liveWallpaperLandscapeUri: String? = null,
 )

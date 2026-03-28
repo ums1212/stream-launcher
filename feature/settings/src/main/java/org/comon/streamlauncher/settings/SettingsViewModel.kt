@@ -301,6 +301,8 @@ class SettingsViewModel @Inject constructor(
                 themeColorHex = if (intent.saveTheme) state.colorPresetIndex.toString() else null,
                 isLiveWallpaper = intent.isLiveWallpaper,
                 liveWallpaperUri = if (intent.isLiveWallpaper) intent.wallpaperUri else null,
+                isLiveWallpaperLandscape = intent.isLiveWallpaperLandscape,
+                liveWallpaperLandscapeUri = if (intent.isLiveWallpaperLandscape) intent.wallpaperLandscapeUri else null,
             )
             runCatching { savePresetUseCase(preset) }
                 .onFailure { error ->
@@ -332,12 +334,15 @@ class SettingsViewModel @Inject constructor(
                 }
                 if (intent.loadWallpaper && preset.hasWallpaperSettings) {
                     if (preset.isLiveWallpaper && preset.liveWallpaperUri != null) {
-                        setLiveWallpaperUseCase(preset.id, preset.liveWallpaperUri)
+                        setLiveWallpaperUseCase(preset.id, preset.liveWallpaperUri, WallpaperOrientation.PORTRAIT)
                         sendEffect(SettingsSideEffect.LaunchLiveWallpaperPicker)
                     } else {
                         preset.wallpaperUri?.let { uri ->
                             wallpaperHelper.setWallpaperFromPreset(uri)
                         }
+                    }
+                    if (preset.isLiveWallpaperLandscape && preset.liveWallpaperLandscapeUri != null) {
+                        setLiveWallpaperUseCase(preset.id, preset.liveWallpaperLandscapeUri, WallpaperOrientation.LANDSCAPE)
                     }
                 }
             }.onFailure { error ->

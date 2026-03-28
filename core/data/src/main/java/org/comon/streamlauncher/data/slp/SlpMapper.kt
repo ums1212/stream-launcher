@@ -43,10 +43,14 @@ fun SlpManifest.toLocalPreset(
     hasThemeSettings      = themeSettings?.enabled ?: false,
     themeColorHex         = themeSettings?.colorHex,
     marketPresetId        = marketPresetId,
-    isLiveWallpaper       = wallpaperSettings?.isLiveWallpaper ?: false,
-    liveWallpaperUri      = if (wallpaperSettings?.isLiveWallpaper == true)
-                                images.wallpaper?.let { extractedPaths[it] }
-                            else null,
+    isLiveWallpaper             = wallpaperSettings?.isLiveWallpaper ?: false,
+    liveWallpaperUri            = if (wallpaperSettings?.isLiveWallpaper == true)
+                                      images.wallpaper?.let { extractedPaths[it] }
+                                  else null,
+    isLiveWallpaperLandscape    = wallpaperSettings?.isLiveWallpaperLandscape ?: false,
+    liveWallpaperLandscapeUri   = if (wallpaperSettings?.isLiveWallpaperLandscape == true)
+                                      images.wallpaperLandscape?.let { extractedPaths[it] }
+                                  else null,
 )
 
 /**

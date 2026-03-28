@@ -41,7 +41,9 @@ internal fun SavePresetDialog(
                 saveWallpaper: Boolean,
                 saveTheme: Boolean,
                 wallpaperUri: String?,
-                isLiveWallpaper: Boolean) -> Unit,
+                isLiveWallpaper: Boolean,
+                wallpaperLandscapeUri: String?,
+                isLiveWallpaperLandscape: Boolean) -> Unit,
 ) {
     var name by remember { mutableStateOf("") }
     val defaultPresetNameFormat = stringResource(R.string.preset_default_name)
@@ -57,8 +59,12 @@ internal fun SavePresetDialog(
     // 전환 취소 시 복원을 위한 임시 저장
     var pendingPreviousWallpaperUri by remember { mutableStateOf<String?>(null) }
     var pendingPreviousLiveWallpaperId by remember { mutableStateOf<Int?>(null) }
+    // 가로 라이브 배경화면
+    var selectedLiveWallpaperLandscapeId by remember { mutableStateOf<Int?>(null) }
+    var showLiveWallpaperLandscapePicker by remember { mutableStateOf(false) }
 
     val selectedLiveWallpaperUri = liveWallpapers.find { it.id == selectedLiveWallpaperId }?.fileUri
+    val selectedLiveWallpaperLandscapeUri = liveWallpapers.find { it.id == selectedLiveWallpaperLandscapeId }?.fileUri
 
     val wallpaperPicker = rememberLauncherForActivityResult(PickVisualMedia()) { uri ->
         if (uri != null) {
@@ -94,6 +100,7 @@ internal fun SavePresetDialog(
                 CheckboxRow(stringResource(R.string.preset_item_home), saveHome, onCheckedChange = { saveHome = it })
                 CheckboxRow(stringResource(R.string.preset_item_feed), saveFeed, onCheckedChange = { saveFeed = it })
                 CheckboxRow(stringResource(R.string.preset_item_drawer), saveDrawer, onCheckedChange = { saveDrawer = it })
+                CheckboxRow(stringResource(R.string.preset_item_theme), saveTheme, onCheckedChange = { saveTheme = it })
 
                 CheckboxRow(
                     label = stringResource(R.string.preset_item_wallpaper),
@@ -160,7 +167,33 @@ internal fun SavePresetDialog(
                     }
                 }
 
-                CheckboxRow(stringResource(R.string.preset_item_theme), saveTheme, onCheckedChange = { saveTheme = it })
+                // 가로 라이브 배경화면 (선택사항)
+                if (liveWallpapers.isNotEmpty() && saveWallpaper) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        stringResource(R.string.preset_wallpaper_landscape_optional),
+                        style = MaterialTheme.typography.labelMedium,
+                    )
+                    RadioButtonRow(
+                        label = stringResource(R.string.live_wallpaper_select_for_preset) +
+                                if (selectedLiveWallpaperLandscapeId != null) " ✓" else "",
+                        selected = selectedLiveWallpaperLandscapeId != null,
+                        onClick = { showLiveWallpaperLandscapePicker = true },
+                    ) {
+                        val selectedLw = liveWallpapers.find { it.id == selectedLiveWallpaperLandscapeId }
+                        val thumbUri = selectedLw?.thumbnailUri ?: selectedLw?.fileUri
+                        if (thumbUri != null) {
+                            AsyncImage(
+                                model = thumbUri,
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .size(72.dp)
+                                    .clip(RoundedCornerShape(8.dp)),
+                                contentScale = ContentScale.Crop,
+                            )
+                        }
+                    }
+                }
             }
         },
         confirmButton = {
@@ -174,6 +207,8 @@ internal fun SavePresetDialog(
                             if (useLiveWallpaper) selectedLiveWallpaperUri else selectedWallpaperUri
                         } else null,
                         saveWallpaper && useLiveWallpaper && selectedLiveWallpaperId != null,
+                        if (saveWallpaper) selectedLiveWallpaperLandscapeUri else null,
+                        saveWallpaper && selectedLiveWallpaperLandscapeId != null,
                     )
                 }
             ) {
@@ -186,6 +221,35 @@ internal fun SavePresetDialog(
             }
         }
     )
+
+    // 가로 라이브 배경화면 선택 다이얼로그
+    if (showLiveWallpaperLandscapePicker) {
+        AlertDialog(
+            onDismissRequest = { showLiveWallpaperLandscapePicker = false },
+            title = { Text(stringResource(R.string.live_wallpaper_select_for_preset)) },
+            text = {
+                Column {
+                    RadioButtonRow(
+                        label = stringResource(R.string.preset_wallpaper_landscape_none),
+                        selected = selectedLiveWallpaperLandscapeId == null,
+                        onClick = { selectedLiveWallpaperLandscapeId = null },
+                    )
+                    liveWallpapers.forEach { lw ->
+                        RadioButtonRow(
+                            label = lw.name,
+                            selected = selectedLiveWallpaperLandscapeId == lw.id,
+                            onClick = { selectedLiveWallpaperLandscapeId = lw.id },
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showLiveWallpaperLandscapePicker = false }) {
+                    Text(stringResource(R.string.preset_confirm))
+                }
+            },
+        )
+    }
 
     // 라이브 배경화면 선택 다이얼로그
     if (showLiveWallpaperPicker) {
