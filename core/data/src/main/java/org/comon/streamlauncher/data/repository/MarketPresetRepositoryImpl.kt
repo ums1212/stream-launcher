@@ -92,10 +92,13 @@ class MarketPresetRepositoryImpl @Inject constructor(
 
     override suspend fun uploadImageGetPath(localUri: String, storagePath: String, maxWidth: Int, quality: Int): Result<String> =
         runCatching {
+            val maxSizeBytes = 10L * 1024 * 1024
             val bytes = if (localUri.startsWith("/")) {
-                ImageCompressor.compressToWebP(File(localUri), maxWidth, quality)
+                ImageCompressor.compressToWebP(File(localUri), maxWidth, quality).also {
+                    require(it.size <= maxSizeBytes) { "이미지 크기가 10MB를 초과합니다" }
+                }
             } else {
-                ImageCompressor.compressToWebP(context, localUri.toUri(), maxWidth, quality)
+                ImageCompressor.compressToWebPWithMaxSize(context, localUri.toUri(), maxWidth, quality, maxSizeBytes)
             }
             storageDataSource.uploadBytesGetPath(bytes, storagePath)
         }
