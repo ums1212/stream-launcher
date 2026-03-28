@@ -3,6 +3,7 @@ package org.comon.streamlauncher.settings
 import org.comon.streamlauncher.domain.model.GridCell
 import org.comon.streamlauncher.domain.model.GridCellImage
 import org.comon.streamlauncher.domain.model.LiveWallpaper
+import org.comon.streamlauncher.domain.model.WallpaperOrientation
 import org.comon.streamlauncher.domain.model.preset.Preset
 import org.comon.streamlauncher.domain.model.preset.PresetOperationProgress
 import org.comon.streamlauncher.settings.model.ImageType
@@ -27,8 +28,11 @@ data class SettingsState(
     val pendingUploadPresetName: String? = null,
     val isSignedIn: Boolean = false,
     val liveWallpapers: List<LiveWallpaper> = emptyList(),
+    val selectedOrientationTab: WallpaperOrientation = WallpaperOrientation.PORTRAIT,
     val selectedLiveWallpaperUri: String? = null,
     val selectedLiveWallpaperId: Int? = null,
+    val selectedLiveWallpaperLandscapeUri: String? = null,
+    val selectedLiveWallpaperLandscapeId: Int? = null,
 ) : UiState
 
 sealed interface SettingsIntent : UiIntent {
@@ -76,9 +80,16 @@ sealed interface SettingsIntent : UiIntent {
     data class LoadLiveWallpaperFile(val uri: String) : SettingsIntent
     data class CreateLiveWallpaper(val name: String) : SettingsIntent
     data class SelectLiveWallpaper(val id: Int, val uri: String) : SettingsIntent
-    data class SetActiveLiveWallpaper(val id: Int, val uri: String) : SettingsIntent
+    data class SetActiveLiveWallpaper(
+        val id: Int,
+        val uri: String,
+        val orientation: WallpaperOrientation = WallpaperOrientation.PORTRAIT,
+    ) : SettingsIntent
     data class DeleteLiveWallpaper(val id: Int) : SettingsIntent
-    data object ClearActiveLiveWallpaper : SettingsIntent
+    data class ClearActiveLiveWallpaper(
+        val orientation: WallpaperOrientation = WallpaperOrientation.PORTRAIT,
+    ) : SettingsIntent
+    data class SwitchOrientationTab(val orientation: WallpaperOrientation) : SettingsIntent
 }
 
 sealed interface SettingsSideEffect : UiSideEffect {

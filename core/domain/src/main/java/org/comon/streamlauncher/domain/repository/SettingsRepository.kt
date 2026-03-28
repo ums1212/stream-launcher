@@ -3,6 +3,7 @@ package org.comon.streamlauncher.domain.repository
 import kotlinx.coroutines.flow.Flow
 import org.comon.streamlauncher.domain.model.GridCell
 import org.comon.streamlauncher.domain.model.LauncherSettings
+import org.comon.streamlauncher.domain.model.WallpaperOrientation
 
 interface SettingsRepository {
     fun getSettings(): Flow<LauncherSettings>
@@ -17,6 +18,6 @@ interface SettingsRepository {
     suspend fun setAppDrawerSettings(columns: Int, rows: Int, iconSizeRatio: Float)
     suspend fun getLastShownNoticeVersion(): String?
     suspend fun setLastShownNoticeVersion(version: String)
-    suspend fun setLiveWallpaper(id: Int?, uri: String?)
+    suspend fun setLiveWallpaper(id: Int?, uri: String?, orientation: WallpaperOrientation = WallpaperOrientation.PORTRAIT)
     fun getLiveWallpaperUri(): Flow<String?>
 }

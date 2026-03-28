@@ -2,6 +2,53 @@
 
 ---
 
+## [2026-03-28] feat(wallpaper): portrait/landscape 방향별 배경화면 지원 + 정적 이미지 WallpaperService 통합
+
+### 목표
+
+- 라이브 배경화면(동영상/GIF)을 세로/가로 방향별로 다르게 설정할 수 있도록 지원
+- 정적 이미지(jpg/png/webp)도 `VideoLiveWallpaperService`에서 직접 렌더링해 동일한 방향 전환 메커니즘 적용
+- `WallpaperManager.setStream()` 방식은 회전마다 시스템 전역 브로드캐스트를 발생시켜 배터리·UX 문제가 있으므로 WallpaperService 통합으로 해결
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `core/domain/.../model/WallpaperOrientation.kt` | **신규** — `PORTRAIT`, `LANDSCAPE` enum |
+| `core/domain/.../model/LauncherSettings.kt` | `liveWallpaperLandscapeId`, `liveWallpaperLandscapeUri` 필드 추가 |
+| `core/domain/.../repository/SettingsRepository.kt` | `setLiveWallpaper()` orientation 파라미터 추가 |
+| `core/domain/.../usecase/SetLiveWallpaperUseCase.kt` | orientation 파라미터 위임 |
+| `core/data/.../repository/SettingsRepositoryImpl.kt` | `live_wallpaper_uri_landscape.txt` 파일 및 DataStore landscape 키 추가; `setLiveWallpaper()` orientation 분기 |
+| `core/data/.../repository/LiveWallpaperRepositoryImpl.kt` | `resolveExtension()` jpg/png/webp MIME 추가; `generateThumbnail()` 정적 이미지 지원 (`ImageDecoder.decodeBitmap`) |
+| `app/.../service/VideoLiveWallpaperService.kt` | `portraitUri`/`landscapeUri`/`isLandscape` 상태 추가; `loadAndApplyUri()`에서 `holder.surfaceFrame`으로 방향 재결정; `onSurfaceChanged()` 방향 전환 분기; `onSurfaceDestroyed()`에서 URI 변수 초기화; `startStaticImageRendering()` 신규 (Choreographer 없이 1회 Canvas draw); 파일 피커 `image/*` 확장 |
+| `feature/settings/.../SettingsContract.kt` | `selectedOrientationTab`, `selectedLiveWallpaperLandscapeUri/Id` 상태 추가; `SwitchOrientationTab` intent 추가; `SetActiveLiveWallpaper`/`ClearActiveLiveWallpaper`에 orientation 파라미터 추가 |
+| `feature/settings/.../SettingsViewModel.kt` | orientation 분기 핸들러; init에서 landscape 설정 상태 반영; `createLiveWallpaper()` 탭 기준 URI 선택 |
+| `feature/settings/.../ui/LiveWallpaperSettingsContent.kt` | 세로/가로 `TabRow` 추가; 탭별 독립 선택·미리보기·설정 버튼; 정적 이미지 `AsyncImage` 미리보기 |
+| `feature/settings/res/values/strings.xml` | `wallpaper_orientation_portrait/landscape`, `wallpaper_landscape_fallback_hint` 추가 |
+| `feature/settings/src/test/.../SettingsViewModelTest.kt` | 8개 신규 테스트 추가 (총 21개) |
+
+### 검증결과
+
+- `assembleDebug` BUILD SUCCESSFUL
+- `test` BUILD SUCCESSFUL — 전체 테스트 실패 0건
+- 기기 테스트: portrait 설정 후 landscape 회전 시 미전환 버그 발견 → `loadAndApplyUri()` surfaceFrame 수정으로 해결
+
+### 설계결정 및 근거
+
+**정적 이미지를 WallpaperService로 통합한 이유**
+
+`WallpaperManager.setStream()`은 시스템이 단일 이미지를 관리하는 API로 portrait/landscape 분기를 지원하지 않는다. 회전마다 `setStream()`을 호출하면 이미지 인코딩(CPU 100~300ms), 디스크 쓰기, `ACTION_WALLPAPER_CHANGED` 브로드캐스트(시스템 전역 프로세스 깨움)가 발생한다. 정적 이미지를 WallpaperService에서 Canvas에 1회 draw하면 Choreographer 루프가 없어 CPU 상시 비용이 없고, Surface 크기 변경 시에만 재드로우하므로 배터리 영향이 미미하다.
+
+**`holder.surfaceFrame`으로 방향 재결정하는 이유**
+
+Samsung 기기는 화면 회전 시 Surface를 파괴·재생성(`onSurfaceDestroyed` → `onSurfaceCreated` → `onSurfaceChanged`)한다. `onSurfaceCreated`에서 `loadAndApplyUri`가 큐에 등록되고, `onSurfaceChanged`가 동기적으로 먼저 실행된 후 코루틴이 실행된다. 코루틴 실행 시점에 `holder.surfaceFrame`을 읽으면 이미 `onSurfaceChanged`가 완료된 후이므로 Surface의 실제 현재 방향을 정확히 알 수 있다. `isLandscape` 초기값(`false`)에 의존하지 않아 Surface 재생성 시나리오에서도 올바른 URI를 적용한다.
+
+**landscape fallback 정책**
+
+landscape URI가 미설정인 경우 portrait URI를 fallback으로 사용한다. DataStore에 landscape 키가 없으면 null이 되므로 기존 사용자는 변경 없이 기존 동작 유지 (하위 호환). Room DB 스키마 변경 없음 (version 5 유지).
+
+---
+
 ## [2026-03-28] refactor(wallpaper): 라이브 배경화면 프로세스 완전 분리 (android:process=":wallpaper")
 
 ### 목표

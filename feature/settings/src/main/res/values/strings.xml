@@ -11,6 +11,9 @@
     <string name="live_wallpaper_select_for_preset">라이브 배경화면 선택</string>
     <string name="live_wallpaper_empty">저장된 라이브 배경화면이 없습니다</string>
     <string name="live_wallpaper_clear">라이브 배경화면 해제</string>
+    <string name="wallpaper_orientation_portrait">세로</string>
+    <string name="wallpaper_orientation_landscape">가로</string>
+    <string name="wallpaper_landscape_fallback_hint">가로 배경화면이 없으면 세로 배경화면이 사용됩니다</string>
     <string name="settings_theme_color">테마 컬러</string>
     <string name="settings_home_image">홈 이미지</string>
     <string name="settings_app_drawer">앱 서랍</string>

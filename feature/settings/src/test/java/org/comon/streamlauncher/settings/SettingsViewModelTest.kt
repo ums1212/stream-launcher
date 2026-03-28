@@ -11,6 +11,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.comon.streamlauncher.domain.model.GridCell
 import org.comon.streamlauncher.domain.model.LauncherSettings
+import org.comon.streamlauncher.domain.model.WallpaperOrientation
 import org.comon.streamlauncher.domain.usecase.CheckNoticeUseCase
 import org.comon.streamlauncher.domain.usecase.DeletePresetUseCase
 import org.comon.streamlauncher.domain.usecase.DismissNoticeUseCase
@@ -34,6 +35,7 @@ import org.comon.streamlauncher.settings.model.ImageType
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -322,5 +324,101 @@ class SettingsViewModelTest {
         testDispatcher.scheduler.advanceUntilIdle()
 
         assertFalse(viewModel.uiState.value.showNoticeDialog)
+    }
+
+    // 14. SwitchOrientationTab → selectedOrientationTab 상태 업데이트
+    @Test
+    fun `SwitchOrientationTab LANDSCAPE 처리 시 selectedOrientationTab이 LANDSCAPE로 변경됨`() = runTest {
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(WallpaperOrientation.PORTRAIT, viewModel.uiState.value.selectedOrientationTab)
+
+        viewModel.handleIntent(SettingsIntent.SwitchOrientationTab(WallpaperOrientation.LANDSCAPE))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(WallpaperOrientation.LANDSCAPE, viewModel.uiState.value.selectedOrientationTab)
+    }
+
+    // 15. SwitchOrientationTab PORTRAIT → 다시 PORTRAIT로 복귀
+    @Test
+    fun `SwitchOrientationTab PORTRAIT 처리 시 selectedOrientationTab이 PORTRAIT로 변경됨`() = runTest {
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.handleIntent(SettingsIntent.SwitchOrientationTab(WallpaperOrientation.LANDSCAPE))
+        testDispatcher.scheduler.advanceUntilIdle()
+        viewModel.handleIntent(SettingsIntent.SwitchOrientationTab(WallpaperOrientation.PORTRAIT))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(WallpaperOrientation.PORTRAIT, viewModel.uiState.value.selectedOrientationTab)
+    }
+
+    // 16. SetActiveLiveWallpaper PORTRAIT → setLiveWallpaperUseCase PORTRAIT로 호출
+    @Test
+    fun `SetActiveLiveWallpaper PORTRAIT 처리 시 setLiveWallpaperUseCase가 PORTRAIT로 호출됨`() = runTest {
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.handleIntent(SettingsIntent.SetActiveLiveWallpaper(1, "/path/a.mp4", WallpaperOrientation.PORTRAIT))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        coVerify { setLiveWallpaperUseCase(1, "/path/a.mp4", WallpaperOrientation.PORTRAIT) }
+    }
+
+    // 17. SetActiveLiveWallpaper LANDSCAPE → setLiveWallpaperUseCase LANDSCAPE로 호출
+    @Test
+    fun `SetActiveLiveWallpaper LANDSCAPE 처리 시 setLiveWallpaperUseCase가 LANDSCAPE로 호출됨`() = runTest {
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.handleIntent(SettingsIntent.SetActiveLiveWallpaper(2, "/path/b.mp4", WallpaperOrientation.LANDSCAPE))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        coVerify { setLiveWallpaperUseCase(2, "/path/b.mp4", WallpaperOrientation.LANDSCAPE) }
+    }
+
+    // 18. ClearActiveLiveWallpaper PORTRAIT → setLiveWallpaperUseCase(null, null, PORTRAIT) 호출
+    @Test
+    fun `ClearActiveLiveWallpaper PORTRAIT 처리 시 setLiveWallpaperUseCase가 null로 호출됨`() = runTest {
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.handleIntent(SettingsIntent.ClearActiveLiveWallpaper(WallpaperOrientation.PORTRAIT))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        coVerify { setLiveWallpaperUseCase(null, null, WallpaperOrientation.PORTRAIT) }
+    }
+
+    // 19. ClearActiveLiveWallpaper LANDSCAPE → setLiveWallpaperUseCase(null, null, LANDSCAPE) 호출
+    @Test
+    fun `ClearActiveLiveWallpaper LANDSCAPE 처리 시 setLiveWallpaperUseCase가 LANDSCAPE null로 호출됨`() = runTest {
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.handleIntent(SettingsIntent.ClearActiveLiveWallpaper(WallpaperOrientation.LANDSCAPE))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        coVerify { setLiveWallpaperUseCase(null, null, WallpaperOrientation.LANDSCAPE) }
+    }
+
+    // 20. LoadLiveWallpaperFile - portrait 탭에서 portrait URI 업데이트
+    @Test
+    fun `LoadLiveWallpaperFile - portrait 탭에서 selectedLiveWallpaperUri가 업데이트됨`() = runTest {
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.handleIntent(SettingsIntent.SwitchOrientationTab(WallpaperOrientation.PORTRAIT))
+        viewModel.handleIntent(SettingsIntent.LoadLiveWallpaperFile("content://media/1"))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("content://media/1", viewModel.uiState.value.selectedLiveWallpaperUri)
+        assertNull(viewModel.uiState.value.selectedLiveWallpaperLandscapeUri)
+    }
+
+    // 21. LoadLiveWallpaperFile - landscape 탭에서 landscape URI 업데이트
+    @Test
+    fun `LoadLiveWallpaperFile - landscape 탭에서 selectedLiveWallpaperLandscapeUri가 업데이트됨`() = runTest {
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.handleIntent(SettingsIntent.SwitchOrientationTab(WallpaperOrientation.LANDSCAPE))
+        viewModel.handleIntent(SettingsIntent.LoadLiveWallpaperFile("content://media/2"))
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("content://media/2", viewModel.uiState.value.selectedLiveWallpaperLandscapeUri)
+        assertNull(viewModel.uiState.value.selectedLiveWallpaperUri)
     }
 }

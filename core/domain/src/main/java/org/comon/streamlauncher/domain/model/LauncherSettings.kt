@@ -12,4 +12,6 @@ data class LauncherSettings(
     val appDrawerIconSizeRatio: Float = 1.0f,
     val liveWallpaperId: Int? = null,
     val liveWallpaperUri: String? = null,
+    val liveWallpaperLandscapeId: Int? = null,
+    val liveWallpaperLandscapeUri: String? = null,
 )

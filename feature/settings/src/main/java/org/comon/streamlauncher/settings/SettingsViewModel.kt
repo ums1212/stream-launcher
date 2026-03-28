@@ -5,6 +5,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
 import org.comon.streamlauncher.domain.model.GridCell
 import org.comon.streamlauncher.domain.model.GridCellImage
+import org.comon.streamlauncher.domain.model.WallpaperOrientation
 import org.comon.streamlauncher.domain.model.preset.Preset
 import org.comon.streamlauncher.domain.usecase.CheckNoticeUseCase
 import org.comon.streamlauncher.domain.usecase.DeleteLiveWallpaperUseCase
@@ -74,6 +75,10 @@ class SettingsViewModel @Inject constructor(
                         appDrawerGridColumns = settings.appDrawerGridColumns,
                         appDrawerGridRows = settings.appDrawerGridRows,
                         appDrawerIconSizeRatio = settings.appDrawerIconSizeRatio,
+                        selectedLiveWallpaperId = settings.liveWallpaperId,
+                        selectedLiveWallpaperUri = settings.liveWallpaperUri,
+                        selectedLiveWallpaperLandscapeId = settings.liveWallpaperLandscapeId,
+                        selectedLiveWallpaperLandscapeUri = settings.liveWallpaperLandscapeUri,
                     )
                 }
             }
@@ -142,14 +147,27 @@ class SettingsViewModel @Inject constructor(
             is SettingsIntent.PauseUpload -> uploadProgressTracker.pause()
             is SettingsIntent.ResumeUpload -> uploadProgressTracker.resume()
             is SettingsIntent.CancelUpload -> cancelUpload()
-            is SettingsIntent.LoadLiveWallpaperFile ->
-                updateState { copy(selectedLiveWallpaperUri = intent.uri, selectedLiveWallpaperId = null) }
+            is SettingsIntent.LoadLiveWallpaperFile -> {
+                val isLandscape = currentState.selectedOrientationTab == WallpaperOrientation.LANDSCAPE
+                if (isLandscape) {
+                    updateState { copy(selectedLiveWallpaperLandscapeUri = intent.uri, selectedLiveWallpaperLandscapeId = null) }
+                } else {
+                    updateState { copy(selectedLiveWallpaperUri = intent.uri, selectedLiveWallpaperId = null) }
+                }
+            }
             is SettingsIntent.CreateLiveWallpaper -> createLiveWallpaper(intent.name)
-            is SettingsIntent.SelectLiveWallpaper ->
-                updateState { copy(selectedLiveWallpaperId = intent.id, selectedLiveWallpaperUri = intent.uri) }
-            is SettingsIntent.SetActiveLiveWallpaper -> setActiveLiveWallpaper(intent.id, intent.uri)
+            is SettingsIntent.SelectLiveWallpaper -> {
+                val isLandscape = currentState.selectedOrientationTab == WallpaperOrientation.LANDSCAPE
+                if (isLandscape) {
+                    updateState { copy(selectedLiveWallpaperLandscapeId = intent.id, selectedLiveWallpaperLandscapeUri = intent.uri) }
+                } else {
+                    updateState { copy(selectedLiveWallpaperId = intent.id, selectedLiveWallpaperUri = intent.uri) }
+                }
+            }
+            is SettingsIntent.SetActiveLiveWallpaper -> setActiveLiveWallpaper(intent.id, intent.uri, intent.orientation)
             is SettingsIntent.DeleteLiveWallpaper -> deleteLiveWallpaper(intent.id)
-            is SettingsIntent.ClearActiveLiveWallpaper -> clearActiveLiveWallpaper()
+            is SettingsIntent.ClearActiveLiveWallpaper -> clearActiveLiveWallpaper(intent.orientation)
+            is SettingsIntent.SwitchOrientationTab -> updateState { copy(selectedOrientationTab = intent.orientation) }
         }
     }
 
@@ -352,11 +370,18 @@ class SettingsViewModel @Inject constructor(
     }
 
     private fun createLiveWallpaper(name: String) {
-        val uri = currentState.selectedLiveWallpaperUri ?: return
+        val state = currentState
+        val isLandscape = state.selectedOrientationTab == WallpaperOrientation.LANDSCAPE
+        val uri = if (isLandscape) state.selectedLiveWallpaperLandscapeUri else state.selectedLiveWallpaperUri
+        uri ?: return
         viewModelScope.launch {
             runCatching {
                 val lw = saveLiveWallpaperUseCase(name, uri)
-                updateState { copy(selectedLiveWallpaperId = lw.id, selectedLiveWallpaperUri = lw.fileUri) }
+                if (isLandscape) {
+                    updateState { copy(selectedLiveWallpaperLandscapeId = lw.id, selectedLiveWallpaperLandscapeUri = lw.fileUri) }
+                } else {
+                    updateState { copy(selectedLiveWallpaperId = lw.id, selectedLiveWallpaperUri = lw.fileUri) }
+                }
             }.onFailure { error ->
                 if (error.isNetworkDisconnected()) sendEffect(SettingsSideEffect.ShowNetworkError)
                 else sendEffect(SettingsSideEffect.ShowError(error.getErrorMessage("라이브 배경화면 저장")))
@@ -364,10 +389,10 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    private fun setActiveLiveWallpaper(id: Int, uri: String) {
+    private fun setActiveLiveWallpaper(id: Int, uri: String, orientation: WallpaperOrientation) {
         viewModelScope.launch {
             runCatching {
-                setLiveWallpaperUseCase(id, uri)
+                setLiveWallpaperUseCase(id, uri, orientation)
                 sendEffect(SettingsSideEffect.LaunchLiveWallpaperPicker)
             }.onFailure { error ->
                 if (error.isNetworkDisconnected()) sendEffect(SettingsSideEffect.ShowNetworkError)
@@ -391,9 +416,9 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    private fun clearActiveLiveWallpaper() {
+    private fun clearActiveLiveWallpaper(orientation: WallpaperOrientation) {
         viewModelScope.launch {
-            runCatching { setLiveWallpaperUseCase(null, null) }
+            runCatching { setLiveWallpaperUseCase(null, null, orientation) }
                 .onFailure { error ->
                     if (error.isNetworkDisconnected()) sendEffect(SettingsSideEffect.ShowNetworkError)
                     else sendEffect(SettingsSideEffect.ShowError(error.getErrorMessage("라이브 배경화면 해제")))

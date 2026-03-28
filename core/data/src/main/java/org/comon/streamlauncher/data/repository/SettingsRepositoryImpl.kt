@@ -19,6 +19,7 @@ import kotlinx.serialization.json.Json
 import org.comon.streamlauncher.domain.model.GridCell
 import org.comon.streamlauncher.domain.model.GridCellImage
 import org.comon.streamlauncher.domain.model.LauncherSettings
+import org.comon.streamlauncher.domain.model.WallpaperOrientation
 import org.comon.streamlauncher.domain.repository.SettingsRepository
 import java.io.File
 import javax.inject.Inject
@@ -44,6 +45,7 @@ class SettingsRepositoryImpl @Inject constructor(
 
     /** :wallpaper 프로세스가 읽는 URI 파일 (filesDir 공유) */
     private val wallpaperUriFile get() = File(context.filesDir, "live_wallpaper_uri.txt")
+    private val wallpaperLandscapeUriFile get() = File(context.filesDir, "live_wallpaper_uri_landscape.txt")
 
     private val hasShownHomeSettingsOnFirstLaunchKey = booleanPreferencesKey("has_shown_home_settings_on_first_launch")
     private val colorPresetIndexKey = intPreferencesKey("color_preset_index")
@@ -58,6 +60,8 @@ class SettingsRepositoryImpl @Inject constructor(
     private val lastShownNoticeVersionKey = stringPreferencesKey("last_shown_notice_version")
     private val liveWallpaperIdKey = intPreferencesKey("live_wallpaper_id")
     private val liveWallpaperUriKey = stringPreferencesKey("live_wallpaper_uri")
+    private val liveWallpaperLandscapeIdKey = intPreferencesKey("live_wallpaper_landscape_id")
+    private val liveWallpaperLandscapeUriKey = stringPreferencesKey("live_wallpaper_landscape_uri")
 
     override fun getSettings(): Flow<LauncherSettings> =
         dataStore.data.map { prefs ->
@@ -74,6 +78,8 @@ class SettingsRepositoryImpl @Inject constructor(
             val appDrawerIconSizeRatio = prefs[appDrawerIconSizeRatioKey] ?: 1.0f
             val liveWallpaperId = prefs[liveWallpaperIdKey]
             val liveWallpaperUri = prefs[liveWallpaperUriKey]
+            val liveWallpaperLandscapeId = prefs[liveWallpaperLandscapeIdKey]
+            val liveWallpaperLandscapeUri = prefs[liveWallpaperLandscapeUriKey]
             LauncherSettings(
                 colorPresetIndex = colorPresetIndex,
                 gridCellImages = gridCellImages,
@@ -86,6 +92,8 @@ class SettingsRepositoryImpl @Inject constructor(
                 appDrawerIconSizeRatio = appDrawerIconSizeRatio,
                 liveWallpaperId = liveWallpaperId,
                 liveWallpaperUri = liveWallpaperUri,
+                liveWallpaperLandscapeId = liveWallpaperLandscapeId,
+                liveWallpaperLandscapeUri = liveWallpaperLandscapeUri,
             )
         }
 
@@ -170,15 +178,27 @@ class SettingsRepositoryImpl @Inject constructor(
     override fun getLiveWallpaperUri(): Flow<String?> =
         dataStore.data.map { prefs -> prefs[liveWallpaperUriKey] }
 
-    override suspend fun setLiveWallpaper(id: Int?, uri: String?) {
-        dataStore.edit { prefs ->
-            if (id != null) prefs[liveWallpaperIdKey] = id else prefs.remove(liveWallpaperIdKey)
-            if (uri != null) prefs[liveWallpaperUriKey] = uri else prefs.remove(liveWallpaperUriKey)
-        }
-        // :wallpaper 프로세스가 FileObserver로 감지할 수 있도록 파일에도 동기화
-        withContext(Dispatchers.IO) {
-            if (uri != null) wallpaperUriFile.writeText(uri)
-            else wallpaperUriFile.delete()
+    override suspend fun setLiveWallpaper(id: Int?, uri: String?, orientation: WallpaperOrientation) {
+        if (orientation == WallpaperOrientation.LANDSCAPE) {
+            dataStore.edit { prefs ->
+                if (id != null) prefs[liveWallpaperLandscapeIdKey] = id else prefs.remove(liveWallpaperLandscapeIdKey)
+                if (uri != null) prefs[liveWallpaperLandscapeUriKey] = uri else prefs.remove(liveWallpaperLandscapeUriKey)
+            }
+            // :wallpaper 프로세스가 FileObserver로 감지할 수 있도록 파일에도 동기화
+            withContext(Dispatchers.IO) {
+                if (uri != null) wallpaperLandscapeUriFile.writeText(uri)
+                else wallpaperLandscapeUriFile.delete()
+            }
+        } else {
+            dataStore.edit { prefs ->
+                if (id != null) prefs[liveWallpaperIdKey] = id else prefs.remove(liveWallpaperIdKey)
+                if (uri != null) prefs[liveWallpaperUriKey] = uri else prefs.remove(liveWallpaperUriKey)
+            }
+            // :wallpaper 프로세스가 FileObserver로 감지할 수 있도록 파일에도 동기화
+            withContext(Dispatchers.IO) {
+                if (uri != null) wallpaperUriFile.writeText(uri)
+                else wallpaperUriFile.delete()
+            }
         }
     }
 

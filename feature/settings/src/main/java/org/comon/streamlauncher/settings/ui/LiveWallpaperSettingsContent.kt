@@ -28,6 +28,8 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -51,6 +53,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import coil.compose.AsyncImage
 import java.io.File
 import org.comon.streamlauncher.domain.model.LiveWallpaper
+import org.comon.streamlauncher.domain.model.WallpaperOrientation
 import org.comon.streamlauncher.settings.R
 import org.comon.streamlauncher.settings.SettingsIntent
 import org.comon.streamlauncher.settings.SettingsState
@@ -66,7 +69,11 @@ internal fun LiveWallpaperSettingsContent(
     var showNameDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf<LiveWallpaper?>(null) }
 
-    // 동영상/GIF 파일 선택 런처
+    val isLandscapeTab = state.selectedOrientationTab == WallpaperOrientation.LANDSCAPE
+    val currentUri = if (isLandscapeTab) state.selectedLiveWallpaperLandscapeUri else state.selectedLiveWallpaperUri
+    val currentId = if (isLandscapeTab) state.selectedLiveWallpaperLandscapeId else state.selectedLiveWallpaperId
+
+    // 동영상/GIF/정적 이미지 파일 선택 런처
     val fileLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
@@ -83,27 +90,53 @@ internal fun LiveWallpaperSettingsContent(
         modifier = modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        // 1. 상단 버튼 Row
+        // 1. 세로/가로 탭
+        PrimaryTabRow(
+            selectedTabIndex = if (isLandscapeTab) 1 else 0,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Tab(
+                selected = !isLandscapeTab,
+                onClick = { onIntent(SettingsIntent.SwitchOrientationTab(WallpaperOrientation.PORTRAIT)) },
+                text = { Text(stringResource(R.string.wallpaper_orientation_portrait)) },
+            )
+            Tab(
+                selected = isLandscapeTab,
+                onClick = { onIntent(SettingsIntent.SwitchOrientationTab(WallpaperOrientation.LANDSCAPE)) },
+                text = { Text(stringResource(R.string.wallpaper_orientation_landscape)) },
+            )
+        }
+
+        // 가로 탭일 때 fallback 안내 문구
+        if (isLandscapeTab) {
+            Text(
+                text = stringResource(R.string.wallpaper_landscape_fallback_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        // 2. 상단 버튼 Row
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxWidth(),
         ) {
             Button(
-                onClick = { fileLauncher.launch(arrayOf("video/*", "image/gif")) },
+                onClick = { fileLauncher.launch(arrayOf("video/*", "image/*")) },
                 modifier = Modifier.weight(1f),
             ) {
                 Text(stringResource(R.string.live_wallpaper_load))
             }
             Button(
                 onClick = { showNameDialog = true },
-                enabled = state.selectedLiveWallpaperUri != null,
+                enabled = currentUri != null,
                 modifier = Modifier.weight(1f),
             ) {
                 Text(stringResource(R.string.live_wallpaper_create))
             }
         }
 
-        // 2. 저장된 라이브 배경화면 목록
+        // 3. 저장된 라이브 배경화면 목록
         if (state.liveWallpapers.isEmpty()) {
             Text(
                 text = stringResource(R.string.live_wallpaper_empty),
@@ -118,7 +151,7 @@ internal fun LiveWallpaperSettingsContent(
                 items(state.liveWallpapers, key = { it.id }) { lw ->
                     LiveWallpaperThumbnailItem(
                         liveWallpaper = lw,
-                        isSelected = lw.id == state.selectedLiveWallpaperId,
+                        isSelected = lw.id == currentId,
                         onClick = { onIntent(SettingsIntent.SelectLiveWallpaper(lw.id, lw.fileUri)) },
                         onLongClick = { showDeleteDialog = lw },
                     )
@@ -126,7 +159,7 @@ internal fun LiveWallpaperSettingsContent(
             }
         }
 
-        // 3. 미리보기 (중앙)
+        // 4. 미리보기 (중앙)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -135,9 +168,8 @@ internal fun LiveWallpaperSettingsContent(
                 .background(Color.Black),
             contentAlignment = Alignment.Center,
         ) {
-            val previewUri = state.selectedLiveWallpaperUri
-            if (previewUri != null) {
-                VideoPreview(uri = previewUri)
+            if (currentUri != null) {
+                VideoPreview(uri = currentUri)
             } else {
                 Text(
                     text = stringResource(R.string.live_wallpaper_empty),
@@ -147,14 +179,14 @@ internal fun LiveWallpaperSettingsContent(
             }
         }
 
-        // 4. 하단 버튼들
+        // 5. 하단 버튼들
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxWidth(),
         ) {
-            if (state.selectedLiveWallpaperId != null) {
+            if (currentId != null) {
                 TextButton(
-                    onClick = { onIntent(SettingsIntent.ClearActiveLiveWallpaper) },
+                    onClick = { onIntent(SettingsIntent.ClearActiveLiveWallpaper(state.selectedOrientationTab)) },
                     modifier = Modifier.weight(1f),
                 ) {
                     Text(stringResource(R.string.live_wallpaper_clear))
@@ -162,11 +194,11 @@ internal fun LiveWallpaperSettingsContent(
             }
             Button(
                 onClick = {
-                    val id = state.selectedLiveWallpaperId ?: return@Button
-                    val uri = state.selectedLiveWallpaperUri ?: return@Button
-                    onIntent(SettingsIntent.SetActiveLiveWallpaper(id, uri))
+                    val id = currentId ?: return@Button
+                    val uri = currentUri ?: return@Button
+                    onIntent(SettingsIntent.SetActiveLiveWallpaper(id, uri, state.selectedOrientationTab))
                 },
-                enabled = state.selectedLiveWallpaperId != null && state.selectedLiveWallpaperUri != null,
+                enabled = currentId != null && currentUri != null,
                 modifier = Modifier.weight(1f),
             ) {
                 Text(stringResource(R.string.live_wallpaper_set_as_bg))
@@ -282,10 +314,24 @@ private fun VideoPreview(
             uri.endsWith(".gif", ignoreCase = true)
         }
     }
-    if (isGif) {
-        GifPreview(uri = uri, modifier = modifier)
-    } else {
-        ExoPlayerPreview(uri = uri, modifier = modifier)
+    val isStaticImage = remember(uri) {
+        if (uri.startsWith("content://")) {
+            val mime = context.contentResolver.getType(uri.toUri()) ?: ""
+            mime.startsWith("image/") && mime != "image/gif"
+        } else {
+            val lower = uri.lowercase()
+            lower.endsWith(".jpg") || lower.endsWith(".jpeg")
+                    || lower.endsWith(".png") || lower.endsWith(".webp")
+        }
+    }
+    when {
+        isGif -> GifPreview(uri = uri, modifier = modifier)
+        isStaticImage -> AsyncImage(
+            model = uri,
+            contentDescription = null,
+            modifier = modifier.fillMaxSize(),
+        )
+        else -> ExoPlayerPreview(uri = uri, modifier = modifier)
     }
 }
 
