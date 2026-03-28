@@ -30,7 +30,7 @@ import androidx.core.graphics.withTranslation
  * EntryPointAccessors를 통해 SettingsRepository에 접근합니다.
  *
  * 최적화:
- * - ExoPlayer 생성/prepare를 IO 디스패처에서 실행해 메인 스레드 블로킹 제거
+ * - ExoPlayer 생성/설정/재생은 메인 스레드에서만 (스레드 위반 방지)
  * - DefaultLoadControl 버퍼를 최소화해 첫 프레임 지연 단축
  * - liveWallpaperUri만 읽는 경량 Flow로 불필요한 JSON 파싱 제거
  * - PagerScrollState로 스와이프 중 렌더링 일시 중지
@@ -200,12 +200,12 @@ class VideoLiveWallpaperService : WallpaperService() {
         }
 
         /**
-         * ExoPlayer를 IO 스레드에서 생성·prepare한 뒤 메인 스레드에서 재생 시작.
+         * ExoPlayer를 메인 스레드에서 생성·설정·재생.
          *
-         * - ExoPlayer.Builder().build()와 prepare()의 초기 코덱 탐색이
-         *   메인 스레드를 블로킹하지 않도록 Dispatchers.IO에서 실행.
-         * - DefaultLoadControl 버퍼를 라이브 배경화면 특성에 맞게 최소화:
-         *   짧은 루프 영상이므로 대용량 선버퍼가 불필요하고 첫 프레임 지연만 늘린다.
+         * ExoPlayer는 생성한 Looper(기본: 메인 스레드)에서만 접근 가능하므로
+         * withContext(Dispatchers.IO) 를 사용하지 않는다.
+         * DefaultLoadControl 버퍼를 라이브 배경화면 특성에 맞게 최소화:
+         * 짧은 루프 영상이므로 대용량 선버퍼가 불필요하고 첫 프레임 지연만 늘린다.
          */
         private fun startVideoRendering(holder: SurfaceHolder, uri: String) {
             scope.launch {
@@ -218,19 +218,18 @@ class VideoLiveWallpaperService : WallpaperService() {
                     )
                     .build()
 
-                val builtPlayer = withContext(Dispatchers.IO) {
-                    ExoPlayer.Builder(this@VideoLiveWallpaperService)
-                        .setLoadControl(loadControl)
-                        .build()
-                        .apply {
-                            repeatMode = Player.REPEAT_MODE_ALL
-                            volume = 0f
-                            setMediaItem(MediaItem.fromUri(uri))
-                            prepare()
-                        }
-                }
+                // ExoPlayer는 생성·설정·재생 모두 메인 스레드(Dispatchers.Main)에서 해야 함.
+                // withContext(Dispatchers.IO) 에서 호출하면 wrong-thread IllegalStateException 발생.
+                val builtPlayer = ExoPlayer.Builder(this@VideoLiveWallpaperService)
+                    .setLoadControl(loadControl)
+                    .build()
+                    .apply {
+                        repeatMode = Player.REPEAT_MODE_ALL
+                        volume = 0f
+                        setMediaItem(MediaItem.fromUri(uri))
+                        prepare()
+                    }
 
-                // Surface 연결 및 재생은 메인 스레드에서
                 val surface = holder.surface
                 if (!surface.isValid) {
                     builtPlayer.release()

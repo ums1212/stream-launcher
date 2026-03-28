@@ -340,13 +340,17 @@ private fun ExoPlayerPreview(
     AndroidView(
         factory = {
             androidx.media3.ui.PlayerView(it).apply {
-                this.player = player
                 useController = false
                 layoutParams = ViewGroup.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT,
                 )
             }
+        },
+        update = { playerView ->
+            // uri 변경 시 remember(uri)가 새 player를 생성하므로 update에서 반영해야 함.
+            // factory는 최초 1회만 실행되어 update 없이는 PlayerView가 이전 player를 참조.
+            playerView.player = player
         },
         modifier = modifier.fillMaxSize(),
     )

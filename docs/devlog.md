@@ -2,6 +2,36 @@
 
 ---
 
+## [2026-03-28] fix(wallpaper): 라이브 배경화면 ExoPlayer 스레드 오류 및 미리보기 검은화면 수정
+
+### 목표
+
+- mp4 라이브 배경화면 설정 시 앱 크래시(IllegalStateException: Player is accessed on the wrong thread) 수정
+- mp4 영상 선택 후 미리보기가 검은화면으로 나타나는 문제 수정
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `app/.../service/VideoLiveWallpaperService.kt` | `startVideoRendering()`에서 `withContext(Dispatchers.IO)` 제거 — ExoPlayer 생성·설정을 메인 스레드에서 실행하도록 수정. 상단 주석 업데이트 |
+| `feature/settings/.../ui/LiveWallpaperSettingsContent.kt` | `ExoPlayerPreview`의 `AndroidView`에 `update = { playerView -> playerView.player = player }` 추가 |
+
+### 검증결과
+
+- `assembleDebug` BUILD SUCCESSFUL (47 executed, 293 up-to-date)
+
+### 설계결정 및 근거
+
+**크래시 원인**: ExoPlayer는 `ExoPlayer.Builder().build()` 호출 시 사용한 스레드(기본: 메인 스레드)의 Looper를 내부 application looper로 등록한다. 이후 `repeatMode`, `setMediaItem()`, `prepare()` 등 모든 API는 반드시 동일 Looper에서 호출해야 한다. 기존 코드에서 `withContext(Dispatchers.IO)` 블록 안에서 빌드와 설정을 모두 수행했기 때문에 `DefaultDispatcher-worker` 스레드에서 메서드가 호출되어 `IllegalStateException` 발생.
+
+**수정 결정**: `withContext(Dispatchers.IO)` 제거, `scope = CoroutineScope(Dispatchers.Main + Job())`의 기본 디스패처(메인 스레드)에서 ExoPlayer 전체 생성·설정·재생 진행. GIF 디코딩(`withContext(Dispatchers.IO)`)은 IO 작업이므로 그대로 유지.
+
+**미리보기 검은화면 원인**: `AndroidView`의 `factory`는 composable이 최초 진입할 때 단 1회 실행된다. uri가 변경되면 `remember(uri)`가 새 `ExoPlayer` 인스턴스를 만들지만, `factory` 재실행이 없어 `PlayerView`가 이전(이미 릴리스된) player를 계속 참조. 결과적으로 렌더링 대상이 없어 검은화면이 유지되다가 뒤로가기/화면 재진입 시 composable 전체가 재생성되면서 정상 표시됨.
+
+**수정 결정**: `update` 람다를 추가하여 recomposition마다 `PlayerView.player`를 최신 인스턴스로 갱신. `DisposableEffect(player)`의 릴리스 로직은 그대로 유지.
+
+---
+
 ## [2026-03-28] feat(settings): 건의하기 기능 구현
 
 ### 목표
