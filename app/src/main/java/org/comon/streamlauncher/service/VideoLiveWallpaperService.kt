@@ -2,9 +2,11 @@ package org.comon.streamlauncher.service
 
 import android.graphics.ImageDecoder
 import android.graphics.drawable.AnimatedImageDrawable
+import android.os.FileObserver
 import android.service.wallpaper.WallpaperService
 import android.view.Choreographer
 import android.view.SurfaceHolder
+import androidx.core.graphics.withTranslation
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.DefaultLoadControl
@@ -13,12 +15,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
-import androidx.core.graphics.withTranslation
 
 /**
  * 동영상/GIF 파일을 시스템 라이브 배경화면으로 재생하는 WallpaperService.
@@ -26,14 +25,9 @@ import androidx.core.graphics.withTranslation
  * - GIF: AnimatedImageDrawable + Choreographer → SurfaceHolder Canvas 직접 렌더링
  * - 동영상(mp4/webm): ExoPlayer → setVideoSurface()
  *
- * WallpaperService는 @AndroidEntryPoint Hilt 주입이 지원되지 않으므로
- * EntryPointAccessors를 통해 SettingsRepository에 접근합니다.
- *
- * 최적화:
- * - ExoPlayer 생성/설정/재생은 메인 스레드에서만 (스레드 위반 방지)
- * - DefaultLoadControl 버퍼를 최소화해 첫 프레임 지연 단축
- * - liveWallpaperUri만 읽는 경량 Flow로 불필요한 JSON 파싱 제거
- * - PagerScrollState로 스와이프 중 렌더링 일시 중지
+ * android:process=":wallpaper" 로 런처와 완전히 분리된 별도 프로세스에서 실행.
+ * URI는 filesDir/live_wallpaper_uri.txt 파일을 통해 전달받으며,
+ * FileObserver로 파일 변경을 감지해 실시간 반영한다.
  */
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class VideoLiveWallpaperService : WallpaperService() {
@@ -48,19 +42,37 @@ class VideoLiveWallpaperService : WallpaperService() {
         private val scope = CoroutineScope(Dispatchers.Main + Job())
         private var currentUri: String? = null
         private var surfaceHolder: SurfaceHolder? = null
-        private var scrollObserverJob: Job? = null
-        private var uriObserverJob: Job? = null
+
+        private val uriFile get() = File(filesDir, "live_wallpaper_uri.txt")
+
+        /**
+         * filesDir를 감시해 live_wallpaper_uri.txt 변경 시 새 URI를 적용한다.
+         * onEvent는 inotify 스레드에서 호출되므로 scope.launch로 Main으로 전환한다.
+         */
+        @Suppress("DEPRECATION") // API 29 미만 호환 — minSdk 28이므로 String 경로 생성자 사용
+        private val fileObserver = object : FileObserver(filesDir.absolutePath, CLOSE_WRITE) {
+            override fun onEvent(event: Int, path: String?) {
+                if (path != "live_wallpaper_uri.txt") return
+                val newUri = runCatching { uriFile.readText().trim() }.getOrNull()
+                    ?.takeIf { it.isNotBlank() } ?: return
+                if (newUri == currentUri) return
+                scope.launch {
+                    currentUri = newUri
+                    surfaceHolder?.let { applyUri(it, newUri) }
+                }
+            }
+        }
 
         override fun onSurfaceCreated(holder: SurfaceHolder) {
             super.onSurfaceCreated(holder)
             surfaceHolder = holder
-            startObservingUri(holder)
-            startObservingScrollState()
+            fileObserver.startWatching()
+            loadAndApplyUri(holder)
         }
 
         override fun onVisibilityChanged(visible: Boolean) {
             super.onVisibilityChanged(visible)
-            if (visible && !PagerScrollState.isScrolling.value) {
+            if (visible) {
                 player?.play()
                 if (gifDrawable?.isRunning == false) gifDrawable?.start()
             } else {
@@ -72,70 +84,26 @@ class VideoLiveWallpaperService : WallpaperService() {
         override fun onSurfaceDestroyed(holder: SurfaceHolder) {
             super.onSurfaceDestroyed(holder)
             stopCurrent()
-            uriObserverJob?.cancel()
-            uriObserverJob = null
-            scrollObserverJob?.cancel()
-            scrollObserverJob = null
+            fileObserver.stopWatching()
             surfaceHolder = null
         }
 
         override fun onDestroy() {
             super.onDestroy()
             stopCurrent()
-            uriObserverJob?.cancel()
-            uriObserverJob = null
-            scrollObserverJob?.cancel()
-            scrollObserverJob = null
+            fileObserver.stopWatching()
             surfaceHolder = null
             scope.cancel()
         }
 
-        private fun startObservingUri(holder: SurfaceHolder) {
-            uriObserverJob?.cancel()
-            uriObserverJob = scope.launch {
-                getLiveWallpaperUriFlow()
-                    .distinctUntilChanged()
-                    .collect { uri ->
-                        if (uri != null && uri != currentUri) {
-                            currentUri = uri
-                            applyUri(holder, uri)
-                        }
-                    }
+        private fun loadAndApplyUri(holder: SurfaceHolder) {
+            scope.launch {
+                val uri = withContext(Dispatchers.IO) {
+                    runCatching { uriFile.readText().trim() }.getOrNull()?.takeIf { it.isNotBlank() }
+                } ?: return@launch
+                currentUri = uri
+                applyUri(holder, uri)
             }
-        }
-
-        private fun startObservingScrollState() {
-            scrollObserverJob?.cancel()
-            scrollObserverJob = scope.launch {
-                PagerScrollState.isScrolling.collect { scrolling ->
-                    if (scrolling) pauseRendering() else resumeRendering()
-                }
-            }
-        }
-
-        private fun pauseRendering() {
-            player?.pause()
-            frameCallback?.let { Choreographer.getInstance().removeFrameCallback(it) }
-        }
-
-        private fun resumeRendering() {
-            if (!isVisible) return
-            player?.play()
-            frameCallback?.let { Choreographer.getInstance().postFrameCallback(it) }
-        }
-
-        /**
-         * liveWallpaperUri만 읽는 경량 Flow.
-         * getSettings() 전체 파싱(JSON) 없이 단일 키만 조회한다.
-         */
-        private fun getLiveWallpaperUriFlow() = try {
-            val entryPoint = dagger.hilt.android.EntryPointAccessors.fromApplication(
-                applicationContext,
-                LiveWallpaperEntryPoint::class.java,
-            )
-            entryPoint.settingsRepository().getLiveWallpaperUri()
-        } catch (_: Exception) {
-            flowOf(null)
         }
 
         private fun stopCurrent() {
@@ -199,19 +167,14 @@ class VideoLiveWallpaperService : WallpaperService() {
                 }
                 frameCallback = cb
                 drawable.start()
-                if (!PagerScrollState.isScrolling.value) {
-                    Choreographer.getInstance().postFrameCallback(cb)
-                }
+                Choreographer.getInstance().postFrameCallback(cb)
             }
         }
 
         /**
          * ExoPlayer를 메인 스레드에서 생성·설정·재생.
-         *
          * ExoPlayer는 생성한 Looper(기본: 메인 스레드)에서만 접근 가능하므로
-         * withContext(Dispatchers.IO) 를 사용하지 않는다.
-         * DefaultLoadControl 버퍼를 라이브 배경화면 특성에 맞게 최소화:
-         * 짧은 루프 영상이므로 대용량 선버퍼가 불필요하고 첫 프레임 지연만 늘린다.
+         * withContext(Dispatchers.IO)를 사용하지 않는다.
          */
         private fun startVideoRendering(holder: SurfaceHolder, uri: String) {
             scope.launch {
@@ -224,8 +187,6 @@ class VideoLiveWallpaperService : WallpaperService() {
                     )
                     .build()
 
-                // ExoPlayer는 생성·설정·재생 모두 메인 스레드(Dispatchers.Main)에서 해야 함.
-                // withContext(Dispatchers.IO) 에서 호출하면 wrong-thread IllegalStateException 발생.
                 val builtPlayer = ExoPlayer.Builder(this@VideoLiveWallpaperService)
                     .setLoadControl(loadControl)
                     .build()
@@ -243,14 +204,8 @@ class VideoLiveWallpaperService : WallpaperService() {
                 }
                 builtPlayer.setVideoSurface(surface)
                 player = builtPlayer
-                if (!PagerScrollState.isScrolling.value) builtPlayer.play()
+                builtPlayer.play()
             }
         }
     }
-}
-
-@dagger.hilt.EntryPoint
-@dagger.hilt.InstallIn(dagger.hilt.components.SingletonComponent::class)
-interface LiveWallpaperEntryPoint {
-    fun settingsRepository(): org.comon.streamlauncher.domain.repository.SettingsRepository
 }

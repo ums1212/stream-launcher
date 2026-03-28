@@ -2,6 +2,44 @@
 
 ---
 
+## [2026-03-28] refactor(wallpaper): 라이브 배경화면 프로세스 완전 분리 (android:process=":wallpaper")
+
+### 목표
+
+- `VideoLiveWallpaperService`를 런처와 별도 프로세스(`:wallpaper`)로 분리해 배경화면 렌더링이 런처 CPU/메모리에 미치는 영향을 완전히 제거
+- Hilt EntryPoint 및 `PagerScrollState` 인메모리 싱글톤 제거 — IPC 없이 파일 기반 URI 공유로 교체
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `app/src/main/AndroidManifest.xml` | `VideoLiveWallpaperService`에 `android:process=":wallpaper"` 추가 — 시스템이 별도 프로세스에서 서비스를 실행 |
+| `core/data/.../SettingsRepositoryImpl.kt` | `@ApplicationContext Context` 주입 추가; `setLiveWallpaper()` 에서 DataStore 저장 후 `filesDir/live_wallpaper_uri.txt` 파일에도 URI를 기록 (URI null 시 파일 삭제) |
+| `app/.../service/VideoLiveWallpaperService.kt` | Hilt `EntryPointAccessors`·`LiveWallpaperEntryPoint` 제거; `PagerScrollState` 구독 제거; `uriObserverJob`·`scrollObserverJob`·`pauseRendering()`·`resumeRendering()` 제거; `FileObserver(filesDir, CLOSE_WRITE)`로 URI 파일 변경 감지 추가; `loadAndApplyUri()` 로 서비스 시작 시 파일에서 URI 읽기 |
+| `app/.../navigation/CrossPagerNavigation.kt` | `PagerScrollState.setScrolling()` `LaunchedEffect` 블록 제거; `snapshotFlow`·`combine`·`PagerScrollState` import 제거 |
+| `app/.../service/PagerScrollState.kt` | **삭제** — 프로세스 분리로 인메모리 싱글톤 불필요 |
+
+### 검증결과
+
+- `assembleDebug` BUILD SUCCESSFUL (48 executed, 292 up-to-date)
+- `test` BUILD SUCCESSFUL (64 executed, 427 up-to-date) — 전체 단위 테스트 실패 0건
+
+### 설계결정 및 근거
+
+**프로세스 분리 선택 이유**
+
+`android:process=":wallpaper"` 선언 시 시스템 WallpaperManager가 `:wallpaper` 프로세스를 직접 관리한다. 런처 프로세스가 종료되거나 GC 압박을 받아도 배경화면 프로세스는 독립적으로 생존하며, 반대로 배경화면 렌더링(ExoPlayer 디코딩, GIF Canvas 드로우)이 런처 Compose 렌더링 파이프라인과 CPU/메모리를 공유하지 않는다.
+
+**DataStore 대신 파일 기반 URI 공유**
+
+DataStore는 단일 프로세스 메모리를 통해 Flow를 공유하므로 `:wallpaper` 프로세스에서 직접 구독 불가. `filesDir`은 같은 앱 패키지의 모든 프로세스가 동일 경로(`/data/data/{packageName}/files/`)로 접근 가능하므로, 파일 1개(`live_wallpaper_uri.txt`)를 공유 매체로 사용한다. 런처가 URI를 쓰면 `FileObserver`(inotify 기반)가 `:wallpaper` 프로세스에서 즉시 감지해 재생을 전환한다.
+
+**PagerScrollState 제거 (스크롤 일시정지 기능 폐기)**
+
+프로세스 분리 후 인메모리 StateFlow 공유 불가. BroadcastReceiver로 대체하면 IPC 오버헤드와 구현 복잡도가 생기고, 사용자 의도("런처가 이후엔 전혀 관여 안 함")와 맞지 않아 제거를 선택. 대신 `onVisibilityChanged()`(시스템 제공)로 화면 OFF 시 재생을 중단해 불필요한 백그라운드 렌더링을 방지한다.
+
+---
+
 ## [2026-03-28] fix(wallpaper): VideoLiveWallpaperService LeakCanary 메모리 누수 수정
 
 ### 목표

@@ -1,5 +1,6 @@
 package org.comon.streamlauncher.data.repository
 
+import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
@@ -7,15 +8,19 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import org.comon.streamlauncher.domain.model.GridCell
 import org.comon.streamlauncher.domain.model.GridCellImage
 import org.comon.streamlauncher.domain.model.LauncherSettings
 import org.comon.streamlauncher.domain.repository.SettingsRepository
+import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 @Serializable
@@ -34,7 +39,11 @@ private data class CellAssignmentDto(
 @Singleton
 class SettingsRepositoryImpl @Inject constructor(
     private val dataStore: DataStore<Preferences>,
+    @ApplicationContext private val context: Context,
 ) : SettingsRepository {
+
+    /** :wallpaper 프로세스가 읽는 URI 파일 (filesDir 공유) */
+    private val wallpaperUriFile get() = File(context.filesDir, "live_wallpaper_uri.txt")
 
     private val hasShownHomeSettingsOnFirstLaunchKey = booleanPreferencesKey("has_shown_home_settings_on_first_launch")
     private val colorPresetIndexKey = intPreferencesKey("color_preset_index")
@@ -165,6 +174,11 @@ class SettingsRepositoryImpl @Inject constructor(
         dataStore.edit { prefs ->
             if (id != null) prefs[liveWallpaperIdKey] = id else prefs.remove(liveWallpaperIdKey)
             if (uri != null) prefs[liveWallpaperUriKey] = uri else prefs.remove(liveWallpaperUriKey)
+        }
+        // :wallpaper 프로세스가 FileObserver로 감지할 수 있도록 파일에도 동기화
+        withContext(Dispatchers.IO) {
+            if (uri != null) wallpaperUriFile.writeText(uri)
+            else wallpaperUriFile.delete()
         }
     }
 
