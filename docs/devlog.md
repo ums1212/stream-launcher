@@ -2,6 +2,42 @@
 
 ---
 
+## [2026-03-28] fix(wallpaper): VideoLiveWallpaperService LeakCanary 메모리 누수 수정
+
+### 목표
+
+- LeakCanary가 보고한 `VideoLiveWallpaperService` 메모리 누수 원인 분석 및 앱 코드 버그 수정
+- `onSurfaceDestroyed` 시점에 Uri 관찰 코루틴이 취소되지 않는 문제 해결
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `app/.../service/VideoLiveWallpaperService.kt` | `uriObserverJob: Job?` 필드 추가 — `startObservingUri()`가 반환하는 Job을 저장하고, `onSurfaceDestroyed`·`onDestroy` 양쪽에서 명시적으로 취소 |
+
+### 검증결과
+
+- 코드 리뷰 및 정적 분석 수준 검증 (빌드 미실행)
+
+### 설계결정 및 근거
+
+**리크 체인 분석**
+
+LeakCanary가 보고한 경로:
+```
+GC Root (native) → WallpaperService$IWallpaperEngineWrapper.this$0 → VideoLiveWallpaperService
+```
+
+`IWallpaperEngineWrapper`는 Android 프레임워크 `WallpaperService`의 inner class(Binder 구현체)이며, 시스템 서버가 native 레벨에서 이 Binder를 유지하는 동안 outer class인 `VideoLiveWallpaperService`도 GC되지 않는다. 이는 **알려진 플랫폼 레벨 이슈**로, 앱 코드에서 근본적으로 제거하기 어렵다.
+
+**앱 코드에서 발견된 실제 버그**
+
+`startObservingUri(holder)`가 `scope.launch { ... }`로 코루틴을 실행하되 Job 참조를 저장하지 않았다. `scrollObserverJob`은 별도로 취소되었지만 Uri 관찰 코루틴은 `onSurfaceDestroyed` 이후에도 계속 실행되어 무효화된 `SurfaceHolder`를 클로저로 캡처한 채 유지되었다. 이 코루틴이 살아있는 동안 `VideoEngine` → `VideoLiveWallpaperService` 참조가 지속됐다.
+
+**수정 결정**: `uriObserverJob`에 Job을 저장하여 `onSurfaceDestroyed`와 `onDestroy` 모두에서 명시적 취소. Surface가 파괴되는 즉시 holder 캡처 해제 보장.
+
+---
+
 ## [2026-03-28] fix(wallpaper): 라이브 배경화면 ExoPlayer 스레드 오류 및 미리보기 검은화면 수정
 
 ### 목표

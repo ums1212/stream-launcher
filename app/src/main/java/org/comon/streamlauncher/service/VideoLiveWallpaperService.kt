@@ -49,6 +49,7 @@ class VideoLiveWallpaperService : WallpaperService() {
         private var currentUri: String? = null
         private var surfaceHolder: SurfaceHolder? = null
         private var scrollObserverJob: Job? = null
+        private var uriObserverJob: Job? = null
 
         override fun onSurfaceCreated(holder: SurfaceHolder) {
             super.onSurfaceCreated(holder)
@@ -71,6 +72,8 @@ class VideoLiveWallpaperService : WallpaperService() {
         override fun onSurfaceDestroyed(holder: SurfaceHolder) {
             super.onSurfaceDestroyed(holder)
             stopCurrent()
+            uriObserverJob?.cancel()
+            uriObserverJob = null
             scrollObserverJob?.cancel()
             scrollObserverJob = null
             surfaceHolder = null
@@ -79,6 +82,8 @@ class VideoLiveWallpaperService : WallpaperService() {
         override fun onDestroy() {
             super.onDestroy()
             stopCurrent()
+            uriObserverJob?.cancel()
+            uriObserverJob = null
             scrollObserverJob?.cancel()
             scrollObserverJob = null
             surfaceHolder = null
@@ -86,7 +91,8 @@ class VideoLiveWallpaperService : WallpaperService() {
         }
 
         private fun startObservingUri(holder: SurfaceHolder) {
-            scope.launch {
+            uriObserverJob?.cancel()
+            uriObserverJob = scope.launch {
                 getLiveWallpaperUriFlow()
                     .distinctUntilChanged()
                     .collect { uri ->
