@@ -163,6 +163,11 @@ fun SettingsSideEffectHandler(
                         } catch (_: Exception) {}
                     }
                 }
+                is SettingsSideEffect.ReloadWallpaper -> {
+                    runCatching {
+                        WallpaperManager.getInstance(context).clear()
+                    }
+                }
                 is SettingsSideEffect.LaunchLiveWallpaperPicker -> {
                     val component = ComponentName(context, VideoLiveWallpaperService::class.java)
                     val wallpaperManager = WallpaperManager.getInstance(context)

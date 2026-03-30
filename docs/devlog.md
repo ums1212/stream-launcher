@@ -2,6 +2,36 @@
 
 ---
 
+## [2026-03-30] fix(wallpaper): 라이브 배경화면 해제 버튼 동작 수정 — 시스템 배경화면까지 완전 제거
+
+### 목표
+
+해제 버튼을 눌러도 설정 화면 프리뷰만 초기화되고 실제 배경화면은 그대로 유지되는 버그 수정. 해제 시 라이브 배경화면 서비스가 시스템에서 완전히 제거되어야 함.
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `feature/settings/.../SettingsContract.kt` | `SettingsSideEffect`에 `ReloadWallpaper` 추가 |
+| `feature/settings/.../SettingsViewModel.kt` | `clearActiveLiveWallpaper()` 성공 시 `.onSuccess { sendEffect(ReloadWallpaper) }` 추가 |
+| `app/.../effect/SideEffectHandlers.kt` | `ReloadWallpaper` SideEffect 처리 — `WallpaperManager.getInstance(context).clear()` 호출로 시스템 라이브 배경화면 완전 제거 |
+
+### 검증결과
+
+- `:feature:settings:compileDebugKotlin` + `:app:compileDebugKotlin` BUILD SUCCESSFUL
+
+### 설계결정 및 근거
+
+**버그 원인 — 브로드캐스트 미전송 + FileObserver 이벤트 불일치**
+
+`ClearActiveLiveWallpaper` 처리 시 DataStore에서 ID/URI 키를 제거하고 URI 파일을 삭제하지만, `:wallpaper` 프로세스에 아무 알림도 전송하지 않았다. `FileObserver`는 `CLOSE_WRITE` 이벤트만 감지하므로 파일 **삭제**(`DELETE` 이벤트)를 인식하지 못해 서비스가 계속 재생됐다.
+
+**`WallpaperManager.clear()` 선택 이유**
+
+처음에는 `ACTION_RELOAD_URI` 브로드캐스트 전송을 시도했으나, 이 방식은 재생만 멈출 뿐 `VideoLiveWallpaperService`가 시스템 라이브 배경화면으로 여전히 등록된 채로 남는다(검은 화면). `WallpaperManager.clear()`는 시스템 레벨에서 라이브 배경화면 서비스 자체를 해제하고 Android 기본 정적 배경화면으로 복원하므로 사용자가 기대하는 "배경화면 완전 제거" 동작에 부합한다. `SET_WALLPAPER` 권한은 이미 AndroidManifest에 선언되어 있어 추가 권한 요청 불필요.
+
+---
+
 ## [2026-03-30] fix(wallpaper): 라이브 배경화면 방향 전환 버그 수정 + 배경화면 변경 IPC 브로드캐스트 도입
 
 ### 목표

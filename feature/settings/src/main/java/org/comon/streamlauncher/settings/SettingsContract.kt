@@ -106,5 +106,6 @@ sealed interface SettingsSideEffect : UiSideEffect {
     data object StopUploadService : SettingsSideEffect
     data class ShowError(val message: String) : SettingsSideEffect
     data object LaunchLiveWallpaperPicker : SettingsSideEffect
+    data object ReloadWallpaper : SettingsSideEffect
     data object ShowNetworkError : SettingsSideEffect
 }

@@ -425,6 +425,7 @@ class SettingsViewModel @Inject constructor(
     private fun clearActiveLiveWallpaper(orientation: WallpaperOrientation) {
         viewModelScope.launch {
             runCatching { setLiveWallpaperUseCase(null, null, orientation) }
+                .onSuccess { sendEffect(SettingsSideEffect.ReloadWallpaper) }
                 .onFailure { error ->
                     if (error.isNetworkDisconnected()) sendEffect(SettingsSideEffect.ShowNetworkError)
                     else sendEffect(SettingsSideEffect.ShowError(error.getErrorMessage("라이브 배경화면 해제")))
