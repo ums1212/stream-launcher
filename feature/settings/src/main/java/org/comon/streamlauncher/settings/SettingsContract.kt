@@ -35,6 +35,10 @@ data class SettingsState(
     val selectedLiveWallpaperLandscapeId: Int? = null,
     /** DataStore에 실제로 저장된(배경화면으로 설정된) 세로 배경화면 ID. UI 선택과 무관하게 DataStore 값만 반영 */
     val activePortraitWallpaperId: Int? = null,
+    /** DataStore에 실제로 저장된(배경화면으로 설정된) 가로 배경화면 ID. UI 선택과 무관하게 DataStore 값만 반영 */
+    val activeLandscapeWallpaperId: Int? = null,
+    /** WallpaperManager 기준 우리 앱의 라이브 배경화면 서비스가 실제로 활성화돼 있는지 여부 */
+    val isLiveWallpaperServiceActive: Boolean = false,
 ) : UiState
 
 sealed interface SettingsIntent : UiIntent {
@@ -94,6 +98,8 @@ sealed interface SettingsIntent : UiIntent {
         val orientation: WallpaperOrientation = WallpaperOrientation.PORTRAIT,
     ) : SettingsIntent
     data class SwitchOrientationTab(val orientation: WallpaperOrientation) : SettingsIntent
+    /** 화면 재진입(ON_RESUME) 시 WallpaperManager로 실제 서비스 활성 여부를 재확인 */
+    data object CheckActiveWallpaper : SettingsIntent
 }
 
 sealed interface SettingsSideEffect : UiSideEffect {

@@ -52,6 +52,12 @@ class WallpaperHelperImpl @Inject constructor(
         return@withContext false
     }
 
+    override fun isLiveWallpaperServiceActive(): Boolean = try {
+        WallpaperManager.getInstance(context).wallpaperInfo?.packageName == context.packageName
+    } catch (_: Exception) {
+        false
+    }
+
     override suspend fun deletePresetWallpaper(filePath: String): Unit = withContext(Dispatchers.IO) {
         try {
             val file = File(filePath)

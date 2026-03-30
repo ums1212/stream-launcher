@@ -2,6 +2,46 @@
 
 ---
 
+## [2026-03-30] feat(wallpaper): 단말기 해상도 표시 + 라이브 배경화면 해제 버튼 정확성 개선
+
+### 목표
+
+1. 라이브 배경화면 설정 화면에서 사용자 단말기의 실제 픽셀 해상도를 표시해 배경화면 선택에 참고할 수 있도록 함
+2. 배경화면 해제 후 목록 아이템을 클릭했을 때 "라이브 배경화면 해제" 버튼이 잘못 활성화되는 버그 수정
+3. 시스템 배경화면 피커에서 취소하고 돌아왔을 때 "해제" 버튼이 적용된 것처럼 보이는 버그 수정
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `feature/settings/.../ui/LiveWallpaperSettingsContent.kt` | `LocalConfiguration` + `LocalDensity`로 실제 픽셀 해상도 계산 후 탭과 불러오기 버튼 사이에 `"현재 귀하의 단말기 해상도는 W × H 입니다"` 표시 |
+| `feature/settings/.../SettingsContract.kt` | `SettingsState`에 `activeLandscapeWallpaperId: Int?`, `isLiveWallpaperServiceActive: Boolean = false` 추가; `SettingsIntent`에 `CheckActiveWallpaper` 추가 |
+| `feature/settings/.../SettingsViewModel.kt` | DataStore collect에 `activeLandscapeWallpaperId` 반영; init 시 `isLiveWallpaperServiceActive` 초기값 설정; `CheckActiveWallpaper` 핸들러 추가; `clearActiveLiveWallpaper` 성공 시 `isLiveWallpaperServiceActive = false` 설정 |
+| `core/domain/.../util/WallpaperHelper.kt` | `isLiveWallpaperServiceActive(): Boolean` 인터페이스 메서드 추가 |
+| `core/data/.../util/WallpaperHelperImpl.kt` | `WallpaperManager.wallpaperInfo?.packageName == context.packageName`으로 구현 |
+| `feature/settings/.../ui/LiveWallpaperSettingsContent.kt` | `LifecycleEventObserver`로 `ON_RESUME` 시 `CheckActiveWallpaper` 발행; `activeId` 및 `isLandscapeUnlocked` 조건에 `isLiveWallpaperServiceActive` 반영 |
+| `feature/settings/build.gradle.kts` | `lifecycle-runtime-compose` 의존성 추가 |
+
+### 검증결과
+
+- 코드 변경 완료; 빌드는 Android Studio에서 별도 확인 필요 (Windows 파일 잠금 이슈로 CLI 빌드 시 간헐적 실패 발생)
+
+### 설계결정 및 근거
+
+**버그2 원인 — `selected ID` vs `active ID` 혼용**
+
+기존 "해제" 버튼 조건은 `currentId != null`(`selectedLiveWallpaperId`)이었다. 목록에서 아이템을 클릭하면 `SelectLiveWallpaper` 인텐트가 `selectedLiveWallpaperId`를 설정하므로, 배경화면이 실제 해제된 상태에서도 버튼이 나타났다. `activePortraitWallpaperId`/`activeLandscapeWallpaperId`(DataStore 저장값)로 조건을 분리해 "선택"과 "활성" 개념을 구분.
+
+**버그3 원인 — DataStore 선저장 + WallpaperManager 확인 부재**
+
+`setActiveLiveWallpaper`는 DataStore에 ID/URI를 먼저 저장한 뒤 시스템 피커를 띄운다(WallpaperService가 미리 DataStore를 읽어 미리보기를 위함). 사용자가 피커를 취소해도 DataStore는 이미 갱신돼 `activePortraitWallpaperId`가 non-null이 되어 "해제" 버튼이 표시됐다.
+
+**해결 — `isLiveWallpaperServiceActive`를 게이팅 조건으로 사용**
+
+`WallpaperManager.getWallpaperInfo()?.packageName == context.packageName`으로 우리 앱 서비스가 실제로 활성인지 확인한다. 이 값을 `SettingsState.isLiveWallpaperServiceActive`에 반영하고, `ON_RESUME` 시(`LifecycleEventObserver`) `CheckActiveWallpaper` 인텐트를 발행해 피커 복귀 후 즉시 재확인한다. "해제" 버튼과 가로 탭 잠금 해제(`isLandscapeUnlocked`) 조건 모두 이 필드를 추가 게이팅으로 사용.
+
+---
+
 ## [2026-03-30] fix(wallpaper): 라이브 배경화면 해제 버튼 동작 수정 — 시스템 배경화면까지 완전 제거
 
 ### 목표

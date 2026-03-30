@@ -61,6 +61,7 @@ dependencies {
     implementation(libs.androidx.compose.material.material.icons.extended)
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.ui)
+    implementation(libs.androidx.lifecycle.runtime.compose)
 
     implementation(libs.hilt.android)
     implementation(libs.hilt.navigation.compose)

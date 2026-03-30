@@ -80,6 +80,7 @@ class SettingsViewModel @Inject constructor(
                         selectedLiveWallpaperLandscapeId = settings.liveWallpaperLandscapeId,
                         selectedLiveWallpaperLandscapeUri = settings.liveWallpaperLandscapeUri,
                         activePortraitWallpaperId = settings.liveWallpaperId,
+                        activeLandscapeWallpaperId = settings.liveWallpaperLandscapeId,
                     )
                 }
             }
@@ -99,6 +100,9 @@ class SettingsViewModel @Inject constructor(
             getAllLiveWallpapersUseCase().collect { list ->
                 updateState { copy(liveWallpapers = list) }
             }
+        }
+        viewModelScope.launch {
+            updateState { copy(isLiveWallpaperServiceActive = wallpaperHelper.isLiveWallpaperServiceActive()) }
         }
         viewModelScope.launch {
             uploadProgressTracker.progress.collect { progress ->
@@ -169,6 +173,9 @@ class SettingsViewModel @Inject constructor(
             is SettingsIntent.DeleteLiveWallpaper -> deleteLiveWallpaper(intent.id)
             is SettingsIntent.ClearActiveLiveWallpaper -> clearActiveLiveWallpaper(intent.orientation)
             is SettingsIntent.SwitchOrientationTab -> updateState { copy(selectedOrientationTab = intent.orientation) }
+            is SettingsIntent.CheckActiveWallpaper -> {
+                updateState { copy(isLiveWallpaperServiceActive = wallpaperHelper.isLiveWallpaperServiceActive()) }
+            }
         }
     }
 
@@ -425,7 +432,14 @@ class SettingsViewModel @Inject constructor(
     private fun clearActiveLiveWallpaper(orientation: WallpaperOrientation) {
         viewModelScope.launch {
             runCatching { setLiveWallpaperUseCase(null, null, orientation) }
-                .onSuccess { sendEffect(SettingsSideEffect.ReloadWallpaper) }
+                .onSuccess {
+                    if (orientation == WallpaperOrientation.LANDSCAPE) {
+                        updateState { copy(activeLandscapeWallpaperId = null) }
+                    } else {
+                        updateState { copy(activePortraitWallpaperId = null, isLiveWallpaperServiceActive = false) }
+                    }
+                    sendEffect(SettingsSideEffect.ReloadWallpaper)
+                }
                 .onFailure { error ->
                     if (error.isNetworkDisconnected()) sendEffect(SettingsSideEffect.ShowNetworkError)
                     else sendEffect(SettingsSideEffect.ShowError(error.getErrorMessage("라이브 배경화면 해제")))

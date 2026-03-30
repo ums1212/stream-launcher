@@ -40,11 +40,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -69,14 +73,34 @@ internal fun LiveWallpaperSettingsContent(
     onIntent: (SettingsIntent) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // 시스템 배경화면 피커에서 돌아올 때 실제 적용 여부를 재확인
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                onIntent(SettingsIntent.CheckActiveWallpaper)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     val context = LocalContext.current
+    val containerSize = LocalWindowInfo.current.containerSize
+    val screenWidthPx = containerSize.width
+    val screenHeightPx = containerSize.height
     var showNameDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf<LiveWallpaper?>(null) }
 
     val isLandscapeTab = state.selectedOrientationTab == WallpaperOrientation.LANDSCAPE
-    val isLandscapeUnlocked = state.activePortraitWallpaperId != null
+    // 시스템 서비스가 실제로 활성 상태일 때만 세로 배경화면 ID를 유효한 것으로 간주
+    val isLandscapeUnlocked = state.activePortraitWallpaperId != null && state.isLiveWallpaperServiceActive
     val currentUri = if (isLandscapeTab) state.selectedLiveWallpaperLandscapeUri else state.selectedLiveWallpaperUri
     val currentId = if (isLandscapeTab) state.selectedLiveWallpaperLandscapeId else state.selectedLiveWallpaperId
+    // 실제로 시스템에 적용된 배경화면 ID (서비스 비활성 시 null 취급)
+    val activeId = if (state.isLiveWallpaperServiceActive) {
+        if (isLandscapeTab) state.activeLandscapeWallpaperId else state.activePortraitWallpaperId
+    } else null
 
     // 동영상/GIF/정적 이미지 파일 선택 런처
     val fileLauncher = rememberLauncherForActivityResult(
@@ -136,6 +160,13 @@ internal fun LiveWallpaperSettingsContent(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+
+        // 단말기 해상도 안내
+        Text(
+            text = "현재 귀하의 단말기 해상도는 $screenWidthPx × $screenHeightPx 입니다",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
 
         // 2. 상단 버튼 Row
         Row(
@@ -205,7 +236,7 @@ internal fun LiveWallpaperSettingsContent(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxWidth(),
         ) {
-            if (currentId != null) {
+            if (activeId != null) {
                 TextButton(
                     onClick = { onIntent(SettingsIntent.ClearActiveLiveWallpaper(state.selectedOrientationTab)) },
                     modifier = Modifier.weight(1f),
