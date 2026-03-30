@@ -96,6 +96,12 @@
     <string name="live_wallpaper_select_for_preset">Select Live Wallpaper</string>
     <string name="live_wallpaper_empty">No saved live wallpapers</string>
     <string name="live_wallpaper_clear">Remove Live Wallpaper</string>
+    <string name="wallpaper_orientation_portrait">Portrait</string>
+    <string name="wallpaper_orientation_landscape">Landscape</string>
+    <string name="wallpaper_landscape_fallback_hint">Portrait wallpaper is used when no landscape wallpaper is set</string>
+    <string name="wallpaper_landscape_locked_hint">Set a portrait wallpaper first before adding a landscape one</string>
+    <string name="preset_wallpaper_landscape_optional">Landscape live wallpaper (optional)</string>
+    <string name="preset_wallpaper_landscape_none">None</string>
     <string name="settings_chzzk_id_format_error">Must be a 32-character hex string</string>
     <string name="settings_youtube_id_format_error">Must be in UC… or @handle format</string>
 

@@ -33,6 +33,8 @@ data class SettingsState(
     val selectedLiveWallpaperId: Int? = null,
     val selectedLiveWallpaperLandscapeUri: String? = null,
     val selectedLiveWallpaperLandscapeId: Int? = null,
+    /** DataStore에 실제로 저장된(배경화면으로 설정된) 세로 배경화면 ID. UI 선택과 무관하게 DataStore 값만 반영 */
+    val activePortraitWallpaperId: Int? = null,
 ) : UiState
 
 sealed interface SettingsIntent : UiIntent {

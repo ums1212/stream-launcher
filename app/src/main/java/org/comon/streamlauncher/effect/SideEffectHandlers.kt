@@ -168,7 +168,11 @@ fun SettingsSideEffectHandler(
                     val wallpaperManager = WallpaperManager.getInstance(context)
                     val currentInfo = wallpaperManager.wallpaperInfo
                     if (currentInfo?.serviceName == VideoLiveWallpaperService::class.java.name) {
-                        // 이미 활성화된 경우: URI가 DataStore에 저장됐으므로 서비스가 자동으로 갱신
+                        // 이미 활성화된 경우: :wallpaper 프로세스에 URI 재로드 브로드캐스트 전송
+                        context.sendBroadcast(
+                            Intent(VideoLiveWallpaperService.ACTION_RELOAD_URI)
+                                .setPackage(context.packageName)
+                        )
                         snackbarHostState.showSnackbar("라이브 배경화면이 업데이트됩니다")
                     } else {
                         try {

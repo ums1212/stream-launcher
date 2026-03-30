@@ -74,6 +74,7 @@ internal fun LiveWallpaperSettingsContent(
     var showDeleteDialog by remember { mutableStateOf<LiveWallpaper?>(null) }
 
     val isLandscapeTab = state.selectedOrientationTab == WallpaperOrientation.LANDSCAPE
+    val isLandscapeUnlocked = state.activePortraitWallpaperId != null
     val currentUri = if (isLandscapeTab) state.selectedLiveWallpaperLandscapeUri else state.selectedLiveWallpaperUri
     val currentId = if (isLandscapeTab) state.selectedLiveWallpaperLandscapeId else state.selectedLiveWallpaperId
 
@@ -106,14 +107,30 @@ internal fun LiveWallpaperSettingsContent(
             )
             Tab(
                 selected = isLandscapeTab,
-                onClick = { onIntent(SettingsIntent.SwitchOrientationTab(WallpaperOrientation.LANDSCAPE)) },
-                text = { Text(stringResource(R.string.wallpaper_orientation_landscape)) },
+                enabled = isLandscapeUnlocked,
+                onClick = {
+                    if (isLandscapeUnlocked) {
+                        onIntent(SettingsIntent.SwitchOrientationTab(WallpaperOrientation.LANDSCAPE))
+                    }
+                },
+                text = {
+                    Text(
+                        text = stringResource(R.string.wallpaper_orientation_landscape),
+                        color = if (isLandscapeUnlocked) Color.Unspecified
+                                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+                    )
+                },
             )
         }
 
-        // 가로 탭일 때 fallback 안내 문구
-        if (isLandscapeTab) {
-            Text(
+        // 탭 아래 안내 문구
+        when {
+            !isLandscapeUnlocked -> Text(
+                text = stringResource(R.string.wallpaper_landscape_locked_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+            isLandscapeTab -> Text(
                 text = stringResource(R.string.wallpaper_landscape_fallback_hint),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,

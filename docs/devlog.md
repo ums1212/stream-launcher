@@ -2,6 +2,56 @@
 
 ---
 
+## [2026-03-30] fix(wallpaper): 라이브 배경화면 방향 전환 버그 수정 + 배경화면 변경 IPC 브로드캐스트 도입
+
+### 목표
+
+1. 가로 라이브 배경화면만 설정한 상태에서 세로로 화면 회전 시 가로 배경화면이 그대로 재생되는 버그 수정
+2. 두 번째 이후 라이브 배경화면 변경 시 스낵바만 표시되고 실제로 바뀌지 않는 버그 수정
+3. 세로 배경화면이 설정된 경우에만 가로 배경화면 탭 접근 허용 (UI 제한)
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `app/.../service/VideoLiveWallpaperService.kt` | `companion object { ACTION_RELOAD_URI }` 추가; `BroadcastReceiver reloadReceiver` — 주 프로세스로부터 URI 재로드 요청 수신; `onSurfaceCreated`에 `ContextCompat.registerReceiver()` 추가; `onSurfaceDestroyed`/`onDestroy`에 `unregisterReceiver` 추가; `onSurfaceChanged` — 방향 전환 시 `resolveActiveUri() == null`이면 `stopCurrent()` + `currentUri = null`로 재생 중단(버그1 수정); `Job()` → `SupervisorJob()` 교체; `onVisibilityChanged(true)` — `checkAndReloadUri()` 호출로 URI fallback 추가 |
+| `app/.../effect/SideEffectHandlers.kt` | `LaunchLiveWallpaperPicker` SideEffect — 서비스 이미 활성 시 `sendBroadcast(ACTION_RELOAD_URI)` 전송 후 스낵바 표시 (버그2 수정) |
+| `feature/settings/.../SettingsContract.kt` | `SettingsState`에 `activePortraitWallpaperId: Int?` 필드 추가 |
+| `feature/settings/.../SettingsViewModel.kt` | `getLauncherSettingsUseCase().collect`에서 `activePortraitWallpaperId = settings.liveWallpaperId` 반영 |
+| `feature/settings/.../ui/LiveWallpaperSettingsContent.kt` | `isLandscapeUnlocked = state.activePortraitWallpaperId != null`; 가로 탭 `enabled = isLandscapeUnlocked`; 잠금 시 빨간 안내 문구 표시 |
+| `feature/settings/res/values/strings.xml` | `wallpaper_landscape_locked_hint` 문자열 추가 |
+
+### 검증결과
+
+- `assembleDebug` BUILD SUCCESSFUL (전체 3회)
+- 버그1: `onSurfaceChanged`에서 `activeUri == null`일 때 `stopCurrent()` 호출 경로 확인
+- 버그2: Broadcast 수신 → `checkAndReloadUri()` 코루틴 실행 → `applyUri()` 호출 경로 확인
+
+### 설계결정 및 근거
+
+**버그1 근본 원인 — `resolveActiveUri() ?: return` 의 묵시적 실패**
+
+`onSurfaceChanged`에서 방향이 바뀌었을 때 `resolveActiveUri()`가 `null`(해당 방향 배경화면 미설정)을 반환하면 `?: return`으로 메서드를 빠져나가면서 기존 ExoPlayer를 `stopCurrent()` 없이 그대로 방치했다. 가로 영상이 세로 화면에서도 계속 재생되는 증상의 직접 원인. `null`이면 명시적으로 `stopCurrent()` + `currentUri = null` 처리로 수정.
+
+**버그2 근본 원인 — 첫 설정 vs 이후 변경의 동작 경로 불일치**
+
+| 상황 | 동작 경로 |
+|------|----------|
+| 처음 설정 | 시스템 picker → 서비스 새로 시작 → `onSurfaceCreated` → `loadAndApplyUri` → 파일 읽기 ✓ |
+| 이후 변경 | 서비스 이미 활성 → 스낵바만 → FileObserver에만 의존 ✗ |
+
+Android의 `FileObserver`(inotify 기반)는 **동일 앱 내 멀티 프로세스(`main` ↔ `:wallpaper`) 간에 신뢰할 수 없다.** 특히 Samsung, Xiaomi 등 OEM 디바이스에서 cross-process inotify 이벤트가 전달되지 않는 사례가 보고되고 있다. FileObserver는 보조 fallback으로 유지하되, **주 IPC를 Broadcast Intent로 교체**했다. `setPackage(packageName)` + `RECEIVER_NOT_EXPORTED`로 앱 내부로만 제한.
+
+**`SupervisorJob` 교체**
+
+기존 `Job()`은 자식 코루틴이 예외를 던지면 scope 전체가 취소된다. `startVideoRendering` 등에서 예외 발생 시 이후 `scope.launch { }` 호출이 조용히 무시되는 잠재 버그가 있었다. `SupervisorJob()`으로 교체해 자식 실패가 scope에 영향을 주지 않도록 수정.
+
+**`activePortraitWallpaperId` 도입 — UI 선택과 DataStore 상태 분리**
+
+`selectedLiveWallpaperId`는 썸네일 선택(UI) 시에도 갱신되므로 "실제 설정된 상태"를 나타내지 않는다. DataStore 값만 반영하는 `activePortraitWallpaperId`를 별도로 두어 가로 탭 활성화 조건을 정확히 판단한다.
+
+---
+
 ## [2026-03-30] fix(wallpaper): 라이브 배경화면 불러오기 후 프리뷰 즉시 표시 + 원본 비율 유지
 
 ### 목표

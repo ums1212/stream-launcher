@@ -1,5 +1,11 @@
 package org.comon.streamlauncher.service
 
+import android.annotation.SuppressLint
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.os.Build
 import android.graphics.BitmapFactory
 import android.graphics.ImageDecoder
 import android.graphics.drawable.AnimatedImageDrawable
@@ -14,7 +20,7 @@ import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -30,11 +36,17 @@ import java.io.File
  * android:process=":wallpaper" 로 런처와 완전히 분리된 별도 프로세스에서 실행.
  * URI는 filesDir/live_wallpaper_uri.txt (portrait) 및
  * filesDir/live_wallpaper_uri_landscape.txt (landscape) 파일을 통해 전달받으며,
- * FileObserver로 파일 변경을 감지해 실시간 반영한다.
+ * [ACTION_RELOAD_URI] 브로드캐스트(주 프로세스 → :wallpaper)로 URI 변경을 통보받는다.
+ * FileObserver와 onVisibilityChanged는 보조 fallback으로 유지된다.
  * landscape 파일이 없으면 portrait URI로 fallback한다.
  */
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class VideoLiveWallpaperService : WallpaperService() {
+
+    companion object {
+        /** 주 프로세스가 URI 파일을 갱신한 뒤 :wallpaper 프로세스로 재로드를 요청하는 브로드캐스트 액션 */
+        const val ACTION_RELOAD_URI = "org.comon.streamlauncher.action.RELOAD_WALLPAPER_URI"
+    }
 
     override fun onCreateEngine(): Engine = VideoEngine()
 
@@ -43,7 +55,10 @@ class VideoLiveWallpaperService : WallpaperService() {
         private var player: ExoPlayer? = null
         private var gifDrawable: AnimatedImageDrawable? = null
         private var frameCallback: Choreographer.FrameCallback? = null
-        private val scope = CoroutineScope(Dispatchers.Main + Job())
+        // SupervisorJob: 자식 코루틴 실패가 scope 전체를 취소하지 않도록 한다.
+        // Job()을 사용하면 startVideoRendering 등에서 예외 발생 시 scope 전체가 취소되어
+        // 이후 fileObserver.onEvent의 scope.launch가 조용히 무시되는 버그가 생긴다.
+        private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
         private var currentUri: String? = null
         private var surfaceHolder: SurfaceHolder? = null
 
@@ -53,6 +68,18 @@ class VideoLiveWallpaperService : WallpaperService() {
 
         private val uriFile get() = File(filesDir, "live_wallpaper_uri.txt")
         private val landscapeUriFile get() = File(filesDir, "live_wallpaper_uri_landscape.txt")
+
+        /**
+         * 주 프로세스에서 ACTION_RELOAD_URI 브로드캐스트를 받으면 URI 파일을 즉시 재로드한다.
+         * FileObserver는 멀티 프로세스 간 신뢰도가 낮아 브로드캐스트를 주 IPC 수단으로 사용한다.
+         */
+        private val reloadReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                if (intent?.action != ACTION_RELOAD_URI) return
+                checkAndReloadUri()
+            }
+        }
+        private var receiverRegistered = false
 
         private fun resolveActiveUri(): String? =
             if (isLandscape && landscapeUri != null) landscapeUri else portraitUri
@@ -88,6 +115,19 @@ class VideoLiveWallpaperService : WallpaperService() {
             super.onSurfaceCreated(holder)
             surfaceHolder = holder
             fileObserver.startWatching()
+            if (!receiverRegistered) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    registerReceiver(
+                        reloadReceiver,
+                        IntentFilter(ACTION_RELOAD_URI),
+                        RECEIVER_NOT_EXPORTED,
+                    )
+                } else {
+                    @SuppressLint("UnspecifiedRegisterReceiverFlag")
+                    registerReceiver(reloadReceiver, IntentFilter(ACTION_RELOAD_URI))
+                }
+                receiverRegistered = true
+            }
             loadAndApplyUri(holder)
         }
 
@@ -98,7 +138,13 @@ class VideoLiveWallpaperService : WallpaperService() {
                 isLandscape = newLandscape
                 // URIs가 아직 로드되지 않은 경우 loadAndApplyUri가 surfaceFrame으로 올바른 방향을 처리
                 if (portraitUri == null && landscapeUri == null) return
-                val activeUri = resolveActiveUri() ?: return
+                val activeUri = resolveActiveUri()
+                if (activeUri == null) {
+                    // 전환된 방향에 배경화면이 없으면 재생 중단 (예: 세로 미설정 상태에서 가로→세로 전환)
+                    stopCurrent()
+                    currentUri = null
+                    return
+                }
                 if (activeUri != currentUri) {
                     currentUri = activeUri
                     applyUri(holder, activeUri)
@@ -112,11 +158,43 @@ class VideoLiveWallpaperService : WallpaperService() {
         override fun onVisibilityChanged(visible: Boolean) {
             super.onVisibilityChanged(visible)
             if (visible) {
-                player?.play()
-                if (gifDrawable?.isRunning == false) gifDrawable?.start()
+                // visible이 될 때 URI 변경 여부를 재확인한다.
+                // FileObserver가 파일 변경을 놓쳤을 경우(비가시 상태에서 변경, OEM 커스텀 등)의 fallback.
+                checkAndReloadUri()
             } else {
                 player?.pause()
                 gifDrawable?.stop()
+            }
+        }
+
+        /**
+         * URI 파일을 읽어 현재 재생 중인 URI와 비교한다.
+         * 변경됐으면 새 URI를 적용하고, 변경이 없으면 재생만 재개한다.
+         */
+        private fun checkAndReloadUri() {
+            scope.launch {
+                val newPortrait = withContext(Dispatchers.IO) {
+                    runCatching { uriFile.readText().trim() }.getOrNull()?.takeIf { it.isNotBlank() }
+                }
+                val newLandscape = withContext(Dispatchers.IO) {
+                    runCatching { landscapeUriFile.readText().trim() }.getOrNull()?.takeIf { it.isNotBlank() }
+                }
+                val uriChanged = newPortrait != portraitUri || newLandscape != landscapeUri
+                if (uriChanged) {
+                    portraitUri = newPortrait
+                    landscapeUri = newLandscape
+                    val activeUri = resolveActiveUri()
+                    if (activeUri == null) {
+                        stopCurrent()
+                        currentUri = null
+                    } else if (activeUri != currentUri) {
+                        currentUri = activeUri
+                        surfaceHolder?.let { applyUri(it, activeUri) }
+                    }
+                } else {
+                    player?.play()
+                    if (gifDrawable?.isRunning == false) gifDrawable?.start()
+                }
             }
         }
 
@@ -124,6 +202,10 @@ class VideoLiveWallpaperService : WallpaperService() {
             super.onSurfaceDestroyed(holder)
             stopCurrent()
             fileObserver.stopWatching()
+            if (receiverRegistered) {
+                runCatching { unregisterReceiver(reloadReceiver) }
+                receiverRegistered = false
+            }
             surfaceHolder = null
             // Surface 재생성 시 loadAndApplyUri가 surfaceFrame으로 방향을 재결정할 수 있도록 초기화
             portraitUri = null
@@ -135,6 +217,10 @@ class VideoLiveWallpaperService : WallpaperService() {
             super.onDestroy()
             stopCurrent()
             fileObserver.stopWatching()
+            if (receiverRegistered) {
+                runCatching { unregisterReceiver(reloadReceiver) }
+                receiverRegistered = false
+            }
             surfaceHolder = null
             scope.cancel()
         }

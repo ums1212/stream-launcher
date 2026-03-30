@@ -79,6 +79,7 @@ class SettingsViewModel @Inject constructor(
                         selectedLiveWallpaperUri = settings.liveWallpaperUri,
                         selectedLiveWallpaperLandscapeId = settings.liveWallpaperLandscapeId,
                         selectedLiveWallpaperLandscapeUri = settings.liveWallpaperLandscapeUri,
+                        activePortraitWallpaperId = settings.liveWallpaperId,
                     )
                 }
             }
