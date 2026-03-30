@@ -2,6 +2,41 @@
 
 ---
 
+## [2026-03-30] fix(wallpaper): 라이브 배경화면 불러오기 후 프리뷰 즉시 표시 + 원본 비율 유지
+
+### 목표
+
+- 라이브 배경화면 설정 화면에서 "불러오기" 후 프리뷰에 영상이 즉시 표시되지 않는 버그 수정
+- 프리뷰 영상을 화면 꽉 채우기 대신 원본 비율로 표시
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `feature/settings/.../ui/LiveWallpaperSettingsContent.kt` | `ExoPlayerPreview` — `SurfaceView` 기반 `PlayerView` → `TextureView` 직접 사용으로 교체; `Player.Listener.onVideoSizeChanged()`로 비율 감지해 `Modifier.aspectRatio()` 적용 |
+
+### 검증결과
+
+- `:feature:settings:assembleDebug` BUILD SUCCESSFUL
+- 로그 분석: `SurfaceView updateSurface: has no frame` → `TextureView` 교체로 해당 경로 완전히 우회
+- 영상 비율 감지 후 리컴포지션으로 `aspectRatio` 자동 적용 확인
+
+### 설계결정 및 근거
+
+**근본 원인 — SurfaceView 레이아웃 타이밍 문제**
+
+Compose의 `AndroidView.update` 블록은 `AbstractComposeView.onMeasure()` 단계에서 실행된다. 이 시점에는 `SurfaceView`가 아직 `onLayout()`을 받지 못해 `getWidth()/getHeight()`가 0이다. `playerView.player = player`를 호출하면 내부적으로 `SurfaceView.updateSurface()`가 실행되지만 frame이 없어(`has no frame`) surface 생성에 실패한다. 이후 layout이 완료되어도 `updateSurface()`가 재호출되지 않으므로 surface가 끝내 생성되지 않는다. 사용자가 버튼을 누르면 리컴포지션 → 다음 layout 패스 → `update` 재실행 → 그제서야 surface가 생성되는 구조였다.
+
+**TextureView 채택**
+
+`TextureView`는 `player.setVideoTextureView()` 호출 시 surface가 아직 준비되지 않았더라도 내부적으로 `SurfaceTextureListener`를 등록해 `SurfaceTexture`가 준비되는 즉시 자동으로 연결한다. XML 없이 순수 Compose 코드로 처리 가능하다. `SurfaceView`의 Z-order hole-punching 문제도 함께 회피된다.
+
+**원본 비율 표시 — onVideoSizeChanged 활용**
+
+`Player.Listener.onVideoSizeChanged(VideoSize)`로 실제 영상 해상도와 `pixelWidthHeightRatio`(SAR)를 얻어 정확한 가로세로 비율을 계산한다. 비율을 알기 전까지는 `fillMaxSize()`로 검은 배경을 유지하고, 감지되면 `Modifier.aspectRatio()`로 교체하여 부모 Box(`contentAlignment = Center`) 안에서 원본 비율로 가운데 정렬된다. `DisposableEffect` 하나에 리스너 등록과 `player.release()`를 통합해 uri 변경 시 정리 순서를 보장했다.
+
+---
+
 ## [2026-03-28] feat(preset): 프리셋/마켓 저장·로드·업로드·다운로드에 landscape 배경화면 지원 추가
 
 ### 목표

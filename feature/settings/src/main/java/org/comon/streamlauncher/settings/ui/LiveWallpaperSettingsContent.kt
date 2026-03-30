@@ -3,6 +3,7 @@ package org.comon.streamlauncher.settings.ui
 import android.content.Intent
 import android.graphics.ImageDecoder
 import android.graphics.drawable.AnimatedImageDrawable
+import android.view.TextureView
 import android.view.ViewGroup
 import android.widget.ImageView
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -49,6 +51,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
+import androidx.media3.common.VideoSize
 import androidx.media3.exoplayer.ExoPlayer
 import coil.compose.AsyncImage
 import java.io.File
@@ -371,6 +375,8 @@ private fun ExoPlayerPreview(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    var aspectRatio by remember(uri) { mutableStateOf<Float?>(null) }
+
     val player = remember(uri) {
         ExoPlayer.Builder(context).build().apply {
             setMediaItem(MediaItem.fromUri(uri))
@@ -380,24 +386,43 @@ private fun ExoPlayerPreview(
             play()
         }
     }
+
+    // 리스너 등록과 릴리즈를 하나의 DisposableEffect에서 관리
     DisposableEffect(player) {
-        onDispose { player.release() }
+        val listener = object : Player.Listener {
+            override fun onVideoSizeChanged(videoSize: VideoSize) {
+                if (videoSize.width > 0 && videoSize.height > 0) {
+                    aspectRatio = videoSize.width.toFloat() / videoSize.height * videoSize.pixelWidthHeightRatio
+                }
+            }
+        }
+        player.addListener(listener)
+        onDispose {
+            player.removeListener(listener)
+            player.release()
+        }
     }
+
+    // SurfaceView는 AndroidView.update가 Compose measure 단계에서 실행될 때
+    // 아직 layout이 완료되지 않아 frame(width/height)이 0이므로
+    // SurfaceView.updateSurface()가 "has no frame"으로 실패한다.
+    // TextureView는 surface가 준비되지 않은 상태에서 setVideoTextureView()를 호출해도
+    // 내부적으로 SurfaceTextureListener를 등록해 준비되는 즉시 자동으로 연결된다.
     AndroidView(
-        factory = {
-            androidx.media3.ui.PlayerView(it).apply {
-                useController = false
+        factory = { ctx ->
+            TextureView(ctx).apply {
                 layoutParams = ViewGroup.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT,
                 )
             }
         },
-        update = { playerView ->
-            // uri 변경 시 remember(uri)가 새 player를 생성하므로 update에서 반영해야 함.
-            // factory는 최초 1회만 실행되어 update 없이는 PlayerView가 이전 player를 참조.
-            playerView.player = player
+        update = { textureView ->
+            player.setVideoTextureView(textureView)
         },
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier.then(
+            // 비율을 알기 전까지는 fillMaxSize, 이후 원본 비율 유지
+            if (aspectRatio != null) Modifier.aspectRatio(aspectRatio!!) else Modifier.fillMaxSize()
+        ),
     )
 }
