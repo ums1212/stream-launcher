@@ -27,6 +27,7 @@ data class SettingMenuItem(
 )
 
 val settingMenuList = listOf(
+    // 외관
     SettingMenuItem(
         labelId = R.string.settings_theme_color,
         icon = Icons.Rounded.Palette,
@@ -36,50 +37,53 @@ val settingMenuList = listOf(
     SettingMenuItem(
         labelId = R.string.settings_home_image,
         icon = Icons.Rounded.Image,
-        lerpFraction = 0.17f,
+        lerpFraction = 0.11f,
         actionType = SettingsActionType.IMAGE
     ),
     SettingMenuItem(
+        labelId = R.string.settings_wallpaper,
+        icon = Icons.Rounded.Wallpaper,
+        lerpFraction = 0.22f,
+        actionType = SettingsActionType.WALLPAPER
+    ),
+    SettingMenuItem(
+        labelId = R.string.settings_live_wallpaper,
+        icon = Icons.Rounded.SlowMotionVideo,
+        lerpFraction = 0.33f,
+        actionType = SettingsActionType.LIVE_WALLPAPER
+    ),
+    // 콘텐츠
+    SettingMenuItem(
         labelId = R.string.settings_app_drawer,
         icon = Icons.Rounded.GridView,
-        lerpFraction = 0.23f,
+        lerpFraction = 0.44f,
         actionType = SettingsActionType.APP_DRAWER
     ),
     SettingMenuItem(
         labelId = R.string.settings_feed,
         icon = Icons.Rounded.LiveTv,
-        lerpFraction = 0.4f,
+        lerpFraction = 0.56f,
         actionType = SettingsActionType.FEED
     ),
+    // 관리
     SettingMenuItem(
-        labelId = R.string.settings_notice,
-        icon = Icons.Rounded.Campaign,
-        lerpFraction = 0.57f,
-        actionType = SettingsActionType.NOTICE
-    ),
-    SettingMenuItem(
-        labelId = R.string.settings_wallpaper,
-        icon = Icons.Rounded.Wallpaper,
-        lerpFraction = 0.73f,
-        actionType = SettingsActionType.WALLPAPER
+        labelId = R.string.settings_preset,
+        icon = Icons.Rounded.Save,
+        lerpFraction = 0.67f,
+        actionType = SettingsActionType.PRESET
     ),
     SettingMenuItem(
         labelId = R.string.settings_default_home,
         icon = Icons.Rounded.Home,
-        lerpFraction = 0.9f,
+        lerpFraction = 0.78f,
         actionType = SettingsActionType.DEFAULT_HOME
     ),
+    // 정보
     SettingMenuItem(
-        labelId = R.string.settings_preset,
-        icon = Icons.Rounded.Save,
-        lerpFraction = 0.93f,
-        actionType = SettingsActionType.PRESET
-    ),
-    SettingMenuItem(
-        labelId = R.string.settings_live_wallpaper,
-        icon = Icons.Rounded.SlowMotionVideo,
-        lerpFraction = 0.97f,
-        actionType = SettingsActionType.LIVE_WALLPAPER
+        labelId = R.string.settings_notice,
+        icon = Icons.Rounded.Campaign,
+        lerpFraction = 0.89f,
+        actionType = SettingsActionType.NOTICE
     ),
     SettingMenuItem(
         labelId = R.string.settings_suggestion,
