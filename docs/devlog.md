@@ -2,6 +2,39 @@
 
 ---
 
+## [2026-03-31] fix(wallpaper): 세로 전용 라이브 배경화면 화면 회전 시 잘림/정지 버그 수정
+
+### 목표
+
+세로 배경화면만 설정된 상태에서 화면을 가로로 회전하면 배경화면이 잘리고 멈추는 현상 수정.
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `app/.../service/VideoLiveWallpaperService.kt` | `onSurfaceChanged`에서 방향 전환 시 URI 동일 여부와 무관하게 항상 `applyUri` 호출; 같은 방향 Surface 리사이즈 시 모든 미디어 타입(정적이미지만 → 전체)에 재적용 확대 |
+
+### 검증결과
+
+- `assembleDebug` BUILD SUCCESSFUL
+
+### 설계결정 및 근거
+
+**버그 원인 — `activeUri != currentUri` 가드 조건의 부작용**
+
+`onSurfaceChanged`에서 방향 전환이 감지되면 `resolveActiveUri()`로 활성 URI를 결정한다.
+세로 전용 배경화면의 경우 가로 회전 시 `landscapeUri`가 없으므로 `portraitUri`로 폴백 — 결과적으로 `activeUri == currentUri`. 기존 코드의 `if (activeUri != currentUri)` 조건에 의해 `applyUri` 호출이 차단됐다.
+
+Surface의 물리적 크기는 이미 가로 해상도로 변경됐음에도 미디어가 재초기화되지 않아 세로 비율 그대로 렌더링 → 잘림(crop) 및 정지(freeze) 발생.
+
+**수정 방향**
+
+방향이 바뀌면 URI 동일 여부와 무관하게 `applyUri`를 무조건 호출한다.
+`applyUri`는 내부에서 `stopCurrent()`를 먼저 실행하므로 ExoPlayer/GIF 자원을 안전하게 해제하고 새 Surface 크기에 맞게 재초기화된다.
+같은 방향에서 Surface 크기가 변하는 경우(멀티윈도우 등)도 정적 이미지에만 국한하지 않고 모든 미디어 타입에 동일 처리를 적용했다.
+
+---
+
 ## [2026-03-30] feat(wallpaper): 단말기 해상도 표시 + 라이브 배경화면 해제 버튼 정확성 개선
 
 ### 목표

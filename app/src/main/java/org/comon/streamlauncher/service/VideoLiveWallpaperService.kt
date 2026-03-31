@@ -145,12 +145,12 @@ class VideoLiveWallpaperService : WallpaperService() {
                     currentUri = null
                     return
                 }
-                if (activeUri != currentUri) {
-                    currentUri = activeUri
-                    applyUri(holder, activeUri)
-                }
-            } else if (currentUri?.isStaticImage() == true) {
-                // 같은 방향이지만 Surface 크기가 바뀐 경우 정적 이미지 재그리기
+                // 방향이 바뀌면 URI가 동일하더라도 반드시 재적용한다.
+                // Surface 크기가 달라졌으므로 영상/GIF/정적 이미지 모두 새 치수에 맞게 재초기화 필요.
+                currentUri = activeUri
+                applyUri(holder, activeUri)
+            } else if (currentUri != null) {
+                // 같은 방향이지만 Surface 크기가 바뀐 경우 (멀티윈도우 등) 모든 미디어 재적용
                 applyUri(holder, currentUri!!)
             }
         }
