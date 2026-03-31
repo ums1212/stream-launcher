@@ -13,9 +13,11 @@ import androidx.navigation.toRoute
 import org.comon.streamlauncher.preset_market.ui.PresetMarketHost
 import org.comon.streamlauncher.settings.SettingsIntent
 import org.comon.streamlauncher.settings.SettingsState
+import org.comon.streamlauncher.settings.navigation.AddNewPreset
 import org.comon.streamlauncher.settings.navigation.Launcher
 import org.comon.streamlauncher.settings.navigation.SettingsDetail
 import org.comon.streamlauncher.settings.navigation.SettingsMenu
+import org.comon.streamlauncher.settings.ui.AddNewPresetScreen
 import org.comon.streamlauncher.settings.ui.SettingsDetailScreen
 import org.comon.streamlauncher.settings.navigation.PresetMarketHost as PresetMarketRoute
 
@@ -60,8 +62,22 @@ fun MainNavHost(
                 onIntent = onSettingsIntent,
                 onBack = { navController.popBackStack() },
                 onNavigateToMarket = { navController.navigate(PresetMarketRoute) },
+                onNavigateToAddPreset = { navController.navigate(AddNewPreset) },
                 onShowSnackbar = onShowSnackbar,
                 onRequireSignIn = onRequireSignIn,
+            )
+        }
+
+        composable<AddNewPreset>(
+            enterTransition = { slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(300)) },
+            popExitTransition = { slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(300)) },
+            exitTransition = { ExitTransition.None },
+            popEnterTransition = { EnterTransition.None },
+        ) {
+            AddNewPresetScreen(
+                liveWallpapers = settingsState.liveWallpapers,
+                onSave = onSettingsIntent,
+                onBack = { navController.popBackStack() },
             )
         }
 

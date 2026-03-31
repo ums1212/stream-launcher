@@ -15,17 +15,18 @@ import org.comon.streamlauncher.settings.R
 import org.comon.streamlauncher.ui.component.GoogleSignInRequiredDialog
 import org.comon.streamlauncher.ui.util.calculateIsCompactHeight
 
+
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 internal fun PresetSettingsContent(
     state: SettingsState,
     onIntent: (SettingsIntent) -> Unit,
     onNavigateToMarket: () -> Unit = {},
+    onNavigateToAddPreset: () -> Unit = {},
     onShowSnackbar: (String) -> Unit = {},
     onRequireSignIn: () -> Unit = {},
 ) {
     val isCompactLandscape = calculateIsCompactHeight()
-    var showSaveDialog by remember { mutableStateOf(false) }
     var showLimitDialog by remember { mutableStateOf(false) }
     var presetToLoad by remember { mutableStateOf<Preset?>(null) }
     var presetToDelete by remember { mutableStateOf<Preset?>(null) }
@@ -60,7 +61,7 @@ internal fun PresetSettingsContent(
                 if (state.presets.size >= 10) {
                     showLimitDialog = true
                 } else {
-                    showSaveDialog = true
+                    onNavigateToAddPreset()
                 }
             },
             presetToDeleteEvent = { presetToDelete = it },
@@ -88,7 +89,7 @@ internal fun PresetSettingsContent(
                 if (state.presets.size >= 10) {
                     showLimitDialog = true
                 } else {
-                    showSaveDialog = true
+                    onNavigateToAddPreset()
                 }
             },
             presetToDeleteEvent = { presetToDelete = it },
@@ -133,29 +134,6 @@ internal fun PresetSettingsContent(
                 TextButton(onClick = { showLimitDialog = false }) {
                     Text(stringResource(R.string.preset_confirm))
                 }
-            }
-        )
-    }
-
-    // Save Preset Dialog
-    if (showSaveDialog) {
-        SavePresetDialog(
-            liveWallpapers = state.liveWallpapers,
-            onDismiss = { showSaveDialog = false },
-            onConfirm = { name, saveHome, saveFeed, saveDrawer, saveWallpaper, saveTheme, wallpaperUri, isLiveWallpaper, wallpaperLandscapeUri, isLiveWallpaperLandscape ->
-                onIntent(SettingsIntent.SavePreset(
-                    name = name,
-                    saveHome = saveHome,
-                    saveFeed = saveFeed,
-                    saveDrawer = saveDrawer,
-                    saveWallpaper = saveWallpaper,
-                    saveTheme = saveTheme,
-                    wallpaperUri = wallpaperUri,
-                    isLiveWallpaper = isLiveWallpaper,
-                    wallpaperLandscapeUri = wallpaperLandscapeUri,
-                    isLiveWallpaperLandscape = isLiveWallpaperLandscape,
-                ))
-                showSaveDialog = false
             }
         )
     }

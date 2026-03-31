@@ -13,4 +13,7 @@ data class SettingsDetail(val menu: String): LauncherRoute
 @Serializable
 object PresetMarketHost: LauncherRoute
 
+@Serializable
+object AddNewPreset : LauncherRoute
+
 enum class SettingsMenu { COLOR, IMAGE, FEED, APP_DRAWER, PRESET, LIVE_WALLPAPER, SUGGESTION }

@@ -2,6 +2,45 @@
 
 ---
 
+## [2026-03-31] feat(settings): 프리셋 추가 다이얼로그 → 전체 화면(AddNewPresetScreen)으로 전환
+
+### 목표
+
+프리셋 저장 플로우를 `AlertDialog` 기반에서 독립 네비게이션 화면으로 전환해 UX 개선.
+`Scaffold` + 바텀바 저장 버튼 구조로 변경하고, 저장 후 자동 목록 새로고침 유지.
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `feature/settings/.../navigation/SettingsRoute.kt` | `@Serializable object AddNewPreset : LauncherRoute` 추가 |
+| `feature/settings/.../ui/AddNewPresetScreen.kt` | **신규** — Scaffold(TopAppBar + BottomAppBar) 구조의 전체 화면; 기존 SavePresetDialog 로직(이름 입력, 체크박스, 배경화면/라이브 배경화면 선택, 서브 다이얼로그 2개) 이전 |
+| `feature/settings/.../ui/SettingsDetailScreen.kt` | `onNavigateToAddPreset: () -> Unit = {}` 파라미터 추가, PRESET 케이스에서 PresetSettingsContent로 전달 |
+| `feature/settings/.../ui/PresetSettingsContent.kt` | `onNavigateToAddPreset` 파라미터 추가; `showSaveDialog` 상태 제거; `addPresetEvent`에서 `showSaveDialog = true` → `onNavigateToAddPreset()` 로 교체; SavePresetDialog 렌더링 블록 삭제 |
+| `app/.../navigation/MainNavHost.kt` | `composable<AddNewPreset>` 목적지 추가 (슬라이드 애니메이션); SettingsDetail에 `onNavigateToAddPreset = { navController.navigate(AddNewPreset) }` 전달 |
+| `feature/settings/.../ui/SavePresetDialog.kt` | **삭제** — AddNewPresetScreen으로 완전 대체 |
+
+### 검증결과
+
+- `assembleDebug` BUILD SUCCESSFUL
+- `./gradlew test` BUILD SUCCESSFUL (실패 0건)
+
+### 설계결정 및 근거
+
+**왜 SettingsDetailScreen 재사용이 아닌 독립 Scaffold인가?**
+
+`SettingsDetailScreen`은 TopAppBar만 있는 공통 래퍼다. 새 화면은 하단에 저장 버튼을 고정하는 `BottomAppBar`가 필요하므로 별도 Scaffold가 적합하다. 공통 glass 스타일(`glassEffect`, `StreamLauncherTheme.colors`)은 그대로 적용해 시각적 일관성 유지.
+
+**프리셋 목록 자동 새로고침**
+
+`SettingsViewModel.init`에서 `getAllPresetsUseCase().collect { ... }`로 Room Flow를 구독 중이다. `SavePreset` 인텐트 처리 후 Room에 insert되면 Flow가 자동으로 새 값을 emit하고 `SettingsState.presets`가 갱신된다. `popBackStack()` 이후 별도 새로고침 호출 없이 목록이 반영된다.
+
+**라이브 배경화면 서브 다이얼로그 유지**
+
+라이브 배경화면 선택(세로/가로)은 단순 목록 선택이므로 전체 화면 전환이 아닌 `AlertDialog`로 유지하는 것이 적절하다.
+
+---
+
 ## [2026-03-31] fix(wallpaper): 세로 전용 라이브 배경화면 화면 회전 시 잘림/정지 버그 수정
 
 ### 목표

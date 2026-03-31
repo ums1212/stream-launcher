@@ -33,6 +33,7 @@ fun SettingsDetailScreen(
     onIntent: (SettingsIntent) -> Unit,
     onBack: () -> Unit,
     onNavigateToMarket: () -> Unit = {},
+    onNavigateToAddPreset: () -> Unit = {},
     onShowSnackbar: (String) -> Unit = {},
     onRequireSignIn: () -> Unit = {},
 ) {
@@ -93,6 +94,7 @@ fun SettingsDetailScreen(
                     state = state,
                     onIntent = onIntent,
                     onNavigateToMarket = onNavigateToMarket,
+                    onNavigateToAddPreset = onNavigateToAddPreset,
                     onShowSnackbar = onShowSnackbar,
                     onRequireSignIn = onRequireSignIn,
                 )
