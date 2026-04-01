@@ -20,4 +20,5 @@ interface SettingsRepository {
     suspend fun setLastShownNoticeVersion(version: String)
     suspend fun setLiveWallpaper(id: Int?, uri: String?, orientation: WallpaperOrientation = WallpaperOrientation.PORTRAIT)
     fun getLiveWallpaperUri(): Flow<String?>
+    suspend fun setStaticWallpaper(uri: String?, orientation: WallpaperOrientation)
 }

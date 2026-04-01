@@ -23,6 +23,7 @@ import org.comon.streamlauncher.domain.usecase.SaveGridCellImageUseCase
 import org.comon.streamlauncher.domain.usecase.SaveLiveWallpaperUseCase
 import org.comon.streamlauncher.domain.usecase.SavePresetUseCase
 import org.comon.streamlauncher.domain.usecase.SetLiveWallpaperUseCase
+import org.comon.streamlauncher.domain.usecase.SetStaticWallpaperUseCase
 import org.comon.streamlauncher.domain.usecase.UpdateMarketPresetIdUseCase
 import org.comon.streamlauncher.domain.usecase.SignInWithGoogleUseCase
 import org.comon.streamlauncher.settings.upload.UploadDataHolder
@@ -55,6 +56,7 @@ class SettingsViewModel @Inject constructor(
     private val saveLiveWallpaperUseCase: SaveLiveWallpaperUseCase,
     private val deleteLiveWallpaperUseCase: DeleteLiveWallpaperUseCase,
     private val setLiveWallpaperUseCase: SetLiveWallpaperUseCase,
+    private val setStaticWallpaperUseCase: SetStaticWallpaperUseCase,
 ) : BaseViewModel<SettingsState, SettingsIntent, SettingsSideEffect>(SettingsState()) {
 
     private var currentNoticeVersion: String = ""
@@ -81,6 +83,8 @@ class SettingsViewModel @Inject constructor(
                         selectedLiveWallpaperLandscapeUri = settings.liveWallpaperLandscapeUri,
                         activePortraitWallpaperId = settings.liveWallpaperId,
                         activeLandscapeWallpaperId = settings.liveWallpaperLandscapeId,
+                        staticWallpaperPortraitUri = settings.staticWallpaperPortraitUri,
+                        staticWallpaperLandscapeUri = settings.staticWallpaperLandscapeUri,
                     )
                 }
             }
@@ -176,6 +180,10 @@ class SettingsViewModel @Inject constructor(
             is SettingsIntent.CheckActiveWallpaper -> {
                 updateState { copy(isLiveWallpaperServiceActive = wallpaperHelper.isLiveWallpaperServiceActive()) }
             }
+            is SettingsIntent.SetStaticWallpaper -> setStaticWallpaper(intent.uri, intent.orientation, intent.isCurrentLandscape)
+            is SettingsIntent.ClearStaticWallpaper -> clearStaticWallpaper(intent.orientation)
+            is SettingsIntent.SwitchStaticWallpaperTab -> updateState { copy(selectedStaticWallpaperTab = intent.orientation) }
+            is SettingsIntent.ApplyStaticWallpaperForOrientation -> applyStaticWallpaperForOrientation(intent.isLandscape)
         }
     }
 
@@ -444,6 +452,46 @@ class SettingsViewModel @Inject constructor(
                     if (error.isNetworkDisconnected()) sendEffect(SettingsSideEffect.ShowNetworkError)
                     else sendEffect(SettingsSideEffect.ShowError(error.getErrorMessage("라이브 배경화면 해제")))
                 }
+        }
+    }
+
+    private fun setStaticWallpaper(uri: String, orientation: WallpaperOrientation, isCurrentLandscape: Boolean) {
+        viewModelScope.launch {
+            runCatching {
+                val filePath = setStaticWallpaperUseCase(uri, orientation) ?: return@runCatching
+                // 저장한 방향이 현재 기기 방향과 일치할 때만 즉시 WallpaperManager 적용
+                val savedIsLandscape = orientation == WallpaperOrientation.LANDSCAPE
+                if (filePath.isNotEmpty() && savedIsLandscape == isCurrentLandscape) {
+                    wallpaperHelper.setWallpaperFromPreset(filePath)
+                }
+            }.onFailure { error ->
+                if (error.isNetworkDisconnected()) sendEffect(SettingsSideEffect.ShowNetworkError)
+                else sendEffect(SettingsSideEffect.ShowError(error.getErrorMessage("배경화면 설정")))
+            }
+        }
+    }
+
+    private fun clearStaticWallpaper(orientation: WallpaperOrientation) {
+        viewModelScope.launch {
+            runCatching {
+                setStaticWallpaperUseCase(null, orientation)
+            }.onFailure { error ->
+                if (error.isNetworkDisconnected()) sendEffect(SettingsSideEffect.ShowNetworkError)
+                else sendEffect(SettingsSideEffect.ShowError(error.getErrorMessage("배경화면 초기화")))
+            }
+        }
+    }
+
+    private fun applyStaticWallpaperForOrientation(isLandscape: Boolean) {
+        if (wallpaperHelper.isLiveWallpaperServiceActive()) return
+        val state = currentState
+        val filePath = if (isLandscape) {
+            state.staticWallpaperLandscapeUri ?: state.staticWallpaperPortraitUri
+        } else {
+            state.staticWallpaperPortraitUri
+        } ?: return
+        viewModelScope.launch {
+            runCatching { wallpaperHelper.setWallpaperFromPreset(filePath) }
         }
     }
 

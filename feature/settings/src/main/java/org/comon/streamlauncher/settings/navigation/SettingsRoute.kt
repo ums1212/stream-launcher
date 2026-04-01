@@ -16,4 +16,4 @@ object PresetMarketHost: LauncherRoute
 @Serializable
 object AddNewPreset : LauncherRoute
 
-enum class SettingsMenu { COLOR, IMAGE, FEED, APP_DRAWER, PRESET, LIVE_WALLPAPER, SUGGESTION }
+enum class SettingsMenu { COLOR, IMAGE, FEED, APP_DRAWER, PRESET, LIVE_WALLPAPER, SUGGESTION, STATIC_WALLPAPER }

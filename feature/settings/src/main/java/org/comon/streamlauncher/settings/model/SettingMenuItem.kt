@@ -16,7 +16,7 @@ import org.comon.streamlauncher.settings.R
 
 // 각 메뉴의 동작을 구분할 고유 식별자
 enum class SettingsActionType {
-    COLOR, IMAGE, APP_DRAWER, FEED, NOTICE, WALLPAPER, DEFAULT_HOME, PRESET, LIVE_WALLPAPER, SUGGESTION
+    COLOR, IMAGE, APP_DRAWER, FEED, NOTICE, WALLPAPER, DEFAULT_HOME, PRESET, LIVE_WALLPAPER, SUGGESTION, STATIC_WALLPAPER
 }
 
 data class SettingMenuItem(
@@ -44,7 +44,7 @@ val settingMenuList = listOf(
         labelId = R.string.settings_wallpaper,
         icon = Icons.Rounded.Wallpaper,
         lerpFraction = 0.22f,
-        actionType = SettingsActionType.WALLPAPER
+        actionType = SettingsActionType.STATIC_WALLPAPER
     ),
     SettingMenuItem(
         labelId = R.string.settings_live_wallpaper,

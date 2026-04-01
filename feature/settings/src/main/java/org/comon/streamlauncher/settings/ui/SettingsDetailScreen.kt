@@ -46,6 +46,7 @@ fun SettingsDetailScreen(
             SettingsMenu.PRESET -> R.string.settings_preset
             SettingsMenu.LIVE_WALLPAPER -> R.string.settings_live_wallpaper
             SettingsMenu.SUGGESTION -> R.string.settings_suggestion
+            SettingsMenu.STATIC_WALLPAPER -> R.string.settings_wallpaper
         }
     )
     val accentPrimary = StreamLauncherTheme.colors.accentPrimary
@@ -103,6 +104,10 @@ fun SettingsDetailScreen(
                     onIntent = onIntent,
                 )
                 SettingsMenu.SUGGESTION -> SuggestionContent(onBack = onBack)
+                SettingsMenu.STATIC_WALLPAPER -> StaticWallpaperSettingsContent(
+                    state = state,
+                    onIntent = onIntent,
+                )
             }
         }
     }

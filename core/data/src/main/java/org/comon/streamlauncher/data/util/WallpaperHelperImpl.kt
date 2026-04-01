@@ -19,6 +19,9 @@ class WallpaperHelperImpl @Inject constructor(
     private val presetDir = File(context.filesDir, "preset_wallpapers").apply {
         if (!exists()) mkdirs()
     }
+    private val staticWallpaperDir = File(context.filesDir, "static_wallpapers").apply {
+        if (!exists()) mkdirs()
+    }
 
     // 사용자가 갤러리에서 선택한 이미지 URI를 앱 내부 저장소로 복사 후 경로 반환
     override suspend fun copyWallpaperFromUri(sourceUri: String, presetId: Long): String? = withContext(Dispatchers.IO) {
@@ -56,6 +59,22 @@ class WallpaperHelperImpl @Inject constructor(
         WallpaperManager.getInstance(context).wallpaperInfo?.packageName == context.packageName
     } catch (_: Exception) {
         false
+    }
+
+    @SuppressLint("MissingPermission")
+    override suspend fun copyStaticWallpaperFromUri(sourceUri: String, isPortrait: Boolean): String? = withContext(Dispatchers.IO) {
+        try {
+            val fileName = if (isPortrait) "portrait.webp" else "landscape.webp"
+            val destFile = File(staticWallpaperDir, fileName)
+            val uri = sourceUri.toUri()
+            val bytes = ImageCompressor.compressToWebP(context, uri, maxWidth = 2160, quality = 85)
+            if (bytes.isEmpty()) return@withContext null
+            destFile.writeBytes(bytes)
+            destFile.absolutePath
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
     }
 
     override suspend fun deletePresetWallpaper(filePath: String): Unit = withContext(Dispatchers.IO) {

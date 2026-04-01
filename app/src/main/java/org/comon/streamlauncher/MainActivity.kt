@@ -15,6 +15,7 @@ import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -201,15 +202,14 @@ class MainActivity : ComponentActivity() {
                             hostState = snackbarHostState,
                             modifier = Modifier.align(Alignment.BottomCenter),
                         ) { snackbarData ->
+                            val dismissState = rememberSwipeToDismissBoxState()
+                            LaunchedEffect(dismissState.currentValue) {
+                                if (dismissState.currentValue != SwipeToDismissBoxValue.Settled) {
+                                    snackbarData.dismiss()
+                                }
+                            }
                             SwipeToDismissBox(
-                                state = rememberSwipeToDismissBoxState(
-                                    confirmValueChange = { value ->
-                                        if (value != SwipeToDismissBoxValue.Settled) {
-                                            snackbarData.dismiss()
-                                            true
-                                        } else false
-                                    }
-                                ),
+                                state = dismissState,
                                 backgroundContent = {},
                             ) {
                                 Snackbar(snackbarData)
@@ -245,6 +245,8 @@ class MainActivity : ComponentActivity() {
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         wallpaperManager.onConfigurationChanged()
+        val isLandscape = newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE
+        settingsViewModel.handleIntent(SettingsIntent.ApplyStaticWallpaperForOrientation(isLandscape))
     }
 
     override fun onNewIntent(intent: Intent) {

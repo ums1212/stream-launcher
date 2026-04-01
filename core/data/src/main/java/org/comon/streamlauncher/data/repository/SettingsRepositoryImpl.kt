@@ -62,6 +62,8 @@ class SettingsRepositoryImpl @Inject constructor(
     private val liveWallpaperUriKey = stringPreferencesKey("live_wallpaper_uri")
     private val liveWallpaperLandscapeIdKey = intPreferencesKey("live_wallpaper_landscape_id")
     private val liveWallpaperLandscapeUriKey = stringPreferencesKey("live_wallpaper_landscape_uri")
+    private val staticWallpaperPortraitUriKey = stringPreferencesKey("static_wallpaper_portrait_uri")
+    private val staticWallpaperLandscapeUriKey = stringPreferencesKey("static_wallpaper_landscape_uri")
 
     override fun getSettings(): Flow<LauncherSettings> =
         dataStore.data.map { prefs ->
@@ -80,6 +82,8 @@ class SettingsRepositoryImpl @Inject constructor(
             val liveWallpaperUri = prefs[liveWallpaperUriKey]
             val liveWallpaperLandscapeId = prefs[liveWallpaperLandscapeIdKey]
             val liveWallpaperLandscapeUri = prefs[liveWallpaperLandscapeUriKey]
+            val staticWallpaperPortraitUri = prefs[staticWallpaperPortraitUriKey]
+            val staticWallpaperLandscapeUri = prefs[staticWallpaperLandscapeUriKey]
             LauncherSettings(
                 colorPresetIndex = colorPresetIndex,
                 gridCellImages = gridCellImages,
@@ -94,6 +98,8 @@ class SettingsRepositoryImpl @Inject constructor(
                 liveWallpaperUri = liveWallpaperUri,
                 liveWallpaperLandscapeId = liveWallpaperLandscapeId,
                 liveWallpaperLandscapeUri = liveWallpaperLandscapeUri,
+                staticWallpaperPortraitUri = staticWallpaperPortraitUri,
+                staticWallpaperLandscapeUri = staticWallpaperLandscapeUri,
             )
         }
 
@@ -198,6 +204,18 @@ class SettingsRepositoryImpl @Inject constructor(
             withContext(Dispatchers.IO) {
                 if (uri != null) wallpaperUriFile.writeText(uri)
                 else wallpaperUriFile.delete()
+            }
+        }
+    }
+
+    override suspend fun setStaticWallpaper(uri: String?, orientation: WallpaperOrientation) {
+        dataStore.edit { prefs ->
+            if (orientation == WallpaperOrientation.LANDSCAPE) {
+                if (uri != null) prefs[staticWallpaperLandscapeUriKey] = uri
+                else prefs.remove(staticWallpaperLandscapeUriKey)
+            } else {
+                if (uri != null) prefs[staticWallpaperPortraitUriKey] = uri
+                else prefs.remove(staticWallpaperPortraitUriKey)
             }
         }
     }

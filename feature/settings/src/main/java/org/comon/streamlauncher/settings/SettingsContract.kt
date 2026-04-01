@@ -39,6 +39,9 @@ data class SettingsState(
     val activeLandscapeWallpaperId: Int? = null,
     /** WallpaperManager 기준 우리 앱의 라이브 배경화면 서비스가 실제로 활성화돼 있는지 여부 */
     val isLiveWallpaperServiceActive: Boolean = false,
+    val staticWallpaperPortraitUri: String? = null,
+    val staticWallpaperLandscapeUri: String? = null,
+    val selectedStaticWallpaperTab: WallpaperOrientation = WallpaperOrientation.PORTRAIT,
 ) : UiState
 
 sealed interface SettingsIntent : UiIntent {
@@ -100,6 +103,15 @@ sealed interface SettingsIntent : UiIntent {
     data class SwitchOrientationTab(val orientation: WallpaperOrientation) : SettingsIntent
     /** 화면 재진입(ON_RESUME) 시 WallpaperManager로 실제 서비스 활성 여부를 재확인 */
     data object CheckActiveWallpaper : SettingsIntent
+
+    data class SetStaticWallpaper(
+        val uri: String,
+        val orientation: WallpaperOrientation,
+        val isCurrentLandscape: Boolean,
+    ) : SettingsIntent
+    data class ClearStaticWallpaper(val orientation: WallpaperOrientation) : SettingsIntent
+    data class SwitchStaticWallpaperTab(val orientation: WallpaperOrientation) : SettingsIntent
+    data class ApplyStaticWallpaperForOrientation(val isLandscape: Boolean) : SettingsIntent
 }
 
 sealed interface SettingsSideEffect : UiSideEffect {

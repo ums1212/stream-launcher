@@ -120,6 +120,11 @@
     <string name="suggestion_network_error">Please check your network connection</string>
     <string name="suggestion_network_settings">Settings</string>
 
+    <!-- StaticWallpaperSettingsContent -->
+    <string name="static_wallpaper_select">Select Image</string>
+    <string name="static_wallpaper_change">Change Image</string>
+    <string name="static_wallpaper_clear">Reset Wallpaper</string>
+
     <!-- NoticeDialog -->
     <string name="settings_notice">Notice</string>
     <string name="notice_title">Notice</string>

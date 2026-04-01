@@ -2,6 +2,55 @@
 
 ---
 
+## [2026-04-01] feat(settings): 정적 배경화면 세로/가로 방향별 개별 설정
+
+### 목표
+
+기존 `Intent.ACTION_SET_WALLPAPER`(시스템 피커) 단일 호출 방식을 대체해, 세로·가로 방향별로 다른 정적 배경화면을 설정할 수 있는 UI 및 자동 전환 기능 구현.
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `core/domain/model/LauncherSettings.kt` | `staticWallpaperPortraitUri`, `staticWallpaperLandscapeUri` 필드 추가 |
+| `core/domain/repository/SettingsRepository.kt` | `setStaticWallpaper(uri, orientation)` 추가 |
+| `core/domain/util/WallpaperHelper.kt` | `copyStaticWallpaperFromUri(sourceUri, isPortrait)` 추가 |
+| `core/domain/usecase/SetStaticWallpaperUseCase.kt` | **신규** — 파일 복사 + DataStore 저장 후 경로 반환 (적용은 호출부 위임) |
+| `core/data/repository/SettingsRepositoryImpl.kt` | DataStore 키 2개(`static_wallpaper_portrait/landscape_uri`) 추가 + `setStaticWallpaper` 구현 + `getSettings()` 매핑 확장 |
+| `core/data/util/WallpaperHelperImpl.kt` | `staticWallpaperDir` (filesDir/static_wallpapers) 추가 + `copyStaticWallpaperFromUri` 구현 (WebP 압축) |
+| `feature/settings/navigation/SettingsRoute.kt` | `SettingsMenu.STATIC_WALLPAPER` 추가 |
+| `feature/settings/model/SettingMenuItem.kt` | `SettingsActionType.STATIC_WALLPAPER` 추가; 배경화면 메뉴 액션 타입 변경 |
+| `feature/settings/SettingsContract.kt` | `SettingsState`에 `staticWallpaperPortraitUri`, `staticWallpaperLandscapeUri`, `selectedStaticWallpaperTab` 추가; `SetStaticWallpaper(uri, orientation, isCurrentLandscape)`, `ClearStaticWallpaper`, `SwitchStaticWallpaperTab`, `ApplyStaticWallpaperForOrientation` 인텐트 추가 |
+| `feature/settings/SettingsViewModel.kt` | `SetStaticWallpaperUseCase` 주입; settings collect에 정적 URI 동기화; 4개 인텐트 핸들러 추가 (`setStaticWallpaper`, `clearStaticWallpaper`, `applyStaticWallpaperForOrientation`) |
+| `feature/settings/ui/SettingsScreen.kt` | `STATIC_WALLPAPER` → `SettingsDetail` 네비게이션으로 처리 |
+| `feature/settings/ui/SettingsDetailScreen.kt` | `STATIC_WALLPAPER` 케이스 및 타이틀 추가 |
+| `feature/settings/ui/StaticWallpaperSettingsContent.kt` | **신규** — 세로/가로 TabRow + PickVisualMedia 이미지 피커 + 미리보기 + 초기화 버튼 |
+| `feature/settings/res/values/strings.xml` | `static_wallpaper_select/change/clear` 문자열 추가 |
+| `app/MainActivity.kt` | `onConfigurationChanged`에서 `ApplyStaticWallpaperForOrientation` 인텐트 전달 |
+
+### 검증결과
+
+- `./gradlew --stop && ./gradlew clean assembleDebug` BUILD SUCCESSFUL
+- 버그 수정: 가로 배경화면 선택 시 세로 화면에도 즉시 반영되던 문제 → 현재 기기 방향과 일치할 때만 즉시 적용되도록 수정
+
+### 설계결정 및 근거
+
+**UseCase는 저장만, 적용은 ViewModel에서 조건부 처리**
+- 최초 구현에서 `SetStaticWallpaperUseCase` 내부에서 `setWallpaperFromPreset`을 무조건 호출했고, 이로 인해 세로 모드에서 가로 배경화면을 저장하면 즉시 시스템 배경화면이 교체되는 버그 발생
+- UseCase 반환 타입을 `Boolean → String?`(저장된 파일 경로)으로 변경해 적용 여부를 호출부로 위임
+- ViewModel에서 `savedIsLandscape == isCurrentLandscape` 조건 확인 후 `wallpaperHelper.setWallpaperFromPreset` 호출
+
+**방향 전환 시 자동 배경화면 교체**
+- `MainActivity.onConfigurationChanged` → `ApplyStaticWallpaperForOrientation(isLandscape)` 인텐트 전달
+- ViewModel에서 라이브 배경화면 활성 여부(`isLiveWallpaperServiceActive`)를 먼저 확인해 라이브 배경화면 덮어쓰기 방지
+- 가로 URI 미설정 시 세로 URI로 폴백 (기존 `wallpaper_landscape_fallback_hint` 문자열 재활용)
+
+**KSP 증분 빌드 이슈**
+- 신규 `SetStaticWallpaperUseCase`가 `core:domain` JAR에 반영되기 전에 `feature:settings` KSP가 실행되어 빌드 실패
+- 해결: `./gradlew --stop` 후 clean 빌드로 Gradle 데몬 캐시 초기화
+
+---
+
 ## [2026-03-31] feat(settings): 프리셋 추가 다이얼로그 → 전체 화면(AddNewPresetScreen)으로 전환
 
 ### 목표

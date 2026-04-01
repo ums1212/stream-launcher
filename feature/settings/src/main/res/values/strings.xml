@@ -117,6 +117,11 @@
     <string name="suggestion_network_error">네트워크 연결을 확인해주세요</string>
     <string name="suggestion_network_settings">설정</string>
 
+    <!-- StaticWallpaperSettingsContent -->
+    <string name="static_wallpaper_select">이미지 선택</string>
+    <string name="static_wallpaper_change">이미지 변경</string>
+    <string name="static_wallpaper_clear">배경화면 초기화</string>
+
     <!-- NoticeDialog -->
     <string name="settings_notice">공지사항</string>
     <string name="notice_title">공지사항</string>

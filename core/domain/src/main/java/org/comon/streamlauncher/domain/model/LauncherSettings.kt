@@ -14,4 +14,6 @@ data class LauncherSettings(
     val liveWallpaperUri: String? = null,
     val liveWallpaperLandscapeId: Int? = null,
     val liveWallpaperLandscapeUri: String? = null,
+    val staticWallpaperPortraitUri: String? = null,
+    val staticWallpaperLandscapeUri: String? = null,
 )
