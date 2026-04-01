@@ -25,6 +25,7 @@ class DownloadMarketPresetUseCase @Inject constructor(
     private val saveColorPresetUseCase: SaveColorPresetUseCase,
     private val wallpaperHelper: WallpaperHelper,
     private val setLiveWallpaperUseCase: SetLiveWallpaperUseCase,
+    private val setStaticWallpaperUseCase: SetStaticWallpaperUseCase,
 ) {
     suspend operator fun invoke(marketPreset: MarketPreset): Result<Unit> = runCatching {
         val result = unpackager.downloadAndUnpack(marketPreset)
@@ -52,7 +53,16 @@ class DownloadMarketPresetUseCase @Inject constructor(
             if (localPreset.isLiveWallpaper && localPreset.liveWallpaperUri != null) {
                 setLiveWallpaperUseCase(null, localPreset.liveWallpaperUri, WallpaperOrientation.PORTRAIT)
             } else {
-                localPreset.wallpaperUri?.let { wallpaperHelper.setWallpaperFromPreset(it) }
+                // 정적 세로 배경화면: DataStore 저장 + 즉시 적용
+                localPreset.wallpaperUri?.let { uri ->
+                    setStaticWallpaperUseCase(uri, WallpaperOrientation.PORTRAIT)?.let { filePath ->
+                        if (filePath.isNotEmpty()) wallpaperHelper.setWallpaperFromPreset(filePath)
+                    }
+                }
+                // 정적 가로 배경화면: DataStore 저장 (화면 회전 시 자동 적용)
+                localPreset.staticWallpaperLandscapeUri?.let { uri ->
+                    setStaticWallpaperUseCase(uri, WallpaperOrientation.LANDSCAPE)
+                }
             }
             if (localPreset.isLiveWallpaperLandscape && localPreset.liveWallpaperLandscapeUri != null) {
                 setLiveWallpaperUseCase(null, localPreset.liveWallpaperLandscapeUri, WallpaperOrientation.LANDSCAPE)

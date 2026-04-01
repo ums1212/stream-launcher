@@ -39,6 +39,8 @@ fun SlpManifest.toLocalPreset(
     hasWallpaperSettings  = wallpaperSettings?.enabled ?: false,
     wallpaperUri          = if (wallpaperSettings?.isLiveWallpaper == true) null
                             else images.wallpaper?.let { extractedPaths[it] },
+    staticWallpaperLandscapeUri = if (wallpaperSettings?.isLiveWallpaperLandscape == true) null
+                            else images.wallpaperLandscape?.let { extractedPaths[it] },
     enableParallax        = wallpaperSettings?.enableParallax ?: false,
     hasThemeSettings      = themeSettings?.enabled ?: false,
     themeColorHex         = themeSettings?.colorHex,

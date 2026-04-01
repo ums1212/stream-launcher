@@ -66,6 +66,7 @@ sealed interface SettingsIntent : UiIntent {
         val isLiveWallpaper: Boolean = false,
         val wallpaperLandscapeUri: String? = null,
         val isLiveWallpaperLandscape: Boolean = false,
+        val staticWallpaperLandscapeUri: String? = null,
     ) : SettingsIntent
     data class LoadPreset(
         val preset: Preset,

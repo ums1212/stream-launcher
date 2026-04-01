@@ -39,6 +39,7 @@ data class PresetEntity(
     // Wallpaper
     val hasWallpaperSettings: Boolean,
     val wallpaperUri: String?,
+    val staticWallpaperLandscapeUri: String? = null,
     val enableParallax: Boolean,
     
     // Theme Color
@@ -78,6 +79,7 @@ fun PresetEntity.toDomain() = Preset(
     appDrawerIconSizeRatio = appDrawerIconSizeRatio,
     hasWallpaperSettings = hasWallpaperSettings,
     wallpaperUri = wallpaperUri,
+    staticWallpaperLandscapeUri = staticWallpaperLandscapeUri,
     enableParallax = enableParallax,
     hasThemeSettings = hasThemeSettings,
     themeColorHex = themeColorHex,
@@ -114,6 +116,7 @@ fun Preset.toEntity() = PresetEntity(
     appDrawerIconSizeRatio = appDrawerIconSizeRatio,
     hasWallpaperSettings = hasWallpaperSettings,
     wallpaperUri = wallpaperUri,
+    staticWallpaperLandscapeUri = staticWallpaperLandscapeUri,
     enableParallax = enableParallax,
     hasThemeSettings = hasThemeSettings,
     themeColorHex = themeColorHex,

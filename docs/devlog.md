@@ -2,6 +2,59 @@
 
 ---
 
+## [2026-04-01] feat(preset): 정적 배경화면 세로/가로 프리셋 개별 저장 및 마켓 연동
+
+### 목표
+
+정적 배경화면(시스템 WallpaperManager)이 세로/가로 개별 설정으로 분리된 것에 맞춰,  
+프리셋 저장·로드·삭제·마켓 업로드·다운로드 기능 전반에 정적 가로 배경화면을 반영.
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `core/domain/model/preset/Preset.kt` | `staticWallpaperLandscapeUri: String? = null` 필드 추가 |
+| `core/data/local/room/preset/PresetEntity.kt` | 동일 필드 추가 + `toDomain()` / `toEntity()` 매핑 업데이트 |
+| `core/data/local/room/AppDatabase.kt` | version 6→7, `MIGRATION_6_7` 추가 (`staticWallpaperLandscapeUri` 컬럼 ALTER) |
+| `core/data/di/DatabaseModule.kt` | `MIGRATION_6_7` 등록 |
+| `core/data/util/WallpaperHelperImpl.kt` | `copyStaticWallpaperFromUri`: 절대 파일 경로(`/...`) 지원 추가 (기존: content URI만 지원) |
+| `core/data/slp/SlpPacker.kt` | `buildManifest`: `wallpaperLandscape` 슬롯에 정적 가로 배경화면도 포함; `buildImageEntries`: 정적 가로 이미지 항목 추가 |
+| `core/data/slp/SlpMapper.kt` | `toLocalPreset`: `wallpaperLandscape` 추출 경로 → `staticWallpaperLandscapeUri` 매핑 (라이브가 아닐 때만) |
+| `core/domain/usecase/DownloadMarketPresetUseCase.kt` | `SetStaticWallpaperUseCase` 주입; 정적 세로는 즉시 적용, 가로는 DataStore 저장 |
+| `feature/settings/SettingsContract.kt` | `SavePreset.staticWallpaperLandscapeUri: String? = null` 추가 |
+| `feature/settings/SettingsViewModel.kt` | `savePreset`: 가로 이미지 `copyWallpaperFromUri` 후 저장; `loadPreset`: `SetStaticWallpaperUseCase`로 DataStore 저장 + 적용; `deletePreset`: 가로 파일 삭제 |
+| `feature/settings/ui/AddNewPresetScreen.kt` | 정적 가로 배경화면 선택 UI 추가 (세로 정적 이미지 선택 시 노출); `staticLandscapePicker` 런처 추가 |
+| `feature/settings/res/values/strings.xml` | `preset_static_wallpaper_landscape_optional` 추가 |
+| `feature/settings/res/values-en/strings.xml` | 영문 번역 추가 |
+
+### 검증결과
+
+- `./gradlew --stop && ./gradlew assembleDebug` BUILD SUCCESSFUL
+
+### 설계결정 및 근거
+
+**`wallpaperUri` 필드명 유지 (rename 없음)**
+- Room DB 하위호환성을 위해 `PresetEntity.wallpaperUri` 컬럼명 유지
+- 신규 가로 필드만 `staticWallpaperLandscapeUri`로 추가 (MIGRATION_6_7)
+- 기존 프리셋 데이터 마이그레이션 불필요 (기존 항목은 `staticWallpaperLandscapeUri = null`)
+
+**SLP 포맷 변경 없음 (기존 `wallpaperLandscape` 슬롯 재사용)**
+- `SlpImagePaths.wallpaperLandscape`가 이미 존재하며 라이브 배경화면 가로용으로 사용 중
+- 정적 가로 배경화면도 동일 슬롯 사용; `SlpWallpaperSettings.isLiveWallpaperLandscape` 플래그로 구분
+- `formatVersion` 유지 — 이전 버전 앱은 `wallpaperLandscape` 무시 (null-safe)
+
+**파일 경로 지원 추가 (`WallpaperHelperImpl.copyStaticWallpaperFromUri`)**
+- 기존: `ContentResolver.openInputStream(uri.toUri())` → content URI만 처리 가능
+- 프리셋 로드 시 `SetStaticWallpaperUseCase`를 재사용하려면 절대 경로도 처리해야 함
+- 분기 추가: `sourceUri.startsWith("/")` → `ImageCompressor.compressToWebP(File(sourceUri))` 사용
+
+**프리셋 로드 시 DataStore 저장 (기존 행동 개선)**
+- 기존: `wallpaperHelper.setWallpaperFromPreset(uri)` → DataStore 저장 없이 즉시 적용만
+- 변경: `SetStaticWallpaperUseCase`로 DataStore에도 저장 → 화면 회전 자동 전환 (`applyStaticWallpaperForOrientation`) 정상 동작
+- 가로 배경화면은 DataStore 저장만 수행 (즉시 적용 스킵) → 회전 시 자동 적용
+
+---
+
 ## [2026-04-01] feat(settings): 정적 배경화면 세로/가로 방향별 개별 설정
 
 ### 목표

@@ -288,6 +288,10 @@ class SettingsViewModel @Inject constructor(
                 wallpaperHelper.copyWallpaperFromUri(intent.wallpaperUri, System.currentTimeMillis())
             } else null
 
+            val staticWallpaperLandscapePath = if (intent.saveWallpaper && intent.staticWallpaperLandscapeUri != null && !intent.isLiveWallpaper) {
+                wallpaperHelper.copyWallpaperFromUri(intent.staticWallpaperLandscapeUri, System.currentTimeMillis() + 1L)
+            } else null
+
             val preset = Preset(
                 name = intent.name,
                 hasTopLeftImage = intent.saveHome && state.gridCellImages[GridCell.TOP_LEFT]?.let { it.idleImageUri != null || it.expandedImageUri != null } == true,
@@ -312,6 +316,7 @@ class SettingsViewModel @Inject constructor(
                 appDrawerIconSizeRatio = if (intent.saveDrawer) state.appDrawerIconSizeRatio else 1.0f,
                 hasWallpaperSettings = intent.saveWallpaper,
                 wallpaperUri = if (intent.isLiveWallpaper) null else wallpaperPath,
+                staticWallpaperLandscapeUri = if (intent.isLiveWallpaper) null else staticWallpaperLandscapePath,
                 enableParallax = false,
                 hasThemeSettings = intent.saveTheme,
                 themeColorHex = if (intent.saveTheme) state.colorPresetIndex.toString() else null,
@@ -353,8 +358,15 @@ class SettingsViewModel @Inject constructor(
                         setLiveWallpaperUseCase(preset.id, preset.liveWallpaperUri, WallpaperOrientation.PORTRAIT)
                         sendEffect(SettingsSideEffect.LaunchLiveWallpaperPicker)
                     } else {
+                        // 정적 세로 배경화면: DataStore 저장 + 즉시 적용
                         preset.wallpaperUri?.let { uri ->
-                            wallpaperHelper.setWallpaperFromPreset(uri)
+                            setStaticWallpaperUseCase(uri, WallpaperOrientation.PORTRAIT)?.let { filePath ->
+                                if (filePath.isNotEmpty()) wallpaperHelper.setWallpaperFromPreset(filePath)
+                            }
+                        }
+                        // 정적 가로 배경화면: DataStore 저장 (화면 회전 시 자동 적용)
+                        preset.staticWallpaperLandscapeUri?.let { uri ->
+                            setStaticWallpaperUseCase(uri, WallpaperOrientation.LANDSCAPE)
                         }
                     }
                     if (preset.isLiveWallpaperLandscape && preset.liveWallpaperLandscapeUri != null) {
@@ -383,6 +395,7 @@ class SettingsViewModel @Inject constructor(
             runCatching {
                 deletePresetUseCase(preset)
                 preset.wallpaperUri?.let { wallpaperHelper.deletePresetWallpaper(it) }
+                preset.staticWallpaperLandscapeUri?.let { wallpaperHelper.deletePresetWallpaper(it) }
             }.onFailure { error ->
                 if (error.isNetworkDisconnected()) sendEffect(SettingsSideEffect.ShowNetworkError)
                 else sendEffect(SettingsSideEffect.ShowError(error.getErrorMessage("프리셋 삭제")))

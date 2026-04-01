@@ -31,7 +31,8 @@ data class Preset(
     
     // 4. Wallpaper Settings
     val hasWallpaperSettings: Boolean,
-    val wallpaperUri: String?,
+    val wallpaperUri: String?,              // 정적 배경화면 세로
+    val staticWallpaperLandscapeUri: String? = null, // 정적 배경화면 가로
     val enableParallax: Boolean,
     
     // 5. Theme Color Settings

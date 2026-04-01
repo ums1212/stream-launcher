@@ -134,12 +134,17 @@ object SlpPacker {
                     preset.wallpaperUri?.isLocalUri() == true -> "images/wallpaper.webp"
                     else -> null
                 },
-                wallpaperLandscape = if (preset.isLiveWallpaperLandscape) {
-                    val lwUri = preset.liveWallpaperLandscapeUri
-                    if (lwUri?.isLocalUri() == true) {
-                        "images/wallpaper_landscape.${lwUri.substringAfterLast('.', "mp4")}"
-                    } else null
-                } else null,
+                wallpaperLandscape = when {
+                    preset.isLiveWallpaperLandscape -> {
+                        val lwUri = preset.liveWallpaperLandscapeUri
+                        if (lwUri?.isLocalUri() == true) {
+                            "images/wallpaper_landscape.${lwUri.substringAfterLast('.', "mp4")}"
+                        } else null
+                    }
+                    !preset.isLiveWallpaper && preset.staticWallpaperLandscapeUri?.isLocalUri() == true ->
+                        "images/wallpaper_landscape.webp"
+                    else -> null
+                },
             ),
             previews  = previewPaths,
             cellFlags = SlpCellFlags(
@@ -185,8 +190,9 @@ object SlpPacker {
             preset.bottomLeftExpandedUri?.takeIf { it.isLocalUri() }?.let { "images/bottom_left_expanded.webp" to it },
             preset.bottomRightIdleUri?.takeIf { it.isLocalUri() }?.let { "images/bottom_right_idle.webp" to it },
             preset.bottomRightExpandedUri?.takeIf { it.isLocalUri() }?.let { "images/bottom_right_expanded.webp" to it },
-            // 라이브 배경화면이 아닐 때만 wallpaperUri 포함 (라이브는 buildLiveWallpaperEntry로 별도 처리)
+            // 라이브 배경화면이 아닐 때만 정적 배경화면 포함 (라이브는 buildLiveWallpaperEntry로 별도 처리)
             if (!preset.isLiveWallpaper) preset.wallpaperUri?.takeIf { it.isLocalUri() }?.let { "images/wallpaper.webp" to it } else null,
+            if (!preset.isLiveWallpaper) preset.staticWallpaperLandscapeUri?.takeIf { it.isLocalUri() }?.let { "images/wallpaper_landscape.webp" to it } else null,
         )
 
     private fun buildLiveWallpaperEntries(preset: Preset): List<Pair<String, String>> =

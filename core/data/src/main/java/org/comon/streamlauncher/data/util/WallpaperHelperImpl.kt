@@ -66,8 +66,12 @@ class WallpaperHelperImpl @Inject constructor(
         try {
             val fileName = if (isPortrait) "portrait.webp" else "landscape.webp"
             val destFile = File(staticWallpaperDir, fileName)
-            val uri = sourceUri.toUri()
-            val bytes = ImageCompressor.compressToWebP(context, uri, maxWidth = 2160, quality = 85)
+            // 절대 파일 경로(프리셋 파일)와 content URI 모두 지원
+            val bytes = if (sourceUri.startsWith("/")) {
+                ImageCompressor.compressToWebP(File(sourceUri), maxWidth = 2160, quality = 85)
+            } else {
+                ImageCompressor.compressToWebP(context, sourceUri.toUri(), maxWidth = 2160, quality = 85)
+            }
             if (bytes.isEmpty()) return@withContext null
             destFile.writeBytes(bytes)
             destFile.absolutePath

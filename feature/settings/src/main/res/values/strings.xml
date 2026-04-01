@@ -89,6 +89,7 @@
     <string name="preset_wallpaper_selected">선택됨 ✓</string>
     <string name="preset_wallpaper_select_image">이미지 선택</string>
     <string name="preset_wallpaper_landscape_optional">가로 라이브 배경화면 (선택사항)</string>
+    <string name="preset_static_wallpaper_landscape_optional">가로 정적 배경화면 (선택사항)</string>
     <string name="preset_wallpaper_landscape_none">없음</string>
     <string name="preset_default_name">프리셋 %1$d</string>
     <string name="preset_upload_to_market">\'%1$s\' 마켓에 업로드</string>

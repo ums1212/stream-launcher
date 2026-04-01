@@ -101,6 +101,7 @@
     <string name="wallpaper_landscape_fallback_hint">Portrait wallpaper is used when no landscape wallpaper is set</string>
     <string name="wallpaper_landscape_locked_hint">Set a portrait wallpaper first before adding a landscape one</string>
     <string name="preset_wallpaper_landscape_optional">Landscape live wallpaper (optional)</string>
+    <string name="preset_static_wallpaper_landscape_optional">Landscape wallpaper (optional)</string>
     <string name="preset_wallpaper_landscape_none">None</string>
     <string name="settings_chzzk_id_format_error">Must be a 32-character hex string</string>
     <string name="settings_youtube_id_format_error">Must be in UC… or @handle format</string>

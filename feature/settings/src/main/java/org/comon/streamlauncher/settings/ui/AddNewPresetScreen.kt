@@ -68,6 +68,7 @@ fun AddNewPresetScreen(
     var pendingPreviousLiveWallpaperId by remember { mutableStateOf<Int?>(null) }
     var selectedLiveWallpaperLandscapeId by remember { mutableStateOf<Int?>(null) }
     var showLiveWallpaperLandscapePicker by remember { mutableStateOf(false) }
+    var selectedStaticWallpaperLandscapeUri by remember { mutableStateOf<String?>(null) }
 
     val selectedLiveWallpaperUri = liveWallpapers.find { it.id == selectedLiveWallpaperId }?.fileUri
     val selectedLiveWallpaperLandscapeUri = liveWallpapers.find { it.id == selectedLiveWallpaperLandscapeId }?.fileUri
@@ -81,6 +82,10 @@ fun AddNewPresetScreen(
             selectedLiveWallpaperId = pendingPreviousLiveWallpaperId
             pendingPreviousLiveWallpaperId = null
         }
+    }
+
+    val staticLandscapePicker = rememberLauncherForActivityResult(PickVisualMedia()) { uri ->
+        if (uri != null) selectedStaticWallpaperLandscapeUri = uri.toString()
     }
 
     val isConfirmEnabled = !saveWallpaper || when {
@@ -138,6 +143,7 @@ fun AddNewPresetScreen(
                                 isLiveWallpaper = saveWallpaper && useLiveWallpaper && selectedLiveWallpaperId != null,
                                 wallpaperLandscapeUri = if (saveWallpaper) selectedLiveWallpaperLandscapeUri else null,
                                 isLiveWallpaperLandscape = saveWallpaper && selectedLiveWallpaperLandscapeId != null,
+                                staticWallpaperLandscapeUri = if (saveWallpaper && !useLiveWallpaper) selectedStaticWallpaperLandscapeUri else null,
                             )
                         )
                         onBack()
@@ -239,7 +245,34 @@ fun AddNewPresetScreen(
                 }
             }
 
-            if (liveWallpapers.isNotEmpty() && saveWallpaper) {
+            // 정적 가로 배경화면 (세로 정적 배경화면이 선택된 경우)
+            if (!useLiveWallpaper && selectedWallpaperUri != null && saveWallpaper) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    stringResource(R.string.preset_static_wallpaper_landscape_optional),
+                    style = MaterialTheme.typography.labelMedium,
+                )
+                RadioButtonRow(
+                    label = stringResource(R.string.preset_wallpaper_select_image) +
+                            if (selectedStaticWallpaperLandscapeUri != null) " ✓" else "",
+                    selected = selectedStaticWallpaperLandscapeUri != null,
+                    onClick = { staticLandscapePicker.launch(PickVisualMediaRequest(PickVisualMedia.ImageOnly)) },
+                ) {
+                    if (selectedStaticWallpaperLandscapeUri != null) {
+                        AsyncImage(
+                            model = selectedStaticWallpaperLandscapeUri,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(72.dp)
+                                .clip(RoundedCornerShape(8.dp)),
+                            contentScale = ContentScale.Crop,
+                        )
+                    }
+                }
+            }
+
+            // 가로 라이브 배경화면 (라이브 배경화면이 선택된 경우)
+            if (liveWallpapers.isNotEmpty() && useLiveWallpaper && saveWallpaper) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     stringResource(R.string.preset_wallpaper_landscape_optional),
