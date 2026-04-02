@@ -1,9 +1,13 @@
 package org.comon.streamlauncher.network.di
 
+import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
@@ -13,6 +17,7 @@ import org.comon.streamlauncher.network.BuildConfig
 import org.comon.streamlauncher.network.api.ChzzkService
 import org.comon.streamlauncher.network.api.YouTubeService
 import retrofit2.Retrofit
+import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
 
@@ -20,13 +25,36 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
 
+    private fun getSigningCertSha1(context: Context): String? {
+        return try {
+            val signatures =
+                context.packageManager
+                    .getPackageInfo(context.packageName, PackageManager.GET_SIGNING_CERTIFICATES)
+                    .signingInfo?.apkContentsSigners
+            val cert = signatures?.firstOrNull() ?: return null
+            MessageDigest.getInstance("SHA1").digest(cert.toByteArray())
+                .joinToString("") { "%02X".format(it) }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     @Provides
     @Singleton
-    fun provideOkHttpClient(): OkHttpClient {
+    fun provideOkHttpClient(@ApplicationContext context: Context): OkHttpClient {
+        val packageName = context.packageName
+        val sha1 = getSigningCertSha1(context)
         return OkHttpClient.Builder()
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
+            .addInterceptor { chain ->
+                val request = chain.request().newBuilder()
+                    .header("X-Android-Package", packageName)
+                    .apply { if (sha1 != null) header("X-Android-Cert", sha1) }
+                    .build()
+                chain.proceed(request)
+            }
             .apply {
                 if (BuildConfig.DEBUG) {
                     addInterceptor(

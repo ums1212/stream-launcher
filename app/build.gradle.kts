@@ -24,8 +24,8 @@ android {
         applicationId = "org.comon.streamlauncher"
         minSdk = 28
         targetSdk = 36
-        versionCode = 19
-        versionName = "0.0.19"
+        versionCode = 20
+        versionName = "0.0.20"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

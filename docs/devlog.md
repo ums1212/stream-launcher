@@ -2,6 +2,43 @@
 
 ---
 
+## [2026-04-02] fix(network): YouTube API Android 앱 제한 호환 — X-Android-Package/Cert 헤더 추가
+
+### 목표
+
+릴리즈 빌드에서 YouTube 피드가 로드되지 않는 버그 수정.  
+Google Cloud Console의 API 키에 Android 앱 제한(패키지명 + SHA-1)을 설정한 경우 Retrofit/OkHttp 직접 호출은 필수 헤더를 자동으로 추가하지 않아 HTTP 403이 발생.
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `core/network/di/NetworkModule.kt` | `getSigningCertSha1(context)` 헬퍼 추가 — 런타임 서명 인증서 SHA-1 추출 |
+| `core/network/di/NetworkModule.kt` | `provideOkHttpClient()`에 `@ApplicationContext Context` 주입 |
+| `core/network/di/NetworkModule.kt` | OkHttp 인터셉터 추가: 모든 요청에 `X-Android-Package`, `X-Android-Cert` 헤더 자동 삽입 |
+
+### 검증결과
+
+- `./gradlew assembleRelease` BUILD SUCCESSFUL (4m 47s)
+- 제한사항 "없음" 설정 시 정상 동작 → Android 앱 제한 설정 시 403 → 헤더 추가 후 해결 확인
+
+### 설계결정 및 근거
+
+**Android 앱 제한 작동 방식**
+- Google Cloud Console에서 Android 앱 제한 활성화 시, API 요청에 `X-Android-Package`(패키지명)와 `X-Android-Cert`(서명 SHA-1, 콜론 없이) 헤더가 있어야 허용
+- Google Play Services SDK를 통해 호출하면 자동으로 추가되지만, Retrofit/OkHttp 직접 REST 호출은 수동으로 추가해야 함
+
+**런타임 인증서 추출 방식 채택**
+- 하드코딩 대신 `PackageManager.GET_SIGNING_CERTIFICATES`로 런타임에 앱 자신의 서명 인증서를 읽어 SHA-1 계산
+- minSdk 28 이상이므로 `signingInfo.apkContentsSigners` 경로만 사용 (pre-P 분기 불필요, lint가 정리)
+- Cloud Console에 등록된 지문과 실제 서명이 일치하면 자동으로 통과 — 키스토어 변경 시에도 코드 수정 불필요
+
+**인터셉터 위치 — `provideOkHttpClient()` (YouTube/JSON용 클라이언트)**
+- Chzzk 전용 클라이언트(`provideChzzkOkHttpClient`)는 별도 관리 중이므로 영향 없음
+- YouTube API만 Android 앱 제한 대상이므로 JSON 클라이언트에만 적용
+
+---
+
 ## [2026-04-01] feat(preset): 정적 배경화면 세로/가로 프리셋 개별 저장 및 마켓 연동
 
 ### 목표
