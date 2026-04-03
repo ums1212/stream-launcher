@@ -5,14 +5,12 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
 import org.comon.streamlauncher.domain.usecase.GetLauncherSettingsUseCase
 import org.comon.streamlauncher.domain.usecase.SaveFeedSettingsUseCase
-import org.comon.streamlauncher.network.connectivity.NetworkConnectivityChecker
 import org.comon.streamlauncher.network.error.getErrorMessage
 import org.comon.streamlauncher.ui.BaseViewModel
 import javax.inject.Inject
 
 @HiltViewModel
 class FeedSettingsViewModel @Inject constructor(
-    private val connectivityChecker: NetworkConnectivityChecker,
     private val getLauncherSettingsUseCase: GetLauncherSettingsUseCase,
     private val saveFeedSettingsUseCase: SaveFeedSettingsUseCase,
 ) : BaseViewModel<FeedSettingsState, FeedSettingsIntent, FeedSettingsSideEffect>(FeedSettingsState()) {
@@ -45,8 +43,7 @@ class FeedSettingsViewModel @Inject constructor(
             runCatching {
                 saveFeedSettingsUseCase(chzzkChannelId, youtubeChannelId)
             }.onFailure { error ->
-                if (connectivityChecker.isUnavailable()) sendEffect(FeedSettingsSideEffect.ShowNetworkError)
-                else sendEffect(FeedSettingsSideEffect.ShowError(error.getErrorMessage("피드 설정 저장")))
+                sendEffect(FeedSettingsSideEffect.ShowError(error.getErrorMessage("피드 설정 저장")))
             }
         }
     }

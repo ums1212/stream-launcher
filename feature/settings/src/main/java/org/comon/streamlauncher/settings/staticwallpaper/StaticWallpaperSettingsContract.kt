@@ -23,5 +23,4 @@ sealed interface StaticWallpaperSettingsIntent : UiIntent {
 
 sealed interface StaticWallpaperSettingsSideEffect : UiSideEffect {
     data class ShowError(val message: String) : StaticWallpaperSettingsSideEffect
-    data object ShowNetworkError : StaticWallpaperSettingsSideEffect
 }

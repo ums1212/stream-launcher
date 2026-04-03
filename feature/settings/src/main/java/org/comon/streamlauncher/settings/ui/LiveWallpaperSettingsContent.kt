@@ -31,9 +31,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.PrimaryTabRow
-import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -91,22 +89,6 @@ internal fun LiveWallpaperSettingsContent(
                 is LiveWallpaperSettingsSideEffect.LaunchLiveWallpaperPicker -> onLaunchLiveWallpaperPicker()
                 is LiveWallpaperSettingsSideEffect.ReloadWallpaper -> onReloadWallpaper()
                 is LiveWallpaperSettingsSideEffect.ShowError -> snackbarHostState.showSnackbar(effect.message)
-                is LiveWallpaperSettingsSideEffect.ShowNetworkError -> {
-                    val result = snackbarHostState.showSnackbar(
-                        message = "네트워크 연결을 확인해주세요",
-                        actionLabel = "설정",
-                        duration = SnackbarDuration.Long,
-                    )
-                    if (result == SnackbarResult.ActionPerformed) {
-                        try {
-                            context.startActivity(
-                                Intent(android.provider.Settings.ACTION_WIRELESS_SETTINGS).apply {
-                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                }
-                            )
-                        } catch (_: Exception) {}
-                    }
-                }
             }
         }
     }

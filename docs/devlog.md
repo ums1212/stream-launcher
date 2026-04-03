@@ -2,6 +2,42 @@
 
 ---
 
+## [2026-04-04] fix(settings): 로컬 작업에 잘못 적용된 네트워크 에러 체크 제거 + 정적 배경화면 초기화 버튼 삭제
+
+### 목표
+
+1. DataStore/Room/파일 쓰기 등 순수 로컬 작업 실패 시 "네트워크 연결을 확인해주세요" 스낵바가 잘못 표시되는 버그 수정
+2. 정적 배경화면 설정 화면의 초기화 버튼 UI 제거
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `feature/settings/.../ui/StaticWallpaperSettingsContent.kt` | 배경화면 초기화 `OutlinedButton` 및 관련 import(`BorderStroke`, `OutlinedButton`) 제거 |
+| `feature/settings/.../livewallpaper/LiveWallpaperSettingsViewModel.kt` | `createLiveWallpaper`, `setActiveLiveWallpaper`, `deleteLiveWallpaper`, `clearActiveLiveWallpaper` — 네트워크 체크 제거; `connectivityChecker` 생성자 파라미터 및 import 제거 |
+| `feature/settings/.../livewallpaper/LiveWallpaperSettingsContract.kt` | `ShowNetworkError` SideEffect 제거 |
+| `feature/settings/.../ui/LiveWallpaperSettingsContent.kt` | `ShowNetworkError` effect 처리 블록 제거; `SnackbarDuration`, `SnackbarResult` import 제거 |
+| `feature/settings/.../appdrawer/AppDrawerSettingsViewModel.kt` | `saveAppDrawerSettings` — 네트워크 체크 제거; `connectivityChecker` 생성자 파라미터 및 import 제거 |
+| `feature/settings/.../appdrawer/AppDrawerSettingsContract.kt` | `ShowNetworkError` SideEffect 제거 |
+| `feature/settings/.../feed/FeedSettingsViewModel.kt` | `saveFeedSettings` — 네트워크 체크 제거; `connectivityChecker` 생성자 파라미터 및 import 제거 |
+| `feature/settings/.../feed/FeedSettingsContract.kt` | `ShowNetworkError` SideEffect 제거 |
+| `feature/settings/.../staticwallpaper/StaticWallpaperSettingsViewModel.kt` | `setStaticWallpaper`, `clearStaticWallpaper` — 네트워크 체크 제거; `connectivityChecker` 생성자 파라미터 및 import 제거 |
+| `feature/settings/.../staticwallpaper/StaticWallpaperSettingsContract.kt` | `ShowNetworkError` SideEffect 제거 |
+| `feature/settings/.../preset/PresetSettingsViewModel.kt` | `savePreset`, `loadPreset`, `deletePreset` — 네트워크 체크 제거 (업로드 진행 에러 처리는 유지) |
+
+### 검증결과
+
+빌드 미실행
+
+### 설계결정 및 근거
+
+- **버그 재현 메커니즘**: `setActiveLiveWallpaper`/`clearActiveLiveWallpaper`는 DataStore 수정 + 파일 쓰기만 수행하는 순수 로컬 작업임에도 `.onFailure` 핸들러가 `connectivityChecker.isUnavailable()`을 체크. 예외가 발생하면 런처 앱 특성상 인터넷 연결이 없을 가능성이 높아(`activeNetwork == null` 등) `ShowNetworkError`가 발생했음.
+- **수정 기준**: 네트워크 API를 실제로 호출하는 작업(Firebase 업로드, 건의사항 제출 등)만 `connectivityChecker` 체크를 유지. DataStore/Room/파일 I/O는 로컬 실패 원인(`ShowError`)으로만 처리.
+- **`PresetSettingsViewModel` 부분 유지**: `savePreset`/`loadPreset`/`deletePreset`은 로컬 → 네트워크 체크 제거. 업로드 진행(`uploadProgressTracker.progress`) 에러는 Firebase 업로드 실패 → 네트워크 체크 유지.
+- **`SuggestionViewModel` 유지**: `uploadSuggestionImageUseCase`(Firebase Storage), `submitSuggestionUseCase`(Firestore) 모두 실제 네트워크 작업 → 그대로 유지.
+
+---
+
 ## [2026-04-03] fix(feed): 네트워크 오류 시 피드 비워짐·재연결 후 새로고침 무반응 수정 + NetworkConnectivityChecker 통합
 
 ### 목표

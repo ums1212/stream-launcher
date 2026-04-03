@@ -18,5 +18,4 @@ sealed interface FeedSettingsIntent : UiIntent {
 
 sealed interface FeedSettingsSideEffect : UiSideEffect {
     data class ShowError(val message: String) : FeedSettingsSideEffect
-    data object ShowNetworkError : FeedSettingsSideEffect
 }

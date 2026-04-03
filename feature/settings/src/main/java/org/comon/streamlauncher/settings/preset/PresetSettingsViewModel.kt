@@ -159,8 +159,7 @@ class PresetSettingsViewModel @Inject constructor(
             )
             runCatching { savePresetUseCase(preset) }
                 .onFailure { error ->
-                    if (connectivityChecker.isUnavailable()) sendEffect(PresetSettingsSideEffect.ShowNetworkError)
-                    else sendEffect(PresetSettingsSideEffect.ShowError(error.getErrorMessage("프리셋 저장")))
+                    sendEffect(PresetSettingsSideEffect.ShowError(error.getErrorMessage("프리셋 저장")))
                 }
         }
     }
@@ -203,8 +202,7 @@ class PresetSettingsViewModel @Inject constructor(
                     }
                 }
             }.onFailure { error ->
-                if (connectivityChecker.isUnavailable()) sendEffect(PresetSettingsSideEffect.ShowNetworkError)
-                else sendEffect(PresetSettingsSideEffect.ShowError(error.getErrorMessage("프리셋 적용")))
+                sendEffect(PresetSettingsSideEffect.ShowError(error.getErrorMessage("프리셋 적용")))
             }
         }
     }
@@ -216,8 +214,7 @@ class PresetSettingsViewModel @Inject constructor(
                 preset.wallpaperUri?.let { wallpaperHelper.deletePresetWallpaper(it) }
                 preset.staticWallpaperLandscapeUri?.let { wallpaperHelper.deletePresetWallpaper(it) }
             }.onFailure { error ->
-                if (connectivityChecker.isUnavailable()) sendEffect(PresetSettingsSideEffect.ShowNetworkError)
-                else sendEffect(PresetSettingsSideEffect.ShowError(error.getErrorMessage("프리셋 삭제")))
+                sendEffect(PresetSettingsSideEffect.ShowError(error.getErrorMessage("프리셋 삭제")))
             }
         }
     }

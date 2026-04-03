@@ -4,7 +4,6 @@ import android.content.res.Configuration
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -18,7 +17,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
@@ -126,22 +124,6 @@ internal fun StaticWallpaperSettingsContent(
                 },
                 color = glassOnSurface,
             )
-        }
-
-        if (currentUri != null) {
-            OutlinedButton(
-                onClick = {
-                    val orientation = if (isLandscapeTab) WallpaperOrientation.LANDSCAPE else WallpaperOrientation.PORTRAIT
-                    viewModel.handleIntent(StaticWallpaperSettingsIntent.ClearStaticWallpaper(orientation))
-                },
-                modifier = Modifier.fillMaxWidth(),
-                border = BorderStroke(1.dp, accentPrimary),
-            ) {
-                Text(
-                    text = stringResource(R.string.static_wallpaper_clear),
-                    color = accentPrimary,
-                )
-            }
         }
 
         Spacer(modifier = Modifier.height(8.dp))

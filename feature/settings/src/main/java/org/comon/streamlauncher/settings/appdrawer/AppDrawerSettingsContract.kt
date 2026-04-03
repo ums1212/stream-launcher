@@ -20,5 +20,4 @@ sealed interface AppDrawerSettingsIntent : UiIntent {
 
 sealed interface AppDrawerSettingsSideEffect : UiSideEffect {
     data class ShowError(val message: String) : AppDrawerSettingsSideEffect
-    data object ShowNetworkError : AppDrawerSettingsSideEffect
 }

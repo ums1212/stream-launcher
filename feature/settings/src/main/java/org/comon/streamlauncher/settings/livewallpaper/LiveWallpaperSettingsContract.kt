@@ -39,5 +39,4 @@ sealed interface LiveWallpaperSettingsSideEffect : UiSideEffect {
     data object LaunchLiveWallpaperPicker : LiveWallpaperSettingsSideEffect
     data object ReloadWallpaper : LiveWallpaperSettingsSideEffect
     data class ShowError(val message: String) : LiveWallpaperSettingsSideEffect
-    data object ShowNetworkError : LiveWallpaperSettingsSideEffect
 }
