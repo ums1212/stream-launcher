@@ -21,61 +21,60 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import org.comon.streamlauncher.domain.model.preset.Preset
+import org.comon.streamlauncher.domain.model.preset.PresetOperationProgress
 import org.comon.streamlauncher.settings.R
-import org.comon.streamlauncher.settings.SettingsIntent
-import org.comon.streamlauncher.settings.SettingsState
+import org.comon.streamlauncher.settings.preset.PresetSettingsIntent
 
 @Composable
 internal fun PortraitPresetSettingsScreen(
-    state: SettingsState,
+    presets: List<Preset>,
+    pendingUploadPresetName: String?,
+    uploadProgress: PresetOperationProgress?,
     isUploadInProgress: Boolean,
     onNavigateToMarket: () -> Unit,
     addPresetEvent: () -> Unit,
     presetToDeleteEvent: (Preset) -> Unit,
     presetItemCardOnclickEvent: (Preset) -> Unit,
     onShareEvent: ((Preset) -> Unit)?,
-    onIntent: (SettingsIntent) -> Unit,
-){
+    onIntent: (PresetSettingsIntent) -> Unit,
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .windowInsetsPadding(WindowInsets.navigationBars),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            // 프리셋 마켓 진입 버튼
             GlassSettingsTile(
                 label = stringResource(R.string.preset_market),
                 icon = Icons.Default.Store,
                 onClick = onNavigateToMarket,
             )
-
-            // Add Preset Button
             GlassSettingsTile(
                 label = stringResource(R.string.title_add_preset),
                 icon = Icons.Default.Add,
-                onClick = addPresetEvent
+                onClick = addPresetEvent,
             )
         }
 
         Text(
-            text = "${stringResource(R.string.title_presets)} (${state.presets.size}/10)",
+            text = "${stringResource(R.string.title_presets)} (${presets.size}/10)",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface
+            color = MaterialTheme.colorScheme.onSurface,
         )
 
-        // Preset List
         LazyColumn(
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            items(state.presets, key = { it.id }) { preset ->
+            items(presets, key = { it.id }) { preset ->
                 PresetSwipeItem(
                     preset = preset,
-                    state = state,
+                    pendingUploadPresetName = pendingUploadPresetName,
+                    uploadProgress = uploadProgress,
                     isUploadInProgress = isUploadInProgress,
                     onDelete = presetToDeleteEvent,
                     onClick = presetItemCardOnclickEvent,

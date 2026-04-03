@@ -20,19 +20,20 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import org.comon.streamlauncher.domain.model.preset.Preset
+import org.comon.streamlauncher.domain.model.preset.PresetOperationProgress
 import org.comon.streamlauncher.settings.R
-import org.comon.streamlauncher.settings.SettingsIntent
-import org.comon.streamlauncher.settings.SettingsState
+import org.comon.streamlauncher.settings.preset.PresetSettingsIntent
 
 @Composable
 internal fun PresetSwipeItem(
     preset: Preset,
-    state: SettingsState,
+    pendingUploadPresetName: String?,
+    uploadProgress: PresetOperationProgress?,
     isUploadInProgress: Boolean,
     onDelete: (Preset) -> Unit,
     onClick: (Preset) -> Unit,
     onShare: ((Preset) -> Unit)?,
-    onIntent: (SettingsIntent) -> Unit,
+    onIntent: (PresetSettingsIntent) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val dismissState = rememberSwipeToDismissBoxState()
@@ -44,8 +45,8 @@ internal fun PresetSwipeItem(
         }
     }
 
-    val isPendingForThisPreset = state.pendingUploadPresetName == preset.name && state.uploadProgress == null
-    val thisPresetProgress = state.uploadProgress?.takeIf { it.presetName == preset.name }
+    val isPendingForThisPreset = pendingUploadPresetName == preset.name && uploadProgress == null
+    val thisPresetProgress = uploadProgress?.takeIf { it.presetName == preset.name }
 
     SwipeToDismissBox(
         state = dismissState,
@@ -81,9 +82,9 @@ internal fun PresetSwipeItem(
                 onShare = { onShare?.invoke(preset) },
                 isPending = isPendingForThisPreset,
                 uploadProgress = thisPresetProgress,
-                onPauseUpload = { onIntent(SettingsIntent.PauseUpload) },
-                onResumeUpload = { onIntent(SettingsIntent.ResumeUpload) },
-                onCancelUpload = { onIntent(SettingsIntent.CancelUpload) },
+                onPauseUpload = { onIntent(PresetSettingsIntent.PauseUpload) },
+                onResumeUpload = { onIntent(PresetSettingsIntent.ResumeUpload) },
+                onCancelUpload = { onIntent(PresetSettingsIntent.CancelUpload) },
             )
         },
     )

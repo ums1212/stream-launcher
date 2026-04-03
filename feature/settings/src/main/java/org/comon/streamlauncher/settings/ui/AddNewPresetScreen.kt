@@ -39,20 +39,24 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
-import org.comon.streamlauncher.domain.model.LiveWallpaper
 import org.comon.streamlauncher.settings.R
-import org.comon.streamlauncher.settings.SettingsIntent
+import org.comon.streamlauncher.settings.preset.PresetSettingsIntent
+import org.comon.streamlauncher.settings.preset.PresetSettingsViewModel
 import org.comon.streamlauncher.ui.modifier.glassEffect
 import org.comon.streamlauncher.ui.theme.StreamLauncherTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddNewPresetScreen(
-    liveWallpapers: List<LiveWallpaper> = emptyList(),
-    onSave: (SettingsIntent.SavePreset) -> Unit,
     onBack: () -> Unit,
+    viewModel: PresetSettingsViewModel = hiltViewModel(),
 ) {
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val liveWallpapers = state.liveWallpapers
+
     val defaultPresetNameFormat = stringResource(R.string.preset_default_name)
     var name by remember { mutableStateOf("") }
     var saveHome by remember { mutableStateOf(true) }
@@ -115,20 +119,16 @@ fun AddNewPresetScreen(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent,
-                ),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
             )
         },
         bottomBar = {
-            BottomAppBar(
-                containerColor = Color.Transparent,
-            ) {
+            BottomAppBar(containerColor = Color.Transparent) {
                 Button(
                     enabled = isConfirmEnabled,
                     onClick = {
-                        onSave(
-                            SettingsIntent.SavePreset(
+                        viewModel.handleIntent(
+                            PresetSettingsIntent.SavePreset(
                                 name = name.ifEmpty {
                                     String.format(defaultPresetNameFormat, System.currentTimeMillis() % 1000)
                                 },
@@ -193,7 +193,7 @@ fun AddNewPresetScreen(
             ) {
                 RadioButtonRow(
                     label = stringResource(R.string.preset_wallpaper_select_image) +
-                            if (selectedWallpaperUri != null) " ✓" else "",
+                        if (selectedWallpaperUri != null) " ✓" else "",
                     selected = !useLiveWallpaper,
                     onClick = {
                         if (useLiveWallpaper) {
@@ -218,7 +218,7 @@ fun AddNewPresetScreen(
                 if (liveWallpapers.isNotEmpty()) {
                     RadioButtonRow(
                         label = stringResource(R.string.live_wallpaper_select_for_preset) +
-                                if (selectedLiveWallpaperId != null) " ✓" else "",
+                            if (selectedLiveWallpaperId != null) " ✓" else "",
                         selected = useLiveWallpaper,
                         onClick = {
                             if (!useLiveWallpaper) {
@@ -245,7 +245,6 @@ fun AddNewPresetScreen(
                 }
             }
 
-            // 정적 가로 배경화면 (세로 정적 배경화면이 선택된 경우)
             if (!useLiveWallpaper && selectedWallpaperUri != null && saveWallpaper) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
@@ -254,7 +253,7 @@ fun AddNewPresetScreen(
                 )
                 RadioButtonRow(
                     label = stringResource(R.string.preset_wallpaper_select_image) +
-                            if (selectedStaticWallpaperLandscapeUri != null) " ✓" else "",
+                        if (selectedStaticWallpaperLandscapeUri != null) " ✓" else "",
                     selected = selectedStaticWallpaperLandscapeUri != null,
                     onClick = { staticLandscapePicker.launch(PickVisualMediaRequest(PickVisualMedia.ImageOnly)) },
                 ) {
@@ -271,7 +270,6 @@ fun AddNewPresetScreen(
                 }
             }
 
-            // 가로 라이브 배경화면 (라이브 배경화면이 선택된 경우)
             if (liveWallpapers.isNotEmpty() && useLiveWallpaper && saveWallpaper) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
@@ -280,7 +278,7 @@ fun AddNewPresetScreen(
                 )
                 RadioButtonRow(
                     label = stringResource(R.string.live_wallpaper_select_for_preset) +
-                            if (selectedLiveWallpaperLandscapeId != null) " ✓" else "",
+                        if (selectedLiveWallpaperLandscapeId != null) " ✓" else "",
                     selected = selectedLiveWallpaperLandscapeId != null,
                     onClick = { showLiveWallpaperLandscapePicker = true },
                 ) {

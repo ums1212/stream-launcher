@@ -18,6 +18,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -26,29 +27,35 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.comon.streamlauncher.domain.model.ColorPreset
 import org.comon.streamlauncher.domain.model.ColorPresets
 import org.comon.streamlauncher.settings.R
-import org.comon.streamlauncher.settings.SettingsIntent
-import org.comon.streamlauncher.settings.SettingsState
+import org.comon.streamlauncher.settings.color.ColorSettingsIntent
+import org.comon.streamlauncher.settings.color.ColorSettingsViewModel
 import org.comon.streamlauncher.ui.theme.StreamLauncherTheme
 import org.comon.streamlauncher.ui.util.calculateIsCompactHeight
 
 @Composable
 internal fun ColorSettingsContent(
-    state: SettingsState,
-    onIntent: (SettingsIntent) -> Unit,
+    viewModel: ColorSettingsViewModel = hiltViewModel(),
 ) {
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
     val isCompactLandscape = calculateIsCompactHeight()
 
-    if(isCompactLandscape){
+    if (isCompactLandscape) {
         LazyHorizontalGrid(
             rows = GridCells.Fixed(2),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             items(ColorPresets.defaults) { preset ->
-                ColorSettingsGridItem(state, preset, onIntent)
+                ColorSettingsGridItem(
+                    colorPresetIndex = state.colorPresetIndex,
+                    preset = preset,
+                    onIntent = viewModel::handleIntent,
+                )
             }
         }
     } else {
@@ -58,21 +65,24 @@ internal fun ColorSettingsContent(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             items(ColorPresets.defaults) { preset ->
-                ColorSettingsGridItem(state, preset, onIntent)
+                ColorSettingsGridItem(
+                    colorPresetIndex = state.colorPresetIndex,
+                    preset = preset,
+                    onIntent = viewModel::handleIntent,
+                )
             }
         }
     }
-
 }
 
 @Composable
 private fun ColorSettingsGridItem(
-    state: SettingsState,
+    colorPresetIndex: Int,
     preset: ColorPreset,
-    onIntent: (SettingsIntent) -> Unit,
-){
+    onIntent: (ColorSettingsIntent) -> Unit,
+) {
     val shape = RoundedCornerShape(12.dp)
-    val isSelected = state.colorPresetIndex == preset.index
+    val isSelected = colorPresetIndex == preset.index
     val primary = Color(preset.accentPrimaryArgb)
     val secondary = Color(preset.accentSecondaryArgb)
 
@@ -83,13 +93,15 @@ private fun ColorSettingsGridItem(
             .clip(shape)
             .drawBehind {
                 val half = size.width / 2f
-                drawRect(color = primary,
+                drawRect(
+                    color = primary,
                     topLeft = Offset.Zero,
-                    size = size.copy(width = half)
+                    size = size.copy(width = half),
                 )
-                drawRect(color = secondary,
+                drawRect(
+                    color = secondary,
                     topLeft = Offset(half, 0f),
-                    size = size.copy(width = half)
+                    size = size.copy(width = half),
                 )
             }
             .then(
@@ -97,14 +109,14 @@ private fun ColorSettingsGridItem(
                     Modifier.border(
                         width = 3.dp,
                         color = StreamLauncherTheme.colors.accentPrimary,
-                        shape = shape
+                        shape = shape,
                     )
                 } else {
                     Modifier
                 }
             )
             .clickable {
-                onIntent(SettingsIntent.ChangeAccentColor(preset.index))
+                onIntent(ColorSettingsIntent.ChangeAccentColor(preset.index))
             },
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {

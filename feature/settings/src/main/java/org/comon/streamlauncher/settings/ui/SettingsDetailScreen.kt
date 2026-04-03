@@ -18,8 +18,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import org.comon.streamlauncher.settings.R
-import org.comon.streamlauncher.settings.SettingsIntent
-import org.comon.streamlauncher.settings.SettingsState
 import org.comon.streamlauncher.settings.navigation.SettingsMenu
 import org.comon.streamlauncher.settings.suggestion.SuggestionContent
 import org.comon.streamlauncher.ui.modifier.glassEffect
@@ -29,13 +27,14 @@ import org.comon.streamlauncher.ui.theme.StreamLauncherTheme
 @Composable
 fun SettingsDetailScreen(
     menu: SettingsMenu,
-    state: SettingsState,
-    onIntent: (SettingsIntent) -> Unit,
     onBack: () -> Unit,
     onNavigateToMarket: () -> Unit = {},
     onNavigateToAddPreset: () -> Unit = {},
-    onShowSnackbar: (String) -> Unit = {},
     onRequireSignIn: () -> Unit = {},
+    onLaunchLiveWallpaperPicker: () -> Unit = {},
+    onReloadWallpaper: () -> Unit = {},
+    onStartUploadService: (String) -> Unit = {},
+    onStopUploadService: () -> Unit = {},
 ) {
     val title = stringResource(
         when (menu) {
@@ -56,12 +55,7 @@ fun SettingsDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    Text(
-                        text = title,
-                        color = glassOnSurface,
-                    )
-                },
+                title = { Text(text = title, color = glassOnSurface) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
@@ -71,9 +65,7 @@ fun SettingsDetailScreen(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent,
-                ),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
             )
         },
         modifier = Modifier
@@ -87,27 +79,23 @@ fun SettingsDetailScreen(
                 .fillMaxSize(),
         ) {
             when (menu) {
-                SettingsMenu.COLOR -> ColorSettingsContent(state = state, onIntent = onIntent)
-                SettingsMenu.IMAGE -> ImageSettingsContent(state = state, onIntent = onIntent)
-                SettingsMenu.FEED -> FeedSettingsContent(state = state, onIntent = onIntent)
-                SettingsMenu.APP_DRAWER -> AppDrawerSettingsContent(state = state, onIntent = onIntent)
+                SettingsMenu.COLOR -> ColorSettingsContent()
+                SettingsMenu.IMAGE -> ImageSettingsContent()
+                SettingsMenu.FEED -> FeedSettingsContent()
+                SettingsMenu.APP_DRAWER -> AppDrawerSettingsContent()
                 SettingsMenu.PRESET -> PresetSettingsContent(
-                    state = state,
-                    onIntent = onIntent,
                     onNavigateToMarket = onNavigateToMarket,
                     onNavigateToAddPreset = onNavigateToAddPreset,
-                    onShowSnackbar = onShowSnackbar,
                     onRequireSignIn = onRequireSignIn,
+                    onStartUploadService = onStartUploadService,
+                    onStopUploadService = onStopUploadService,
                 )
                 SettingsMenu.LIVE_WALLPAPER -> LiveWallpaperSettingsContent(
-                    state = state,
-                    onIntent = onIntent,
+                    onLaunchLiveWallpaperPicker = onLaunchLiveWallpaperPicker,
+                    onReloadWallpaper = onReloadWallpaper,
                 )
                 SettingsMenu.SUGGESTION -> SuggestionContent(onBack = onBack)
-                SettingsMenu.STATIC_WALLPAPER -> StaticWallpaperSettingsContent(
-                    state = state,
-                    onIntent = onIntent,
-                )
+                SettingsMenu.STATIC_WALLPAPER -> StaticWallpaperSettingsContent()
             }
         }
     }

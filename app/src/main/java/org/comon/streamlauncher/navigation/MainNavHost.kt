@@ -11,8 +11,6 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
 import org.comon.streamlauncher.preset_market.ui.PresetMarketHost
-import org.comon.streamlauncher.settings.SettingsIntent
-import org.comon.streamlauncher.settings.SettingsState
 import org.comon.streamlauncher.settings.navigation.AddNewPreset
 import org.comon.streamlauncher.settings.navigation.Launcher
 import org.comon.streamlauncher.settings.navigation.SettingsDetail
@@ -25,12 +23,13 @@ import org.comon.streamlauncher.settings.navigation.PresetMarketHost as PresetMa
 fun MainNavHost(
     navController: NavHostController,
     launcherContent: @Composable () -> Unit,
-    settingsState: SettingsState,
-    onSettingsIntent: (SettingsIntent) -> Unit,
-    onShowSnackbar: (String) -> Unit,
+    onLaunchLiveWallpaperPicker: () -> Unit,
+    onReloadWallpaper: () -> Unit,
     onRequireSignIn: () -> Unit,
     onStartDownloadService: (String) -> Unit,
     onStopDownloadService: () -> Unit,
+    onStartUploadService: (String) -> Unit,
+    onStopUploadService: () -> Unit,
 ) {
     NavHost(
         navController = navController,
@@ -58,13 +57,14 @@ fun MainNavHost(
                 ?: return@composable
             SettingsDetailScreen(
                 menu = menu,
-                state = settingsState,
-                onIntent = onSettingsIntent,
                 onBack = { navController.popBackStack() },
                 onNavigateToMarket = { navController.navigate(PresetMarketRoute) },
                 onNavigateToAddPreset = { navController.navigate(AddNewPreset) },
-                onShowSnackbar = onShowSnackbar,
                 onRequireSignIn = onRequireSignIn,
+                onLaunchLiveWallpaperPicker = onLaunchLiveWallpaperPicker,
+                onReloadWallpaper = onReloadWallpaper,
+                onStartUploadService = onStartUploadService,
+                onStopUploadService = onStopUploadService,
             )
         }
 
@@ -74,11 +74,7 @@ fun MainNavHost(
             exitTransition = { ExitTransition.None },
             popEnterTransition = { EnterTransition.None },
         ) {
-            AddNewPresetScreen(
-                liveWallpapers = settingsState.liveWallpapers,
-                onSave = onSettingsIntent,
-                onBack = { navController.popBackStack() },
-            )
+            AddNewPresetScreen(onBack = { navController.popBackStack() })
         }
 
         composable<PresetMarketRoute>(

@@ -120,7 +120,6 @@ class MainActivity : ComponentActivity() {
                             effectFlow = settingsViewModel.effect,
                             navController = navController,
                             snackbarHostState = snackbarHostState,
-                            onRequireSignIn = onRequireSignIn,
                         )
 
                         val configuration = LocalConfiguration.current
@@ -130,6 +129,36 @@ class MainActivity : ComponentActivity() {
 
                         MainNavHost(
                             navController = navController,
+                            onLaunchLiveWallpaperPicker = {
+                                val component = android.content.ComponentName(this@MainActivity, org.comon.streamlauncher.service.VideoLiveWallpaperService::class.java)
+                                val wallpaperManager = android.app.WallpaperManager.getInstance(this@MainActivity)
+                                val currentInfo = wallpaperManager.wallpaperInfo
+                                if (currentInfo?.serviceName == org.comon.streamlauncher.service.VideoLiveWallpaperService::class.java.name) {
+                                    sendBroadcast(
+                                        Intent(org.comon.streamlauncher.service.VideoLiveWallpaperService.ACTION_RELOAD_URI)
+                                            .apply { `package` = packageName }
+                                    )
+                                } else {
+                                    try {
+                                        startActivity(
+                                            Intent(android.app.WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER)
+                                                .putExtra(android.app.WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT, component)
+                                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        )
+                                    } catch (_: android.content.ActivityNotFoundException) {
+                                        try {
+                                            startActivity(
+                                                Intent(android.app.WallpaperManager.ACTION_LIVE_WALLPAPER_CHOOSER)
+                                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                            )
+                                        } catch (_: Exception) {}
+                                    }
+                                }
+                            },
+                            onReloadWallpaper = {
+                                runCatching { android.app.WallpaperManager.getInstance(this@MainActivity).clear() }
+                            },
+                            onRequireSignIn = onRequireSignIn,
                             launcherContent = {
                                 CrossPagerNavigation(
                                     resetTrigger = resetTrigger,
@@ -176,17 +205,19 @@ class MainActivity : ComponentActivity() {
                                     HomeScreen(state = uiState, onIntent = viewModel::handleIntent)
                                 }
                             },
-                            settingsState = settingsState,
-                            onSettingsIntent = settingsViewModel::handleIntent,
-                            onShowSnackbar = { message ->
-                                settingsScope.launch { snackbarHostState.showSnackbar(message) }
-                            },
-                            onRequireSignIn = onRequireSignIn,
                             onStartDownloadService = {
                                 startForegroundService(Intent(this@MainActivity, PresetDownloadService::class.java))
                             },
                             onStopDownloadService = {
                                 stopService(Intent(this@MainActivity, PresetDownloadService::class.java))
+                            },
+                            onStartUploadService = { presetName ->
+                                val serviceIntent = Intent(this@MainActivity, org.comon.streamlauncher.service.PresetUploadService::class.java)
+                                    .putExtra(org.comon.streamlauncher.service.PresetUploadService.EXTRA_PRESET_NAME, presetName)
+                                startForegroundService(serviceIntent)
+                            },
+                            onStopUploadService = {
+                                stopService(Intent(this@MainActivity, org.comon.streamlauncher.service.PresetUploadService::class.java))
                             },
                         )
 

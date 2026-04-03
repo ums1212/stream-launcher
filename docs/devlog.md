@@ -2,6 +2,48 @@
 
 ---
 
+## [2026-04-03] refactor(settings): SettingsViewModel 화면별 개별 ViewModel로 분리
+
+### 목표
+
+God ViewModel(`SettingsViewModel` — 21개 의존성, 44개 State 필드, 27개 Intent)을 화면별 개별 ViewModel로 분리하여 SRP 달성.
+
+### 변경사항
+
+**신규 파일 (14개)**
+- `settings/color/ColorSettingsContract.kt` + `ColorSettingsViewModel.kt`
+- `settings/image/ImageSettingsContract.kt` + `ImageSettingsViewModel.kt`
+- `settings/feed/FeedSettingsContract.kt` + `FeedSettingsViewModel.kt`
+- `settings/appdrawer/AppDrawerSettingsContract.kt` + `AppDrawerSettingsViewModel.kt`
+- `settings/livewallpaper/LiveWallpaperSettingsContract.kt` + `LiveWallpaperSettingsViewModel.kt`
+- `settings/staticwallpaper/StaticWallpaperSettingsContract.kt` + `StaticWallpaperSettingsViewModel.kt`
+- `settings/preset/PresetSettingsContract.kt` + `PresetSettingsViewModel.kt`
+
+**수정 파일**
+- `*SettingsContent.kt` 7개 — `hiltViewModel()` 패턴으로 전환, 외부 파라미터 제거
+- `SettingsContract.kt` — 4개 State 필드, 5개 Intent, 2개 SideEffect로 축소
+- `SettingsViewModel.kt` — 6개 의존성으로 축소 (notice/resetTab/wallpaper orientation/signIn)
+- `SettingsDetailScreen.kt` — `state`/`onIntent` 파라미터 제거, 람다 콜백 추가
+- `MainNavHost.kt` — `onStartUploadService`/`onStopUploadService` 추가
+- `MainActivity.kt` — 축소된 contract 반영, 업로드 서비스 람다 구현
+- `SideEffectHandlers.kt` — `SettingsSideEffectHandler` `NavigateToMain`/`ShowError`만 남김
+
+**테스트 분산 (신규 5개 파일, 기존 1개 축소)**
+- `ColorSettingsViewModelTest` (3), `ImageSettingsViewModelTest` (3), `FeedSettingsViewModelTest` (1), `AppDrawerSettingsViewModelTest` (1), `LiveWallpaperSettingsViewModelTest` (9)
+- `SettingsViewModelTest` → notice/resetTab 테스트 5개만 유지
+
+### 검증결과
+
+`assembleDebug` 성공, `test` BUILD SUCCESSFUL (실패 0건)
+
+### 설계결정 및 근거
+
+- **VideoLiveWallpaperService/PresetUploadService 크로스 모듈 참조**: `:app`에 정의된 서비스를 `feature:settings`에서 직접 참조 불가 → 람다 콜백(`onLaunchLiveWallpaperPicker`, `onStartUploadService` 등)으로 해결
+- **PresetSettingsViewModel 크로스 화면 상태**: `savePreset` 시 현재 COLOR/IMAGE/FEED/APP_DRAWER 값이 필요 → `GetLauncherSettingsUseCase` collect로 `cachedSettings` 유지, 다른 ViewModel 참조 없음
+- **AddNewPresetScreen 네비게이션 스코핑**: 별도 BackStackEntry이므로 `hiltViewModel<PresetSettingsViewModel>()`이 다른 인스턴스를 반환하지만, 동일 DataStore/Room을 읽으므로 데이터 일관성 유지
+
+---
+
 ## [2026-04-02] fix(network): YouTube API Android 앱 제한 호환 — X-Android-Package/Cert 헤더 추가
 
 ### 목표

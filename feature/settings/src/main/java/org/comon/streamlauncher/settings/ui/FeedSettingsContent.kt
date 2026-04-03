@@ -20,17 +20,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.comon.streamlauncher.domain.util.InputValidator
 import org.comon.streamlauncher.settings.R
-import org.comon.streamlauncher.settings.SettingsIntent
-import org.comon.streamlauncher.settings.SettingsState
+import org.comon.streamlauncher.settings.feed.FeedSettingsIntent
+import org.comon.streamlauncher.settings.feed.FeedSettingsViewModel
 import org.comon.streamlauncher.ui.theme.StreamLauncherTheme
 
 @Composable
 internal fun FeedSettingsContent(
-    state: SettingsState,
-    onIntent: (SettingsIntent) -> Unit,
+    viewModel: FeedSettingsViewModel = hiltViewModel(),
 ) {
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
     val accentPrimary = StreamLauncherTheme.colors.accentPrimary
 
     var chzzkChannelId by remember(state.chzzkChannelId) { mutableStateOf(state.chzzkChannelId) }
@@ -57,7 +59,6 @@ internal fun FeedSettingsContent(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-
         OutlinedTextField(
             value = chzzkChannelId,
             onValueChange = { chzzkChannelId = it },
@@ -85,8 +86,8 @@ internal fun FeedSettingsContent(
 
         Button(
             onClick = {
-                onIntent(
-                    SettingsIntent.SaveFeedSettings(
+                viewModel.handleIntent(
+                    FeedSettingsIntent.SaveFeedSettings(
                         chzzkChannelId = chzzkChannelId.trim(),
                         youtubeChannelId = youtubeChannelId.trim(),
                     ),

@@ -1,5 +1,6 @@
 package org.comon.streamlauncher.settings.ui
 
+import android.content.res.Configuration
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -22,6 +23,7 @@ import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -30,20 +32,21 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import android.content.res.Configuration
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import org.comon.streamlauncher.domain.model.WallpaperOrientation
 import org.comon.streamlauncher.settings.R
-import org.comon.streamlauncher.settings.SettingsIntent
-import org.comon.streamlauncher.settings.SettingsState
+import org.comon.streamlauncher.settings.staticwallpaper.StaticWallpaperSettingsIntent
+import org.comon.streamlauncher.settings.staticwallpaper.StaticWallpaperSettingsViewModel
 import org.comon.streamlauncher.ui.theme.StreamLauncherTheme
 
 @Composable
 internal fun StaticWallpaperSettingsContent(
-    state: SettingsState,
-    onIntent: (SettingsIntent) -> Unit,
     modifier: Modifier = Modifier,
+    viewModel: StaticWallpaperSettingsViewModel = hiltViewModel(),
 ) {
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
     val isLandscapeTab = state.selectedStaticWallpaperTab == WallpaperOrientation.LANDSCAPE
     val currentUri = if (isLandscapeTab) state.staticWallpaperLandscapeUri else state.staticWallpaperPortraitUri
 
@@ -57,7 +60,7 @@ internal fun StaticWallpaperSettingsContent(
     ) { uri ->
         if (uri != null) {
             val orientation = if (isLandscapeTab) WallpaperOrientation.LANDSCAPE else WallpaperOrientation.PORTRAIT
-            onIntent(SettingsIntent.SetStaticWallpaper(uri.toString(), orientation, isCurrentLandscape))
+            viewModel.handleIntent(StaticWallpaperSettingsIntent.SetStaticWallpaper(uri.toString(), orientation, isCurrentLandscape))
         }
     }
 
@@ -77,12 +80,12 @@ internal fun StaticWallpaperSettingsContent(
         ) {
             Tab(
                 selected = !isLandscapeTab,
-                onClick = { onIntent(SettingsIntent.SwitchStaticWallpaperTab(WallpaperOrientation.PORTRAIT)) },
+                onClick = { viewModel.handleIntent(StaticWallpaperSettingsIntent.SwitchStaticWallpaperTab(WallpaperOrientation.PORTRAIT)) },
                 text = { Text(stringResource(R.string.wallpaper_orientation_portrait)) },
             )
             Tab(
                 selected = isLandscapeTab,
-                onClick = { onIntent(SettingsIntent.SwitchStaticWallpaperTab(WallpaperOrientation.LANDSCAPE)) },
+                onClick = { viewModel.handleIntent(StaticWallpaperSettingsIntent.SwitchStaticWallpaperTab(WallpaperOrientation.LANDSCAPE)) },
                 text = { Text(stringResource(R.string.wallpaper_orientation_landscape)) },
             )
         }
@@ -129,7 +132,7 @@ internal fun StaticWallpaperSettingsContent(
             OutlinedButton(
                 onClick = {
                     val orientation = if (isLandscapeTab) WallpaperOrientation.LANDSCAPE else WallpaperOrientation.PORTRAIT
-                    onIntent(SettingsIntent.ClearStaticWallpaper(orientation))
+                    viewModel.handleIntent(StaticWallpaperSettingsIntent.ClearStaticWallpaper(orientation))
                 },
                 modifier = Modifier.fillMaxWidth(),
                 border = BorderStroke(1.dp, accentPrimary),

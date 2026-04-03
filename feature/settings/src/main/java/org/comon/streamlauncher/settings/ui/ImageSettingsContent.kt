@@ -39,21 +39,24 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import org.comon.streamlauncher.domain.model.GridCell
+import org.comon.streamlauncher.domain.model.GridCellImage
 import org.comon.streamlauncher.settings.R
-import org.comon.streamlauncher.settings.SettingsIntent
-import org.comon.streamlauncher.settings.SettingsState
+import org.comon.streamlauncher.settings.image.ImageSettingsIntent
+import org.comon.streamlauncher.settings.image.ImageSettingsViewModel
 import org.comon.streamlauncher.settings.model.ImageType
 import org.comon.streamlauncher.ui.theme.StreamLauncherTheme
 import org.comon.streamlauncher.ui.util.calculateIsCompactHeight
 
 @Composable
 internal fun ImageSettingsContent(
-    state: SettingsState,
-    onIntent: (SettingsIntent) -> Unit,
+    viewModel: ImageSettingsViewModel = hiltViewModel(),
 ) {
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     var selectedCell by remember { mutableStateOf(GridCell.TOP_LEFT) }
@@ -67,7 +70,7 @@ internal fun ImageSettingsContent(
             uri,
             Intent.FLAG_GRANT_READ_URI_PERMISSION,
         )
-        onIntent(SettingsIntent.SetGridImage(selectedCell, ImageType.IDLE, uri.toString()))
+        viewModel.handleIntent(ImageSettingsIntent.SetGridImage(selectedCell, ImageType.IDLE, uri.toString()))
     }
 
     val expandedImageLauncher = rememberLauncherForActivityResult(
@@ -78,28 +81,26 @@ internal fun ImageSettingsContent(
             uri,
             Intent.FLAG_GRANT_READ_URI_PERMISSION,
         )
-        onIntent(SettingsIntent.SetGridImage(selectedCell, ImageType.EXPANDED, uri.toString()))
+        viewModel.handleIntent(ImageSettingsIntent.SetGridImage(selectedCell, ImageType.EXPANDED, uri.toString()))
     }
 
     if (calculateIsCompactHeight()) {
-        // ========== 가로(Landscape) 화면 레이아웃 ==========
         ImageSettingsLandscapeLayout(
             selectedCell = selectedCell,
             selectCellEvent = { selectedCell = it },
-            state = state,
+            gridCellImages = state.gridCellImages,
             idleImageLauncher = idleImageLauncher,
             expandedImageLauncher = expandedImageLauncher,
-            showResetDialogEvent = { showResetDialog = true }
+            showResetDialogEvent = { showResetDialog = true },
         )
     } else {
-        // ========== 세로(Portrait) 화면 레이아웃 ==========
         ImageSettingsPortraitLayout(
             selectedCell = selectedCell,
             selectCellEvent = { selectedCell = it },
-            state = state,
+            gridCellImages = state.gridCellImages,
             idleImageLauncher = idleImageLauncher,
             expandedImageLauncher = expandedImageLauncher,
-            showResetDialogEvent = { showResetDialog = true }
+            showResetDialogEvent = { showResetDialog = true },
         )
     }
 
@@ -110,7 +111,7 @@ internal fun ImageSettingsContent(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        onIntent(SettingsIntent.ResetAllGridImages)
+                        viewModel.handleIntent(ImageSettingsIntent.ResetAllGridImages)
                         showResetDialog = false
                     },
                 ) {
@@ -130,21 +131,21 @@ internal fun ImageSettingsContent(
 private fun ImageSettingsPortraitLayout(
     selectedCell: GridCell,
     selectCellEvent: (GridCell) -> Unit,
-    state: SettingsState,
+    gridCellImages: Map<GridCell, GridCellImage>,
     idleImageLauncher: ManagedActivityResultLauncher<PickVisualMediaRequest, Uri?>,
     expandedImageLauncher: ManagedActivityResultLauncher<PickVisualMediaRequest, Uri?>,
-    showResetDialogEvent: () -> Unit
+    showResetDialogEvent: () -> Unit,
 ) {
     Column(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
-        // 2×2 미니 그리드
         ImageSettingsGrid(
             selectedCell = selectedCell,
-            state = state,
+            gridCellImages = gridCellImages,
             selectCellEvent = selectCellEvent,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
                 .aspectRatio(1f),
         )
 
@@ -184,28 +185,27 @@ private fun ImageSettingsPortraitLayout(
 private fun ImageSettingsLandscapeLayout(
     selectedCell: GridCell,
     selectCellEvent: (GridCell) -> Unit,
-    state: SettingsState,
+    gridCellImages: Map<GridCell, GridCellImage>,
     idleImageLauncher: ManagedActivityResultLauncher<PickVisualMediaRequest, Uri?>,
     expandedImageLauncher: ManagedActivityResultLauncher<PickVisualMediaRequest, Uri?>,
     showResetDialogEvent: () -> Unit,
-){
+) {
     Row(
         modifier = Modifier.fillMaxSize(),
         horizontalArrangement = Arrangement.spacedBy(24.dp),
     ) {
-        // 2×2 미니 그리드
         ImageSettingsGrid(
             selectedCell = selectedCell,
-            state = state,
+            gridCellImages = gridCellImages,
             selectCellEvent = selectCellEvent,
             modifier = Modifier
                 .fillMaxHeight()
                 .weight(3f),
         )
 
-        // 우측 버튼 영역
         Column(
-            modifier = Modifier.fillMaxHeight()
+            modifier = Modifier
+                .fillMaxHeight()
                 .weight(1f),
             verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
         ) {
@@ -241,16 +241,16 @@ private fun ImageSettingsLandscapeLayout(
 @Composable
 private fun ImageSettingsGrid(
     selectedCell: GridCell,
-    state: SettingsState,
+    gridCellImages: Map<GridCell, GridCellImage>,
     selectCellEvent: (GridCell) -> Unit,
-    modifier: Modifier = Modifier, // 부모가 씌워줄 전체 그리드 영역
+    modifier: Modifier = Modifier,
 ) {
     val accentPrimary = StreamLauncherTheme.colors.accentPrimary
     val accentSecondary = StreamLauncherTheme.colors.accentSecondary
     val cellShape = RoundedCornerShape(8.dp)
 
     Column(
-        modifier = modifier, // 밖에서 전달받은 크기가 전체 2x2 그리드의 크기가 됩니다.
+        modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         listOf(
@@ -259,19 +259,19 @@ private fun ImageSettingsGrid(
         ).forEach { (left, right) ->
             Row(
                 modifier = Modifier
-                    .weight(1f) // 전체 그리드 세로 공간의 50% 차지
+                    .weight(1f)
                     .fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 listOf(left, right).forEach { cell ->
                     val isSelected = selectedCell == cell
-                    val cellImage = state.gridCellImages[cell]
+                    val cellImage = gridCellImages[cell]
 
                     Surface(
                         shape = cellShape,
                         modifier = Modifier
-                            .weight(1f) // 각 줄(Row) 가로 공간의 50% 차지
-                            .fillMaxHeight() // 할당된 50%의 세로 공간을 꽉 채움
+                            .weight(1f)
+                            .fillMaxHeight()
                             .border(
                                 width = if (isSelected) 2.dp else 1.dp,
                                 color = if (isSelected) accentPrimary else MaterialTheme.colorScheme.outlineVariant,
@@ -284,7 +284,7 @@ private fun ImageSettingsGrid(
                             idleUri = cellImage?.idleImageUri,
                             expandedUri = cellImage?.expandedImageUri,
                             accentPrimary = accentPrimary,
-                            accentSecondary = accentSecondary
+                            accentSecondary = accentSecondary,
                         )
                     }
                 }
@@ -293,14 +293,13 @@ private fun ImageSettingsGrid(
     }
 }
 
-
 @Composable
 private fun GridCellContent(
     cell: GridCell,
     idleUri: Any?,
     expandedUri: Any?,
     accentPrimary: Color,
-    accentSecondary: Color
+    accentSecondary: Color,
 ) {
     Box(
         contentAlignment = Alignment.Center,
@@ -312,7 +311,7 @@ private fun GridCellContent(
                     imageUri = idleUri,
                     labelText = stringResource(R.string.settings_idle_label),
                     labelColor = accentPrimary.copy(alpha = 0.8f),
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
                 )
             }
             if (expandedUri != null) {
@@ -320,12 +319,11 @@ private fun GridCellContent(
                     imageUri = expandedUri,
                     labelText = stringResource(R.string.settings_expanded_label),
                     labelColor = accentSecondary.copy(alpha = 0.8f),
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
                 )
             }
         }
 
-        // 셀 위치 텍스트 (좌상, 우상 등)
         Text(
             text = when (cell) {
                 GridCell.TOP_LEFT -> stringResource(R.string.grid_cell_top_left)
@@ -344,7 +342,7 @@ private fun CellImageLayer(
     imageUri: Any?,
     labelText: String,
     labelColor: Color,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     Box(
         modifier = modifier.fillMaxHeight(),
@@ -353,19 +351,17 @@ private fun CellImageLayer(
         AsyncImage(
             model = ImageRequest.Builder(LocalContext.current)
                 .data(imageUri)
-                .crossfade(300) // 가로/세로 통일된 애니메이션
+                .crossfade(300)
                 .build(),
             contentDescription = null,
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize(),
         )
-        // 어두운 오버레이 배경
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color.Black.copy(alpha = 0.3f)),
         )
-        // 라벨 텍스트
         Text(
             text = labelText,
             style = MaterialTheme.typography.labelSmall,
@@ -375,7 +371,7 @@ private fun CellImageLayer(
                 .padding(top = 4.dp)
                 .background(
                     color = labelColor,
-                    shape = RoundedCornerShape(4.dp)
+                    shape = RoundedCornerShape(4.dp),
                 )
                 .padding(horizontal = 6.dp, vertical = 2.dp),
         )

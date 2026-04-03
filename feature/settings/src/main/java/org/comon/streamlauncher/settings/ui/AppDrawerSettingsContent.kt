@@ -25,17 +25,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.comon.streamlauncher.settings.R
-import org.comon.streamlauncher.settings.SettingsIntent
-import org.comon.streamlauncher.settings.SettingsState
+import org.comon.streamlauncher.settings.appdrawer.AppDrawerSettingsIntent
+import org.comon.streamlauncher.settings.appdrawer.AppDrawerSettingsViewModel
 import org.comon.streamlauncher.ui.theme.StreamLauncherTheme
 import kotlin.math.roundToInt
 
 @Composable
 internal fun AppDrawerSettingsContent(
-    state: SettingsState,
-    onIntent: (SettingsIntent) -> Unit,
+    viewModel: AppDrawerSettingsViewModel = hiltViewModel(),
 ) {
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
     val accentPrimary = StreamLauncherTheme.colors.accentPrimary
 
     var columns by remember(state.appDrawerGridColumns) { mutableIntStateOf(state.appDrawerGridColumns) }
@@ -45,8 +47,8 @@ internal fun AppDrawerSettingsContent(
     val hasChanges by remember(columns, rows, iconSizeRatio, state.appDrawerGridColumns, state.appDrawerGridRows, state.appDrawerIconSizeRatio) {
         derivedStateOf {
             columns != state.appDrawerGridColumns ||
-                    rows != state.appDrawerGridRows ||
-                    iconSizeRatio != state.appDrawerIconSizeRatio
+                rows != state.appDrawerGridRows ||
+                iconSizeRatio != state.appDrawerIconSizeRatio
         }
     }
 
@@ -57,7 +59,6 @@ internal fun AppDrawerSettingsContent(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
-
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(text = stringResource(R.string.settings_columns), style = MaterialTheme.typography.bodyLarge)
@@ -121,7 +122,7 @@ internal fun AppDrawerSettingsContent(
 
             Button(
                 onClick = {
-                    onIntent(SettingsIntent.SaveAppDrawerSettings(columns, rows, iconSizeRatio))
+                    viewModel.handleIntent(AppDrawerSettingsIntent.SaveAppDrawerSettings(columns, rows, iconSizeRatio))
                 },
                 enabled = hasChanges,
                 modifier = Modifier.weight(1f),

@@ -31,11 +31,15 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -54,6 +58,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.net.toUri
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.VideoSize
@@ -63,29 +70,58 @@ import java.io.File
 import org.comon.streamlauncher.domain.model.LiveWallpaper
 import org.comon.streamlauncher.domain.model.WallpaperOrientation
 import org.comon.streamlauncher.settings.R
-import org.comon.streamlauncher.settings.SettingsIntent
-import org.comon.streamlauncher.settings.SettingsState
-import androidx.core.net.toUri
+import org.comon.streamlauncher.settings.livewallpaper.LiveWallpaperSettingsIntent
+import org.comon.streamlauncher.settings.livewallpaper.LiveWallpaperSettingsSideEffect
+import org.comon.streamlauncher.settings.livewallpaper.LiveWallpaperSettingsViewModel
 
 @Composable
 internal fun LiveWallpaperSettingsContent(
-    state: SettingsState,
-    onIntent: (SettingsIntent) -> Unit,
     modifier: Modifier = Modifier,
+    viewModel: LiveWallpaperSettingsViewModel = hiltViewModel(),
+    onLaunchLiveWallpaperPicker: () -> Unit = {},
+    onReloadWallpaper: () -> Unit = {},
 ) {
-    // 시스템 배경화면 피커에서 돌아올 때 실제 적용 여부를 재확인
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(Unit) {
+        viewModel.effect.collect { effect ->
+            when (effect) {
+                is LiveWallpaperSettingsSideEffect.LaunchLiveWallpaperPicker -> onLaunchLiveWallpaperPicker()
+                is LiveWallpaperSettingsSideEffect.ReloadWallpaper -> onReloadWallpaper()
+                is LiveWallpaperSettingsSideEffect.ShowError -> snackbarHostState.showSnackbar(effect.message)
+                is LiveWallpaperSettingsSideEffect.ShowNetworkError -> {
+                    val result = snackbarHostState.showSnackbar(
+                        message = "네트워크 연결을 확인해주세요",
+                        actionLabel = "설정",
+                        duration = SnackbarDuration.Long,
+                    )
+                    if (result == SnackbarResult.ActionPerformed) {
+                        try {
+                            context.startActivity(
+                                Intent(android.provider.Settings.ACTION_WIRELESS_SETTINGS).apply {
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                            )
+                        } catch (_: Exception) {}
+                    }
+                }
+            }
+        }
+    }
+
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                onIntent(SettingsIntent.CheckActiveWallpaper)
+                viewModel.handleIntent(LiveWallpaperSettingsIntent.CheckActiveWallpaper)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    val context = LocalContext.current
     val containerSize = LocalWindowInfo.current.containerSize
     val screenWidthPx = containerSize.width
     val screenHeightPx = containerSize.height
@@ -93,16 +129,13 @@ internal fun LiveWallpaperSettingsContent(
     var showDeleteDialog by remember { mutableStateOf<LiveWallpaper?>(null) }
 
     val isLandscapeTab = state.selectedOrientationTab == WallpaperOrientation.LANDSCAPE
-    // 시스템 서비스가 실제로 활성 상태일 때만 세로 배경화면 ID를 유효한 것으로 간주
     val isLandscapeUnlocked = state.activePortraitWallpaperId != null && state.isLiveWallpaperServiceActive
     val currentUri = if (isLandscapeTab) state.selectedLiveWallpaperLandscapeUri else state.selectedLiveWallpaperUri
     val currentId = if (isLandscapeTab) state.selectedLiveWallpaperLandscapeId else state.selectedLiveWallpaperId
-    // 실제로 시스템에 적용된 배경화면 ID (서비스 비활성 시 null 취급)
     val activeId = if (state.isLiveWallpaperServiceActive) {
         if (isLandscapeTab) state.activeLandscapeWallpaperId else state.activePortraitWallpaperId
     } else null
 
-    // 동영상/GIF/정적 이미지 파일 선택 런처
     val fileLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
@@ -111,7 +144,7 @@ internal fun LiveWallpaperSettingsContent(
                 uri,
                 Intent.FLAG_GRANT_READ_URI_PERMISSION,
             )
-            onIntent(SettingsIntent.LoadLiveWallpaperFile(uri.toString()))
+            viewModel.handleIntent(LiveWallpaperSettingsIntent.LoadLiveWallpaperFile(uri.toString()))
         }
     }
 
@@ -119,14 +152,13 @@ internal fun LiveWallpaperSettingsContent(
         modifier = modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        // 1. 세로/가로 탭
         PrimaryTabRow(
             selectedTabIndex = if (isLandscapeTab) 1 else 0,
             modifier = Modifier.fillMaxWidth(),
         ) {
             Tab(
                 selected = !isLandscapeTab,
-                onClick = { onIntent(SettingsIntent.SwitchOrientationTab(WallpaperOrientation.PORTRAIT)) },
+                onClick = { viewModel.handleIntent(LiveWallpaperSettingsIntent.SwitchOrientationTab(WallpaperOrientation.PORTRAIT)) },
                 text = { Text(stringResource(R.string.wallpaper_orientation_portrait)) },
             )
             Tab(
@@ -134,7 +166,7 @@ internal fun LiveWallpaperSettingsContent(
                 enabled = isLandscapeUnlocked,
                 onClick = {
                     if (isLandscapeUnlocked) {
-                        onIntent(SettingsIntent.SwitchOrientationTab(WallpaperOrientation.LANDSCAPE))
+                        viewModel.handleIntent(LiveWallpaperSettingsIntent.SwitchOrientationTab(WallpaperOrientation.LANDSCAPE))
                     }
                 },
                 text = {
@@ -147,7 +179,6 @@ internal fun LiveWallpaperSettingsContent(
             )
         }
 
-        // 탭 아래 안내 문구
         when {
             !isLandscapeUnlocked -> Text(
                 text = stringResource(R.string.wallpaper_landscape_locked_hint),
@@ -161,14 +192,12 @@ internal fun LiveWallpaperSettingsContent(
             )
         }
 
-        // 단말기 해상도 안내
         Text(
             text = "현재 귀하의 단말기 해상도는 $screenWidthPx × $screenHeightPx 입니다",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
-        // 2. 상단 버튼 Row
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxWidth(),
@@ -188,7 +217,6 @@ internal fun LiveWallpaperSettingsContent(
             }
         }
 
-        // 3. 저장된 라이브 배경화면 목록
         if (state.liveWallpapers.isEmpty()) {
             Text(
                 text = stringResource(R.string.live_wallpaper_empty),
@@ -204,14 +232,13 @@ internal fun LiveWallpaperSettingsContent(
                     LiveWallpaperThumbnailItem(
                         liveWallpaper = lw,
                         isSelected = lw.id == currentId,
-                        onClick = { onIntent(SettingsIntent.SelectLiveWallpaper(lw.id, lw.fileUri)) },
+                        onClick = { viewModel.handleIntent(LiveWallpaperSettingsIntent.SelectLiveWallpaper(lw.id, lw.fileUri)) },
                         onLongClick = { showDeleteDialog = lw },
                     )
                 }
             }
         }
 
-        // 4. 미리보기 (중앙)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -231,14 +258,13 @@ internal fun LiveWallpaperSettingsContent(
             }
         }
 
-        // 5. 하단 버튼들
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxWidth(),
         ) {
             if (activeId != null) {
                 TextButton(
-                    onClick = { onIntent(SettingsIntent.ClearActiveLiveWallpaper(state.selectedOrientationTab)) },
+                    onClick = { viewModel.handleIntent(LiveWallpaperSettingsIntent.ClearActiveLiveWallpaper(state.selectedOrientationTab)) },
                     modifier = Modifier.weight(1f),
                 ) {
                     Text(stringResource(R.string.live_wallpaper_clear))
@@ -248,7 +274,7 @@ internal fun LiveWallpaperSettingsContent(
                 onClick = {
                     val id = currentId ?: return@Button
                     val uri = currentUri ?: return@Button
-                    onIntent(SettingsIntent.SetActiveLiveWallpaper(id, uri, state.selectedOrientationTab))
+                    viewModel.handleIntent(LiveWallpaperSettingsIntent.SetActiveLiveWallpaper(id, uri, state.selectedOrientationTab))
                 },
                 enabled = currentId != null && currentUri != null,
                 modifier = Modifier.weight(1f),
@@ -258,11 +284,10 @@ internal fun LiveWallpaperSettingsContent(
         }
     }
 
-    // 이름 입력 다이얼로그
     if (showNameDialog) {
         var nameInput by remember { mutableStateOf("") }
         AlertDialog(
-            onDismissRequest = { showNameDialog = false },
+            onDismissRequest = { },
             title = { Text(stringResource(R.string.live_wallpaper_name_label)) },
             text = {
                 OutlinedTextField(
@@ -277,9 +302,11 @@ internal fun LiveWallpaperSettingsContent(
                 TextButton(
                     onClick = {
                         showNameDialog = false
-                        onIntent(SettingsIntent.CreateLiveWallpaper(
-                            nameInput.ifEmpty { "라이브 배경화면 ${System.currentTimeMillis() % 1000}" }
-                        ))
+                        viewModel.handleIntent(
+                            LiveWallpaperSettingsIntent.CreateLiveWallpaper(
+                                nameInput.ifEmpty { "라이브 배경화면 ${System.currentTimeMillis() % 1000}" }
+                            )
+                        )
                     }
                 ) { Text(stringResource(R.string.save)) }
             },
@@ -287,11 +314,10 @@ internal fun LiveWallpaperSettingsContent(
                 TextButton(onClick = { showNameDialog = false }) {
                     Text(stringResource(R.string.cancel))
                 }
-            }
+            },
         )
     }
 
-    // 삭제 확인 다이얼로그
     showDeleteDialog?.let { lw ->
         AlertDialog(
             onDismissRequest = { showDeleteDialog = null },
@@ -300,14 +326,14 @@ internal fun LiveWallpaperSettingsContent(
             confirmButton = {
                 TextButton(onClick = {
                     showDeleteDialog = null
-                    onIntent(SettingsIntent.DeleteLiveWallpaper(lw.id))
+                    viewModel.handleIntent(LiveWallpaperSettingsIntent.DeleteLiveWallpaper(lw.id))
                 }) { Text(stringResource(R.string.delete)) }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = null }) {
                     Text(stringResource(R.string.cancel))
                 }
-            }
+            },
         )
     }
 }
@@ -373,7 +399,7 @@ private fun VideoPreview(
         } else {
             val lower = uri.lowercase()
             lower.endsWith(".jpg") || lower.endsWith(".jpeg")
-                    || lower.endsWith(".png") || lower.endsWith(".webp")
+                || lower.endsWith(".png") || lower.endsWith(".webp")
         }
     }
     when {
@@ -435,7 +461,6 @@ private fun ExoPlayerPreview(
         }
     }
 
-    // 리스너 등록과 릴리즈를 하나의 DisposableEffect에서 관리
     DisposableEffect(player) {
         val listener = object : Player.Listener {
             override fun onVideoSizeChanged(videoSize: VideoSize) {
@@ -451,11 +476,6 @@ private fun ExoPlayerPreview(
         }
     }
 
-    // SurfaceView는 AndroidView.update가 Compose measure 단계에서 실행될 때
-    // 아직 layout이 완료되지 않아 frame(width/height)이 0이므로
-    // SurfaceView.updateSurface()가 "has no frame"으로 실패한다.
-    // TextureView는 surface가 준비되지 않은 상태에서 setVideoTextureView()를 호출해도
-    // 내부적으로 SurfaceTextureListener를 등록해 준비되는 즉시 자동으로 연결된다.
     AndroidView(
         factory = { ctx ->
             TextureView(ctx).apply {
@@ -469,7 +489,6 @@ private fun ExoPlayerPreview(
             player.setVideoTextureView(textureView)
         },
         modifier = modifier.then(
-            // 비율을 알기 전까지는 fillMaxSize, 이후 원본 비율 유지
             if (aspectRatio != null) Modifier.aspectRatio(aspectRatio!!) else Modifier.fillMaxSize()
         ),
     )
