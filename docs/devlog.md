@@ -2,6 +2,49 @@
 
 ---
 
+## [2026-04-03] fix(feed): 네트워크 오류 시 피드 비워짐·재연결 후 새로고침 무반응 수정 + NetworkConnectivityChecker 통합
+
+### 목표
+
+1. 네트워크 단절 후 새로고침 시 피드 항목이 빈 목록으로 덮어씌워지는 버그 수정
+2. 재연결 후 새로고침이 쿨다운에 걸려 아무 반응이 없는 버그 수정
+3. 예외 타입 기반의 `isNetworkDisconnected()` 판단을 실제 기기 네트워크 상태 기반으로 통일
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `core/data/.../FeedRepositoryImpl.kt` | `fetchYoutubeItems()` 예외를 `runCatching`으로 삼키지 않고 flow `catch`로 전파 → 오류 시 `Result.failure` emit, 캐시 덮어쓰기 방지 |
+| `core/network/.../error/NetworkErrorHelper.kt` | `isNetworkDisconnected()` 범위 축소 (IOException·SocketTimeoutException 제거); `isTimeout()` 신규 추가; `getErrorMessage()` 3단계 분기 (연결없음 / 타임아웃 / 서버오류) |
+| `core/network/.../connectivity/NetworkConnectivityChecker.kt` | `isUnavailable()` 인터페이스 신규 생성 |
+| `core/network/.../connectivity/NetworkConnectivityCheckerImpl.kt` | `ConnectivityManager` 기반 구현체 — `activeNetwork` + `NET_CAPABILITY_INTERNET` 확인 |
+| `core/network/.../di/ConnectivityModule.kt` | Hilt `@Binds` 모듈 신규 생성 |
+| `feature/launcher/.../FeedViewModel.kt` | `onFailure` 시 `lastRefreshMillis = 0L` 리셋; `@ApplicationContext Context` → `NetworkConnectivityChecker` 교체 |
+| `feature/launcher/.../FeedViewModelTest.kt` | `Context` mock → `NetworkConnectivityChecker` mock으로 교체 |
+| `feature/preset-market/.../PresetDetailViewModel.kt` | `isNetworkDisconnected()` → `connectivityChecker.isUnavailable()` |
+| `feature/preset-market/.../PresetMarketViewModel.kt` | 동일 |
+| `feature/preset-market/.../ReportPresetViewModel.kt` | `isNetworkDisconnected() \|\| FirebaseNetworkException 체크` → `connectivityChecker.isUnavailable()` |
+| `feature/preset-market/.../PresetMarketUserInfoViewModel.kt` | 동일 |
+| `feature/settings/.../PresetSettingsViewModel.kt` | 동일 |
+| `feature/settings/.../LiveWallpaperSettingsViewModel.kt` | 동일 |
+| `feature/settings/.../StaticWallpaperSettingsViewModel.kt` | 동일 |
+| `feature/settings/.../AppDrawerSettingsViewModel.kt` | 동일 |
+| `feature/settings/.../FeedSettingsViewModel.kt` | 동일 |
+| `feature/settings/.../SuggestionViewModel.kt` | 동일 |
+
+### 검증결과
+
+빌드 미실행
+
+### 설계결정 및 근거
+
+- **피드 비워짐 근본 원인**: `runCatching { fetchYoutubeItems() }.getOrElse { emptyList() }` 패턴이 네트워크 예외를 삼키고 빈 목록을 정상 결과로 emit → 캐시까지 빈 목록으로 갱신. 해결: 예외를 flow `catch`로 전파해 `Result.failure` emit, 성공 시에만 캐시 갱신.
+- **재연결 후 무반응 근본 원인**: 빈 목록이 `Result.success`로 emit되어 `onSuccess`에서 `lastRefreshMillis = now` 업데이트 → 이후 60초 쿨다운에 걸림. 해결: `onFailure` 시 `lastRefreshMillis = 0L` 리셋.
+- **`isNetworkDisconnected()` 범위 조정**: `SocketTimeoutException`(서버 지연)·일반 `IOException`은 "연결 없음"이 아님. `UnknownHostException`+`ConnectException`+`FirebaseNetworkException`만 연결 없음으로 분류. `isTimeout()` 분리로 에러 메시지 세분화.
+- **`NetworkConnectivityChecker` 도입 이유**: 예외 타입 추론은 `ConnectException`처럼 "서버 다운"도 잡는 등 부정확. `ConnectivityManager.activeNetwork` + `NET_CAPABILITY_INTERNET` 기반이 실제 기기 상태를 정확히 반영. `Context`를 ViewModel마다 직접 주입하지 않도록 인터페이스로 추상화 → Hilt 주입·테스트 mock 모두 용이.
+
+---
+
 ## [2026-04-03] refactor(preset): 미사용 Preset 필드 제거 및 컴파일러 경고 정리
 
 ### 목표

@@ -5,13 +5,14 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
 import org.comon.streamlauncher.domain.usecase.SubmitSuggestionUseCase
 import org.comon.streamlauncher.domain.usecase.UploadSuggestionImageUseCase
+import org.comon.streamlauncher.network.connectivity.NetworkConnectivityChecker
 import org.comon.streamlauncher.network.error.getErrorMessage
-import org.comon.streamlauncher.network.error.isNetworkDisconnected
 import org.comon.streamlauncher.ui.BaseViewModel
 import javax.inject.Inject
 
 @HiltViewModel
 class SuggestionViewModel @Inject constructor(
+    private val connectivityChecker: NetworkConnectivityChecker,
     private val submitSuggestionUseCase: SubmitSuggestionUseCase,
     private val uploadSuggestionImageUseCase: UploadSuggestionImageUseCase,
 ) : BaseViewModel<SuggestionState, SuggestionIntent, SuggestionSideEffect>(SuggestionState()) {
@@ -40,7 +41,7 @@ class SuggestionViewModel @Inject constructor(
                 uploadSuggestionImageUseCase(imageUri)
                     .onFailure { error ->
                         updateState { copy(isSubmitting = false) }
-                        if (error.isNetworkDisconnected()) {
+                        if (connectivityChecker.isUnavailable()) {
                             sendEffect(SuggestionSideEffect.ShowNetworkError)
                         } else {
                             sendEffect(SuggestionSideEffect.ShowError(error.getErrorMessage("이미지 업로드")))
@@ -60,7 +61,7 @@ class SuggestionViewModel @Inject constructor(
                 sendEffect(SuggestionSideEffect.SubmitSuccess)
             }.onFailure { error ->
                 updateState { copy(isSubmitting = false) }
-                if (error.isNetworkDisconnected()) {
+                if (connectivityChecker.isUnavailable()) {
                     sendEffect(SuggestionSideEffect.ShowNetworkError)
                 } else {
                     sendEffect(SuggestionSideEffect.ShowError(error.getErrorMessage("건의 접수")))

@@ -5,13 +5,14 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
 import org.comon.streamlauncher.domain.usecase.GetLauncherSettingsUseCase
 import org.comon.streamlauncher.domain.usecase.SaveAppDrawerSettingsUseCase
+import org.comon.streamlauncher.network.connectivity.NetworkConnectivityChecker
 import org.comon.streamlauncher.network.error.getErrorMessage
-import org.comon.streamlauncher.network.error.isNetworkDisconnected
 import org.comon.streamlauncher.ui.BaseViewModel
 import javax.inject.Inject
 
 @HiltViewModel
 class AppDrawerSettingsViewModel @Inject constructor(
+    private val connectivityChecker: NetworkConnectivityChecker,
     private val getLauncherSettingsUseCase: GetLauncherSettingsUseCase,
     private val saveAppDrawerSettingsUseCase: SaveAppDrawerSettingsUseCase,
 ) : BaseViewModel<AppDrawerSettingsState, AppDrawerSettingsIntent, AppDrawerSettingsSideEffect>(AppDrawerSettingsState()) {
@@ -52,7 +53,7 @@ class AppDrawerSettingsViewModel @Inject constructor(
             runCatching {
                 saveAppDrawerSettingsUseCase(columns, rows, iconSizeRatio)
             }.onFailure { error ->
-                if (error.isNetworkDisconnected()) sendEffect(AppDrawerSettingsSideEffect.ShowNetworkError)
+                if (connectivityChecker.isUnavailable()) sendEffect(AppDrawerSettingsSideEffect.ShowNetworkError)
                 else sendEffect(AppDrawerSettingsSideEffect.ShowError(error.getErrorMessage("앱 서랍 설정 저장")))
             }
         }

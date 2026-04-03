@@ -10,13 +10,14 @@ import org.comon.streamlauncher.domain.usecase.GetLauncherSettingsUseCase
 import org.comon.streamlauncher.domain.usecase.SaveLiveWallpaperUseCase
 import org.comon.streamlauncher.domain.usecase.SetLiveWallpaperUseCase
 import org.comon.streamlauncher.domain.util.WallpaperHelper
+import org.comon.streamlauncher.network.connectivity.NetworkConnectivityChecker
 import org.comon.streamlauncher.network.error.getErrorMessage
-import org.comon.streamlauncher.network.error.isNetworkDisconnected
 import org.comon.streamlauncher.ui.BaseViewModel
 import javax.inject.Inject
 
 @HiltViewModel
 class LiveWallpaperSettingsViewModel @Inject constructor(
+    private val connectivityChecker: NetworkConnectivityChecker,
     private val getLauncherSettingsUseCase: GetLauncherSettingsUseCase,
     private val getAllLiveWallpapersUseCase: GetAllLiveWallpapersUseCase,
     private val saveLiveWallpaperUseCase: SaveLiveWallpaperUseCase,
@@ -93,7 +94,7 @@ class LiveWallpaperSettingsViewModel @Inject constructor(
                     updateState { copy(selectedLiveWallpaperId = lw.id, selectedLiveWallpaperUri = lw.fileUri) }
                 }
             }.onFailure { error ->
-                if (error.isNetworkDisconnected()) sendEffect(LiveWallpaperSettingsSideEffect.ShowNetworkError)
+                if (connectivityChecker.isUnavailable()) sendEffect(LiveWallpaperSettingsSideEffect.ShowNetworkError)
                 else sendEffect(LiveWallpaperSettingsSideEffect.ShowError(error.getErrorMessage("라이브 배경화면 저장")))
             }
         }
@@ -105,7 +106,7 @@ class LiveWallpaperSettingsViewModel @Inject constructor(
                 setLiveWallpaperUseCase(id, uri, orientation)
                 sendEffect(LiveWallpaperSettingsSideEffect.LaunchLiveWallpaperPicker)
             }.onFailure { error ->
-                if (error.isNetworkDisconnected()) sendEffect(LiveWallpaperSettingsSideEffect.ShowNetworkError)
+                if (connectivityChecker.isUnavailable()) sendEffect(LiveWallpaperSettingsSideEffect.ShowNetworkError)
                 else sendEffect(LiveWallpaperSettingsSideEffect.ShowError(error.getErrorMessage("라이브 배경화면 설정")))
             }
         }
@@ -120,7 +121,7 @@ class LiveWallpaperSettingsViewModel @Inject constructor(
                     updateState { copy(selectedLiveWallpaperId = null, selectedLiveWallpaperUri = null) }
                 }
             }.onFailure { error ->
-                if (error.isNetworkDisconnected()) sendEffect(LiveWallpaperSettingsSideEffect.ShowNetworkError)
+                if (connectivityChecker.isUnavailable()) sendEffect(LiveWallpaperSettingsSideEffect.ShowNetworkError)
                 else sendEffect(LiveWallpaperSettingsSideEffect.ShowError(error.getErrorMessage("라이브 배경화면 삭제")))
             }
         }
@@ -138,7 +139,7 @@ class LiveWallpaperSettingsViewModel @Inject constructor(
                     sendEffect(LiveWallpaperSettingsSideEffect.ReloadWallpaper)
                 }
                 .onFailure { error ->
-                    if (error.isNetworkDisconnected()) sendEffect(LiveWallpaperSettingsSideEffect.ShowNetworkError)
+                    if (connectivityChecker.isUnavailable()) sendEffect(LiveWallpaperSettingsSideEffect.ShowNetworkError)
                     else sendEffect(LiveWallpaperSettingsSideEffect.ShowError(error.getErrorMessage("라이브 배경화면 해제")))
                 }
         }

@@ -7,13 +7,14 @@ import org.comon.streamlauncher.domain.model.WallpaperOrientation
 import org.comon.streamlauncher.domain.usecase.GetLauncherSettingsUseCase
 import org.comon.streamlauncher.domain.usecase.SetStaticWallpaperUseCase
 import org.comon.streamlauncher.domain.util.WallpaperHelper
+import org.comon.streamlauncher.network.connectivity.NetworkConnectivityChecker
 import org.comon.streamlauncher.network.error.getErrorMessage
-import org.comon.streamlauncher.network.error.isNetworkDisconnected
 import org.comon.streamlauncher.ui.BaseViewModel
 import javax.inject.Inject
 
 @HiltViewModel
 class StaticWallpaperSettingsViewModel @Inject constructor(
+    private val connectivityChecker: NetworkConnectivityChecker,
     private val getLauncherSettingsUseCase: GetLauncherSettingsUseCase,
     private val setStaticWallpaperUseCase: SetStaticWallpaperUseCase,
     private val wallpaperHelper: WallpaperHelper,
@@ -53,7 +54,7 @@ class StaticWallpaperSettingsViewModel @Inject constructor(
                     wallpaperHelper.setWallpaperFromPreset(filePath)
                 }
             }.onFailure { error ->
-                if (error.isNetworkDisconnected()) sendEffect(StaticWallpaperSettingsSideEffect.ShowNetworkError)
+                if (connectivityChecker.isUnavailable()) sendEffect(StaticWallpaperSettingsSideEffect.ShowNetworkError)
                 else sendEffect(StaticWallpaperSettingsSideEffect.ShowError(error.getErrorMessage("배경화면 설정")))
             }
         }
@@ -64,7 +65,7 @@ class StaticWallpaperSettingsViewModel @Inject constructor(
             runCatching {
                 setStaticWallpaperUseCase(null, orientation)
             }.onFailure { error ->
-                if (error.isNetworkDisconnected()) sendEffect(StaticWallpaperSettingsSideEffect.ShowNetworkError)
+                if (connectivityChecker.isUnavailable()) sendEffect(StaticWallpaperSettingsSideEffect.ShowNetworkError)
                 else sendEffect(StaticWallpaperSettingsSideEffect.ShowError(error.getErrorMessage("배경화면 초기화")))
             }
         }

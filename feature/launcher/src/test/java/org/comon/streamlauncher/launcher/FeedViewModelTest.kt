@@ -2,6 +2,7 @@ package org.comon.streamlauncher.launcher
 
 import app.cash.turbine.test
 import io.mockk.*
+import org.comon.streamlauncher.network.connectivity.NetworkConnectivityChecker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flowOf
@@ -32,6 +33,7 @@ class FeedViewModelTest {
 
     private val testDispatcher = StandardTestDispatcher()
 
+    private lateinit var connectivityChecker: NetworkConnectivityChecker
     private lateinit var getLauncherSettingsUseCase: GetLauncherSettingsUseCase
     private lateinit var getChzzkLiveStatusUseCase: GetChzzkLiveStatusUseCase
     private lateinit var getYoutubeLiveStatusUseCase: GetYoutubeLiveStatusUseCase
@@ -59,6 +61,7 @@ class FeedViewModelTest {
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
+        connectivityChecker = mockk { every { isUnavailable() } returns false }
         getLauncherSettingsUseCase = mockk()
         getChzzkLiveStatusUseCase = mockk()
         getYoutubeLiveStatusUseCase = mockk()
@@ -80,6 +83,7 @@ class FeedViewModelTest {
     }
 
     private fun makeViewModel() = FeedViewModel(
+        connectivityChecker,
         getLauncherSettingsUseCase,
         getChzzkLiveStatusUseCase,
         getYoutubeLiveStatusUseCase,

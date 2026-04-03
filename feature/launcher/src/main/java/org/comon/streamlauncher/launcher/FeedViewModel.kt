@@ -11,15 +11,16 @@ import org.comon.streamlauncher.domain.usecase.GetIntegratedFeedUseCase
 import org.comon.streamlauncher.domain.usecase.GetLauncherSettingsUseCase
 import org.comon.streamlauncher.domain.usecase.GetChzzkLiveStatusUseCase
 import org.comon.streamlauncher.domain.usecase.GetYoutubeLiveStatusUseCase
-import org.comon.streamlauncher.ui.BaseViewModel
+import org.comon.streamlauncher.network.connectivity.NetworkConnectivityChecker
 import org.comon.streamlauncher.network.error.getErrorMessage
-import org.comon.streamlauncher.network.error.isNetworkDisconnected
+import org.comon.streamlauncher.ui.BaseViewModel
 import javax.inject.Inject
 
 private const val MIN_REFRESH_INTERVAL_MS = 60_000L
 
 @HiltViewModel
 class FeedViewModel @Inject constructor(
+    private val connectivityChecker: NetworkConnectivityChecker,
     private val getLauncherSettingsUseCase: GetLauncherSettingsUseCase,
     private val getChzzkLiveStatusUseCase: GetChzzkLiveStatusUseCase,
     private val getYoutubeLiveStatusUseCase: GetYoutubeLiveStatusUseCase,
@@ -101,7 +102,8 @@ class FeedViewModel @Inject constructor(
                             },
                             onFailure = { error ->
                                 updateState { copy(isLoading = false) }
-                                if (error.isNetworkDisconnected()) {
+                                lastRefreshMillis = 0L  // 네트워크 오류 시 쿨다운 리셋 → 재연결 후 즉시 새로고침 가능
+                                if (connectivityChecker.isUnavailable()) {
                                     sendEffect(FeedSideEffect.ShowNetworkError)
                                 } else {
                                     sendEffect(FeedSideEffect.ShowError(error.getErrorMessage("피드 불러오기")))

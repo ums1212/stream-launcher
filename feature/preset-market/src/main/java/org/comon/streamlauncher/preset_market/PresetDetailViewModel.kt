@@ -16,13 +16,14 @@ import org.comon.streamlauncher.domain.usecase.ToggleMarketPresetLikeUseCase
 import org.comon.streamlauncher.preset_market.download.DownloadDataHolder
 import org.comon.streamlauncher.preset_market.download.DownloadProgressTracker
 import org.comon.streamlauncher.ui.BaseViewModel
+import org.comon.streamlauncher.network.connectivity.NetworkConnectivityChecker
 import org.comon.streamlauncher.network.error.getErrorMessage
-import org.comon.streamlauncher.network.error.isNetworkDisconnected
 import javax.inject.Inject
 
 @HiltViewModel
 class PresetDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
+    private val connectivityChecker: NetworkConnectivityChecker,
     private val getMarketPresetDetailUseCase: GetMarketPresetDetailUseCase,
     private val getCurrentMarketUserUseCase: GetCurrentMarketUserUseCase,
     private val toggleMarketPresetLikeUseCase: ToggleMarketPresetLikeUseCase,
@@ -54,7 +55,7 @@ class PresetDetailViewModel @Inject constructor(
                     }
                     progress?.error != null -> {
                         val error = progress.error!!
-                        if (error.isNetworkDisconnected()) {
+                        if (connectivityChecker.isUnavailable()) {
                             sendEffect(PresetDetailSideEffect.ShowNetworkError)
                         } else {
                             sendEffect(PresetDetailSideEffect.ShowError(error.getErrorMessage("다운로드")))
@@ -118,7 +119,7 @@ class PresetDetailViewModel @Inject constructor(
                 }
                 .onFailure { error ->
                     updateState { copy(isLoading = false) }
-                    if (error.isNetworkDisconnected()) {
+                    if (connectivityChecker.isUnavailable()) {
                         sendEffect(PresetDetailSideEffect.ShowNetworkError)
                     } else {
                         sendEffect(PresetDetailSideEffect.ShowError(error.getErrorMessage("프리셋 정보 불러오기")))
@@ -146,7 +147,7 @@ class PresetDetailViewModel @Inject constructor(
                     }
                 }
                 .onFailure { error ->
-                    if (error.isNetworkDisconnected()) {
+                    if (connectivityChecker.isUnavailable()) {
                         sendEffect(PresetDetailSideEffect.ShowNetworkError)
                     } else {
                         sendEffect(PresetDetailSideEffect.ShowError(error.getErrorMessage("좋아요 처리")))
@@ -182,7 +183,7 @@ class PresetDetailViewModel @Inject constructor(
                     sendEffect(PresetDetailSideEffect.DeleteComplete)
                 }
                 .onFailure { error ->
-                    if (error.isNetworkDisconnected()) {
+                    if (connectivityChecker.isUnavailable()) {
                         sendEffect(PresetDetailSideEffect.ShowNetworkError)
                     } else {
                         sendEffect(PresetDetailSideEffect.ShowError(error.getErrorMessage("삭제")))
@@ -201,7 +202,7 @@ class PresetDetailViewModel @Inject constructor(
                 }
                 .onFailure { error ->
                     pendingAction = null
-                    if (error.isNetworkDisconnected()) {
+                    if (connectivityChecker.isUnavailable()) {
                         sendEffect(PresetDetailSideEffect.ShowNetworkError)
                     } else {
                         sendEffect(PresetDetailSideEffect.ShowError(error.getErrorMessage("로그인")))

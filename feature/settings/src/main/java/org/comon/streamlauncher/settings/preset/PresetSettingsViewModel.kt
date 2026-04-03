@@ -22,8 +22,8 @@ import org.comon.streamlauncher.domain.usecase.SetStaticWallpaperUseCase
 import org.comon.streamlauncher.domain.model.LauncherSettings
 import org.comon.streamlauncher.domain.usecase.UpdateMarketPresetIdUseCase
 import org.comon.streamlauncher.domain.util.WallpaperHelper
+import org.comon.streamlauncher.network.connectivity.NetworkConnectivityChecker
 import org.comon.streamlauncher.network.error.getErrorMessage
-import org.comon.streamlauncher.network.error.isNetworkDisconnected
 import org.comon.streamlauncher.settings.upload.UploadDataHolder
 import org.comon.streamlauncher.settings.upload.UploadProgressTracker
 import org.comon.streamlauncher.ui.BaseViewModel
@@ -47,6 +47,7 @@ class PresetSettingsViewModel @Inject constructor(
     private val uploadProgressTracker: UploadProgressTracker,
     private val uploadDataHolder: UploadDataHolder,
     private val updateMarketPresetIdUseCase: UpdateMarketPresetIdUseCase,
+    private val connectivityChecker: NetworkConnectivityChecker,
 ) : BaseViewModel<PresetSettingsState, PresetSettingsIntent, PresetSettingsSideEffect>(PresetSettingsState()) {
 
     private var cachedSettings: LauncherSettings = LauncherSettings()
@@ -91,7 +92,7 @@ class PresetSettingsViewModel @Inject constructor(
                     sendEffect(PresetSettingsSideEffect.UploadSuccess)
                 } else {
                     progress?.error?.let { error ->
-                        if (error.isNetworkDisconnected()) {
+                        if (connectivityChecker.isUnavailable()) {
                             sendEffect(PresetSettingsSideEffect.ShowNetworkError)
                         } else {
                             sendEffect(PresetSettingsSideEffect.UploadError(error.getErrorMessage("업로드")))
@@ -158,7 +159,7 @@ class PresetSettingsViewModel @Inject constructor(
             )
             runCatching { savePresetUseCase(preset) }
                 .onFailure { error ->
-                    if (error.isNetworkDisconnected()) sendEffect(PresetSettingsSideEffect.ShowNetworkError)
+                    if (connectivityChecker.isUnavailable()) sendEffect(PresetSettingsSideEffect.ShowNetworkError)
                     else sendEffect(PresetSettingsSideEffect.ShowError(error.getErrorMessage("프리셋 저장")))
                 }
         }
@@ -202,7 +203,7 @@ class PresetSettingsViewModel @Inject constructor(
                     }
                 }
             }.onFailure { error ->
-                if (error.isNetworkDisconnected()) sendEffect(PresetSettingsSideEffect.ShowNetworkError)
+                if (connectivityChecker.isUnavailable()) sendEffect(PresetSettingsSideEffect.ShowNetworkError)
                 else sendEffect(PresetSettingsSideEffect.ShowError(error.getErrorMessage("프리셋 적용")))
             }
         }
@@ -215,7 +216,7 @@ class PresetSettingsViewModel @Inject constructor(
                 preset.wallpaperUri?.let { wallpaperHelper.deletePresetWallpaper(it) }
                 preset.staticWallpaperLandscapeUri?.let { wallpaperHelper.deletePresetWallpaper(it) }
             }.onFailure { error ->
-                if (error.isNetworkDisconnected()) sendEffect(PresetSettingsSideEffect.ShowNetworkError)
+                if (connectivityChecker.isUnavailable()) sendEffect(PresetSettingsSideEffect.ShowNetworkError)
                 else sendEffect(PresetSettingsSideEffect.ShowError(error.getErrorMessage("프리셋 삭제")))
             }
         }

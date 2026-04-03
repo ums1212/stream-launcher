@@ -14,12 +14,13 @@ import org.comon.streamlauncher.domain.usecase.ObserveAuthStateUseCase
 import org.comon.streamlauncher.domain.usecase.SignInWithGoogleUseCase
 import org.comon.streamlauncher.domain.usecase.SignOutUseCase
 import org.comon.streamlauncher.ui.BaseViewModel
+import org.comon.streamlauncher.network.connectivity.NetworkConnectivityChecker
 import org.comon.streamlauncher.network.error.getErrorMessage
-import org.comon.streamlauncher.network.error.isNetworkDisconnected
 import javax.inject.Inject
 
 @HiltViewModel
 class PresetMarketViewModel @Inject constructor(
+    private val connectivityChecker: NetworkConnectivityChecker,
     private val getTopDownloadPresetsUseCase: GetTopDownloadPresetsUseCase,
     private val getTopLikePresetsUseCase: GetTopLikePresetsUseCase,
     private val signInWithGoogleUseCase: SignInWithGoogleUseCase,
@@ -68,7 +69,7 @@ class PresetMarketViewModel @Inject constructor(
                 )
             }
             if (error != null) {
-                if (error.isNetworkDisconnected()) {
+                if (connectivityChecker.isUnavailable()) {
                     sendEffect(PresetMarketSideEffect.ShowNetworkError)
                 } else {
                     sendEffect(PresetMarketSideEffect.ShowError(error.getErrorMessage("인기 프리셋 불러오기")))
@@ -85,7 +86,7 @@ class PresetMarketViewModel @Inject constructor(
                     sendEffect(PresetMarketSideEffect.SignInSuccess)
                 }
                 .onFailure { error ->
-                    if (error.isNetworkDisconnected()) {
+                    if (connectivityChecker.isUnavailable()) {
                         sendEffect(PresetMarketSideEffect.ShowNetworkError)
                     } else {
                         sendEffect(PresetMarketSideEffect.ShowError(error.getErrorMessage("로그인")))

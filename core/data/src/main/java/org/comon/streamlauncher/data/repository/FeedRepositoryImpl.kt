@@ -154,16 +154,14 @@ class FeedRepositoryImpl @Inject constructor(
             emit(Result.success(parseFeedItemsJson(cachedJson)))
         }
 
-        // 2) 네트워크 호출
-        val youtubeItems = runCatching { fetchYoutubeItems(youtubeChannelId) }
-            .onFailure { Log.e(TAG, "fetchYoutubeItems failed", it) }
-            .getOrElse { emptyList() }
+        // 2) 네트워크 호출 — 예외를 그대로 throw해 catch 블록에서 Result.failure로 처리
+        val youtubeItems = fetchYoutubeItems(youtubeChannelId)
 
         Log.d(TAG, "youtubeItems=${youtubeItems.size}")
         val combined = youtubeItems.sortedByDescending { it.dateMillis }
         Log.d(TAG, "combined total=${combined.size}")
 
-        // 3) 캐시 갱신
+        // 3) 성공 시에만 캐시 갱신
         cacheDataStore.edit { prefs ->
             prefs[feedCacheKey] = encodeFeedItemsJson(combined)
         }

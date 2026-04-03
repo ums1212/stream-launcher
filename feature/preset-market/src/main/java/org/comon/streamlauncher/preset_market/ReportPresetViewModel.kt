@@ -10,13 +10,14 @@ import org.comon.streamlauncher.domain.usecase.ReportMarketPresetUseCase
 import org.comon.streamlauncher.domain.usecase.UploadReportImageUseCase
 import org.comon.streamlauncher.preset_market.navigation.MarketReport
 import org.comon.streamlauncher.ui.BaseViewModel
+import org.comon.streamlauncher.network.connectivity.NetworkConnectivityChecker
 import org.comon.streamlauncher.network.error.getErrorMessage
-import org.comon.streamlauncher.network.error.isNetworkDisconnected
 import javax.inject.Inject
 
 @HiltViewModel
 class ReportPresetViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
+    private val connectivityChecker: NetworkConnectivityChecker,
     private val getCurrentMarketUserUseCase: GetCurrentMarketUserUseCase,
     private val reportMarketPresetUseCase: ReportMarketPresetUseCase,
     private val uploadReportImageUseCase: UploadReportImageUseCase,
@@ -64,7 +65,7 @@ class ReportPresetViewModel @Inject constructor(
                 uploadReportImageUseCase(imageUri, reporter.uid)
                     .onFailure { error ->
                         updateState { copy(isSubmitting = false) }
-                        if (error.isNetworkDisconnected() || error.javaClass.name == "com.google.firebase.FirebaseNetworkException") {
+                        if (connectivityChecker.isUnavailable()) {
                             sendEffect(ReportPresetSideEffect.ShowNetworkError)
                         } else {
                             sendEffect(ReportPresetSideEffect.ShowError(error.getErrorMessage("이미지 업로드")))
@@ -87,7 +88,7 @@ class ReportPresetViewModel @Inject constructor(
                 sendEffect(ReportPresetSideEffect.ReportSuccess)
             }.onFailure { error ->
                 updateState { copy(isSubmitting = false) }
-                if (error.isNetworkDisconnected() || error.javaClass.name == "com.google.firebase.FirebaseNetworkException") {
+                if (connectivityChecker.isUnavailable()) {
                     sendEffect(ReportPresetSideEffect.ShowNetworkError)
                 } else {
                     sendEffect(ReportPresetSideEffect.ShowError(error.getErrorMessage("신고 처리")))
