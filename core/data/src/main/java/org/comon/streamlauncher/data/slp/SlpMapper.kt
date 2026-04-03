@@ -29,7 +29,6 @@ fun SlpManifest.toLocalPreset(
     bottomRightIdleUri    = images.bottomRightIdle?.let { extractedPaths[it] },
     bottomRightExpandedUri= images.bottomRightExpanded?.let { extractedPaths[it] },
     hasFeedSettings       = feedSettings?.enabled ?: false,
-    useFeed               = feedSettings?.useFeed ?: false,
     youtubeChannelId      = feedSettings?.youtubeChannelId ?: "",
     chzzkChannelId        = feedSettings?.chzzkChannelId ?: "",
     hasAppDrawerSettings  = appDrawerSettings?.enabled ?: false,
@@ -41,7 +40,6 @@ fun SlpManifest.toLocalPreset(
                             else images.wallpaper?.let { extractedPaths[it] },
     staticWallpaperLandscapeUri = if (wallpaperSettings?.isLiveWallpaperLandscape == true) null
                             else images.wallpaperLandscape?.let { extractedPaths[it] },
-    enableParallax        = wallpaperSettings?.enableParallax ?: false,
     hasThemeSettings      = themeSettings?.enabled ?: false,
     themeColorHex         = themeSettings?.colorHex,
     marketPresetId        = marketPresetId,

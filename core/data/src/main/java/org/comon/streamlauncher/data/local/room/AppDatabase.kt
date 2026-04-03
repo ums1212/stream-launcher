@@ -11,7 +11,7 @@ import org.comon.streamlauncher.data.local.room.preset.PresetEntity
 
 @Database(
     entities = [PresetEntity::class, LiveWallpaperEntity::class],
-    version = 7,
+    version = 8,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -113,6 +113,64 @@ abstract class AppDatabase : RoomDatabase() {
         val MIGRATION_6_7 = object : Migration(6, 7) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE presets ADD COLUMN staticWallpaperLandscapeUri TEXT DEFAULT NULL")
+            }
+        }
+
+        // useFeed 컬럼 제거 (SQLite DROP COLUMN은 API 35+ 미만에서 미지원 → 테이블 재생성)
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE presets_new (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        name TEXT NOT NULL,
+                        hasTopLeftImage INTEGER NOT NULL,
+                        hasTopRightImage INTEGER NOT NULL,
+                        hasBottomLeftImage INTEGER NOT NULL,
+                        hasBottomRightImage INTEGER NOT NULL,
+                        topLeftIdleUri TEXT,
+                        topLeftExpandedUri TEXT,
+                        topRightIdleUri TEXT,
+                        topRightExpandedUri TEXT,
+                        bottomLeftIdleUri TEXT,
+                        bottomLeftExpandedUri TEXT,
+                        bottomRightIdleUri TEXT,
+                        bottomRightExpandedUri TEXT,
+                        hasFeedSettings INTEGER NOT NULL,
+                        youtubeChannelId TEXT NOT NULL,
+                        chzzkChannelId TEXT NOT NULL,
+                        hasAppDrawerSettings INTEGER NOT NULL,
+                        appDrawerColumns INTEGER NOT NULL,
+                        appDrawerRows INTEGER NOT NULL,
+                        appDrawerIconSizeRatio REAL NOT NULL,
+                        hasWallpaperSettings INTEGER NOT NULL,
+                        wallpaperUri TEXT,
+                        staticWallpaperLandscapeUri TEXT,
+                        hasThemeSettings INTEGER NOT NULL,
+                        themeColorHex TEXT,
+                        createdAt INTEGER NOT NULL,
+                        marketPresetId TEXT DEFAULT NULL,
+                        isLiveWallpaper INTEGER NOT NULL DEFAULT 0,
+                        liveWallpaperUri TEXT DEFAULT NULL,
+                        isLiveWallpaperLandscape INTEGER NOT NULL DEFAULT 0,
+                        liveWallpaperLandscapeUri TEXT DEFAULT NULL
+                    )
+                """.trimIndent())
+                db.execSQL("""
+                    INSERT INTO presets_new SELECT
+                        id, name,
+                        hasTopLeftImage, hasTopRightImage, hasBottomLeftImage, hasBottomRightImage,
+                        topLeftIdleUri, topLeftExpandedUri, topRightIdleUri, topRightExpandedUri,
+                        bottomLeftIdleUri, bottomLeftExpandedUri, bottomRightIdleUri, bottomRightExpandedUri,
+                        hasFeedSettings, youtubeChannelId, chzzkChannelId,
+                        hasAppDrawerSettings, appDrawerColumns, appDrawerRows, appDrawerIconSizeRatio,
+                        hasWallpaperSettings, wallpaperUri, staticWallpaperLandscapeUri,
+                        hasThemeSettings, themeColorHex, createdAt,
+                        marketPresetId, isLiveWallpaper, liveWallpaperUri,
+                        isLiveWallpaperLandscape, liveWallpaperLandscapeUri
+                    FROM presets
+                """.trimIndent())
+                db.execSQL("DROP TABLE presets")
+                db.execSQL("ALTER TABLE presets_new RENAME TO presets")
             }
         }
     }

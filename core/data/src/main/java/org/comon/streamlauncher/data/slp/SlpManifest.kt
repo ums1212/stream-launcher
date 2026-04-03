@@ -46,7 +46,6 @@ data class SlpCellFlags(
 @Serializable
 data class SlpFeedSettings(
     val enabled: Boolean = false,
-    val useFeed: Boolean = false,
     val youtubeChannelId: String = "",
     val chzzkChannelId: String = "",
 )
@@ -62,7 +61,6 @@ data class SlpAppDrawerSettings(
 @Serializable
 data class SlpWallpaperSettings(
     val enabled: Boolean = false,
-    val enableParallax: Boolean = false,
     val isLiveWallpaper: Boolean = false,
     val isLiveWallpaperLandscape: Boolean = false,
 )

@@ -26,7 +26,6 @@ data class PresetEntity(
     
     // Feed Settings
     val hasFeedSettings: Boolean,
-    val useFeed: Boolean,
     val youtubeChannelId: String,
     val chzzkChannelId: String,
     
@@ -40,7 +39,6 @@ data class PresetEntity(
     val hasWallpaperSettings: Boolean,
     val wallpaperUri: String?,
     val staticWallpaperLandscapeUri: String? = null,
-    val enableParallax: Boolean,
     
     // Theme Color
     val hasThemeSettings: Boolean,
@@ -70,7 +68,6 @@ fun PresetEntity.toDomain() = Preset(
     bottomRightIdleUri = bottomRightIdleUri,
     bottomRightExpandedUri = bottomRightExpandedUri,
     hasFeedSettings = hasFeedSettings,
-    useFeed = useFeed,
     youtubeChannelId = youtubeChannelId,
     chzzkChannelId = chzzkChannelId,
     hasAppDrawerSettings = hasAppDrawerSettings,
@@ -80,7 +77,6 @@ fun PresetEntity.toDomain() = Preset(
     hasWallpaperSettings = hasWallpaperSettings,
     wallpaperUri = wallpaperUri,
     staticWallpaperLandscapeUri = staticWallpaperLandscapeUri,
-    enableParallax = enableParallax,
     hasThemeSettings = hasThemeSettings,
     themeColorHex = themeColorHex,
     createdAt = createdAt,
@@ -107,7 +103,6 @@ fun Preset.toEntity() = PresetEntity(
     bottomRightIdleUri = bottomRightIdleUri,
     bottomRightExpandedUri = bottomRightExpandedUri,
     hasFeedSettings = hasFeedSettings,
-    useFeed = useFeed,
     youtubeChannelId = youtubeChannelId,
     chzzkChannelId = chzzkChannelId,
     hasAppDrawerSettings = hasAppDrawerSettings,
@@ -117,7 +112,6 @@ fun Preset.toEntity() = PresetEntity(
     hasWallpaperSettings = hasWallpaperSettings,
     wallpaperUri = wallpaperUri,
     staticWallpaperLandscapeUri = staticWallpaperLandscapeUri,
-    enableParallax = enableParallax,
     hasThemeSettings = hasThemeSettings,
     themeColorHex = themeColorHex,
     createdAt = createdAt,

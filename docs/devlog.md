@@ -2,6 +2,40 @@
 
 ---
 
+## [2026-04-03] refactor(preset): 미사용 Preset 필드 제거 및 컴파일러 경고 정리
+
+### 목표
+
+`Preset` 모델에서 실제로 사용되지 않는 `useFeed`, `enableParallax` 필드를 제거하고, Kotlin 2.x 컴파일러의 `UNUSED_VALUE` 경고를 억제.
+
+### 변경사항
+
+**미사용 필드 제거 (`useFeed`, `enableParallax`)**
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `core/domain/.../model/preset/Preset.kt` | `useFeed`, `enableParallax` 필드 제거 |
+| `core/data/.../room/preset/PresetEntity.kt` | 동일 필드 + `toDomain()` / `toEntity()` 매핑 제거 |
+| `core/data/.../slp/SlpManifest.kt` | `SlpFeedSettings.useFeed`, `SlpWallpaperSettings.enableParallax` 제거 |
+| `core/data/.../slp/SlpMapper.kt` | 해당 매핑 라인 제거 |
+| `core/data/.../slp/SlpPacker.kt` | 해당 매핑 라인 제거 |
+| `core/data/.../room/AppDatabase.kt` | version 7→8, `MIGRATION_7_8` 추가 (테이블 재생성으로 두 컬럼 동시 제거) |
+| `core/data/.../di/DatabaseModule.kt` | `MIGRATION_7_8` 등록 |
+| `feature/settings/.../preset/PresetSettingsViewModel.kt` | `useFeed = true`, `enableParallax = false` 고정값 제거 |
+
+### 검증결과
+
+빌드 미실행 (구조적 변경이므로 `assembleDebug` 권장)
+
+### 설계결정 및 근거
+
+- **`useFeed` 제거**: 피드 on/off UI가 없어 항상 `true`로 고정. `hasFeedSettings`만으로 피드 포함 여부 제어 충분. 미래 확장 없이 방치된 필드 정리.
+- **`enableParallax` 제거**: parallax 효과를 적용하는 코드가 없고 항상 `false`로 고정. 동일하게 미사용 필드.
+- **MIGRATION_7_8 단일 처리**: 두 컬럼을 하나의 마이그레이션(v7→v8)으로 동시 제거. 별도 버전 없이 테이블 재생성 방식 사용 (SQLite DROP COLUMN은 API 35+ 미만 미지원).
+- **`SlpUnpacker` 하위 호환**: 구버전 `.slp`에 `useFeed`/`enableParallax`가 포함되어도 `ignoreUnknownKeys = true` 설정으로 안전하게 무시.
+
+---
+
 ## [2026-04-03] refactor(settings): SettingsViewModel 화면별 개별 ViewModel로 분리
 
 ### 목표

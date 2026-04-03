@@ -155,7 +155,6 @@ object SlpPacker {
             ),
             feedSettings = if (preset.hasFeedSettings) SlpFeedSettings(
                 enabled          = true,
-                useFeed          = preset.useFeed,
                 youtubeChannelId = preset.youtubeChannelId,
                 chzzkChannelId   = preset.chzzkChannelId,
             ) else null,
@@ -167,7 +166,6 @@ object SlpPacker {
             ) else null,
             wallpaperSettings = if (preset.hasWallpaperSettings) SlpWallpaperSettings(
                 enabled                  = true,
-                enableParallax           = preset.enableParallax,
                 isLiveWallpaper          = preset.isLiveWallpaper,
                 isLiveWallpaperLandscape = preset.isLiveWallpaperLandscape,
             ) else null,

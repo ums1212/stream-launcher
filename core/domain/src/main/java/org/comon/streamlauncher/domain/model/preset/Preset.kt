@@ -19,7 +19,6 @@ data class Preset(
     
     // 2. Feed Settings
     val hasFeedSettings: Boolean, // Whether feed settings are included in this preset
-    val useFeed: Boolean,
     val youtubeChannelId: String,
     val chzzkChannelId: String,
     
@@ -33,7 +32,6 @@ data class Preset(
     val hasWallpaperSettings: Boolean,
     val wallpaperUri: String?,              // 정적 배경화면 세로
     val staticWallpaperLandscapeUri: String? = null, // 정적 배경화면 가로
-    val enableParallax: Boolean,
     
     // 5. Theme Color Settings
     val hasThemeSettings: Boolean,
