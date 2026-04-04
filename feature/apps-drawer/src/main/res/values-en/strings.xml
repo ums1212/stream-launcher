@@ -2,4 +2,6 @@
 <resources>
     <string name="app_drawer_search">Search Apps</string>
     <string name="app_drawer_clear_search">Clear Search</string>
+    <string name="app_drawer_menu_app_info">App Info</string>
+    <string name="app_drawer_menu_uninstall">Uninstall</string>
 </resources>

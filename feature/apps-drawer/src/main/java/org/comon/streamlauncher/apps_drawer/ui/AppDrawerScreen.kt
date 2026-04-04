@@ -1,7 +1,7 @@
 package org.comon.streamlauncher.apps_drawer.ui
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -21,12 +21,14 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -35,29 +37,36 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import org.comon.streamlauncher.apps_drawer.R
 import org.comon.streamlauncher.domain.model.AppEntity
 import org.comon.streamlauncher.domain.model.GridCell
-import org.comon.streamlauncher.ui.component.calculateFixedAppGridMetrics
 import org.comon.streamlauncher.ui.component.AppIcon
 import org.comon.streamlauncher.ui.component.PagerIndicator
+import org.comon.streamlauncher.ui.component.calculateFixedAppGridMetrics
 import org.comon.streamlauncher.ui.dragdrop.LocalDragDropState
 import org.comon.streamlauncher.ui.theme.StreamLauncherTheme
-import androidx.compose.ui.res.stringResource
-import org.comon.streamlauncher.apps_drawer.R
 import kotlin.math.ceil
 
-
+private const val CONTEXT_MENU_DELAY_MS = 500L
 
 @Composable
 fun AppDrawerScreen(
@@ -66,6 +75,8 @@ fun AppDrawerScreen(
     onSearch: (String) -> Unit,
     onAppClick: (AppEntity) -> Unit,
     onAppAssigned: (AppEntity, GridCell) -> Unit = { _, _ -> },
+    onShowAppInfo: (AppEntity) -> Unit = {},
+    onRequestUninstall: (AppEntity) -> Unit = {},
     columns: Int = 4,
     rows: Int = 6,
     iconSizeRatio: Float = 1.0f,
@@ -129,10 +140,11 @@ fun AppDrawerScreen(
                 iconSizeRatio = iconSizeRatio,
                 onAppClick = onAppClick,
                 onAppAssigned = onAppAssigned,
+                onShowAppInfo = onShowAppInfo,
+                onRequestUninstall = onRequestUninstall,
             )
         }
 
-        // 페이지 인디케이터
         if (pageCount > 1) {
             PagerIndicator(
                 pageCount = pageCount,
@@ -157,6 +169,8 @@ private fun AppGridPage(
     iconSizeRatio: Float,
     onAppClick: (AppEntity) -> Unit,
     onAppAssigned: (AppEntity, GridCell) -> Unit,
+    onShowAppInfo: (AppEntity) -> Unit,
+    onRequestUninstall: (AppEntity) -> Unit,
 ) {
     BoxWithConstraints(
         modifier = Modifier
@@ -196,6 +210,8 @@ private fun AppGridPage(
                                     fontSize = fontSize,
                                     onClick = { onAppClick(apps[appIndex]) },
                                     onAppAssigned = onAppAssigned,
+                                    onShowAppInfo = onShowAppInfo,
+                                    onRequestUninstall = onRequestUninstall,
                                 )
                             }
                         }
@@ -214,11 +230,31 @@ private fun AppDrawerGridItem(
     fontSize: TextUnit,
     onClick: () -> Unit,
     onAppAssigned: (AppEntity, GridCell) -> Unit,
+    onShowAppInfo: (AppEntity) -> Unit,
+    onRequestUninstall: (AppEntity) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val haptic = LocalHapticFeedback.current
     val dragDropState = LocalDragDropState.current
+
     var itemRootOffset by remember { mutableStateOf(Offset.Zero) }
+    var showContextMenu by remember { mutableStateOf(false) }
+    var showRedTint by remember { mutableStateOf(false) }
+
+    if (showContextMenu) {
+        AppContextMenuDialog(
+            app = app,
+            onDismiss = { showContextMenu = false },
+            onOpenAppInfo = {
+                showContextMenu = false
+                onShowAppInfo(app)
+            },
+            onRequestUninstall = {
+                showContextMenu = false
+                onRequestUninstall(app)
+            },
+        )
+    }
 
     Column(
         modifier = modifier
@@ -226,39 +262,119 @@ private fun AppDrawerGridItem(
                 itemRootOffset = coords.positionInRoot()
             }
             .pointerInput(app) {
-                detectDragGesturesAfterLongPress(
-                    onDragStart = { localOffset ->
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        val rootPosition = itemRootOffset + localOffset
-                        dragDropState.startDrag(app, rootPosition)
-                    },
-                    onDrag = { change, _ ->
-                        change.consume()
-                        val rootPosition = itemRootOffset + change.position
-                        dragDropState.updateDrag(rootPosition)
-                    },
-                    onDragEnd = {
-                        val result = dragDropState.endDrag()
-                        if (result != null) {
-                            onAppAssigned(result.app, result.targetCell)
+                val pointerScope = this
+                val longPressMs = viewConfiguration.longPressTimeoutMillis
+                val touchSlopPx = viewConfiguration.touchSlop
+                val dragThresholdPx = 10.dp.toPx()
+
+                val ctx = currentCoroutineContext()
+                while (ctx.isActive) {
+                    try {
+                        coroutineScope {
+                            // coroutineScope 레퍼런스 보관:
+                            // awaitPointerEventScope 내부에서 타이머 job을 launch하기 위해 필요
+                            val gestureScope = this
+                            var isDragStarted = false
+                            var totalDragDistance = 0f
+
+                            try {
+                                pointerScope.awaitPointerEventScope {
+                                    // ① 반드시 손가락이 눌린 이후에만 타이머를 시작한다.
+                                    //    이전 코드는 awaitFirstDown 전에 launch해서
+                                    //    제스처가 끝난 뒤 다음 이터레이션에서도 2000ms 타이머가
+                                    //    손가락 없이 계속 돌아 showRedTint=true가 발화되는 버그가 있었다.
+                                    val down = awaitFirstDown(requireUnconsumed = false)
+                                    val pendingStartOffset = itemRootOffset + down.position
+                                    var isReadyForDrag = false
+
+                                    val longPressJob = gestureScope.launch {
+                                        delay(longPressMs)
+                                        isReadyForDrag = true
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    }
+                                    val contextMenuJob = gestureScope.launch {
+                                        delay(CONTEXT_MENU_DELAY_MS)
+                                        showRedTint = true
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    }
+
+                                    try {
+                                        while (true) {
+                                            val event = awaitPointerEvent()
+                                            val change = event.changes.find { it.id == down.id }
+                                                ?: break
+                                            if (!change.pressed) break
+
+                                            val delta = change.position - change.previousPosition
+                                            totalDragDistance += delta.getDistance()
+
+                                            // 장누름 전에 touchSlop 초과 이동 → Pager 스크롤 허용
+                                            if (!isReadyForDrag && totalDragDistance > touchSlopPx) break
+
+                                            // 장누름 이후 이벤트 소비 (Pager 스크롤 차단)
+                                            if (isReadyForDrag) change.consume()
+
+                                            // 드래그 시작: 500ms 후 + 10dp 이상 이동
+                                            if (isReadyForDrag && !isDragStarted && totalDragDistance >= dragThresholdPx) {
+                                                isDragStarted = true
+                                                showRedTint = false
+                                                contextMenuJob.cancel()
+                                                dragDropState.startDrag(app, pendingStartOffset)
+                                            }
+
+                                            if (isDragStarted) {
+                                                dragDropState.updateDrag(itemRootOffset + change.position)
+                                            }
+                                        }
+                                    } finally {
+                                        longPressJob.cancel()
+                                        contextMenuJob.cancel()
+                                    }
+                                }
+                            } catch (e: CancellationException) {
+                                showRedTint = false
+                                throw e
+                            }
+
+                            val wasRedTintActive = showRedTint
+                            showRedTint = false
+
+                            when {
+                                isDragStarted -> {
+                                    val result = dragDropState.endDrag()
+                                    result?.let { onAppAssigned(it.app, it.targetCell) }
+                                }
+                                wasRedTintActive -> showContextMenu = true
+                                totalDragDistance < touchSlopPx -> {
+                                    // 빠른 탭 → 앱 실행
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    onClick()
+                                }
+                                // else: 장누름 전 스와이프 → Pager가 처리
+                            }
                         }
-                    },
-                    onDragCancel = {
-                        dragDropState.cancelDrag()
-                    },
-                )
-            }
-            .clickable {
-                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                onClick()
+                    } catch (e: CancellationException) {
+                        showRedTint = false
+                        if (!ctx.isActive) throw e
+                    }
+                }
             }
             .padding(vertical = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        AppIcon(
-            packageName = app.packageName,
-            modifier = Modifier.size(iconSize),
-        )
+        Box(modifier = Modifier.size(iconSize)) {
+            AppIcon(
+                packageName = app.packageName,
+                modifier = Modifier.fillMaxSize(),
+            )
+            if (showRedTint) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Red.copy(alpha = 0.40f)),
+                )
+            }
+        }
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = app.label,
@@ -269,4 +385,41 @@ private fun AppDrawerGridItem(
             modifier = Modifier.width(textWidth),
         )
     }
+}
+
+@Composable
+private fun AppContextMenuDialog(
+    app: AppEntity,
+    onDismiss: () -> Unit,
+    onOpenAppInfo: () -> Unit,
+    onRequestUninstall: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = {
+            AppIcon(
+                packageName = app.packageName,
+                modifier = Modifier.size(48.dp),
+            )
+        },
+        title = {
+            Text(
+                text = app.label,
+                textAlign = TextAlign.Center,
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onOpenAppInfo) {
+                Text(stringResource(R.string.app_drawer_menu_app_info))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onRequestUninstall) {
+                Text(
+                    text = stringResource(R.string.app_drawer_menu_uninstall),
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+        },
+    )
 }

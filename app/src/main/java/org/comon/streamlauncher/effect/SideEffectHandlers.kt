@@ -70,6 +70,30 @@ fun HomeSideEffectHandler(
                         } catch (_: Exception) {}
                     }
                 }
+                is HomeSideEffect.OpenAppInfo -> {
+                    try {
+                        context.startActivity(
+                            Intent(
+                                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                "package:${effect.packageName}".toUri(),
+                            ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        )
+                    } catch (_: ActivityNotFoundException) {
+                        Log.w("HomeSideEffectHandler", "앱 정보 열기 실패: ${effect.packageName}")
+                    }
+                }
+                is HomeSideEffect.UninstallApp -> {
+                    try {
+                        context.startActivity(
+                            Intent(
+                                Intent.ACTION_DELETE,
+                                "package:${effect.packageName}".toUri(),
+                            ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        )
+                    } catch (_: ActivityNotFoundException) {
+                        Log.w("HomeSideEffectHandler", "앱 삭제 열기 실패: ${effect.packageName}")
+                    }
+                }
             }
         }
     }

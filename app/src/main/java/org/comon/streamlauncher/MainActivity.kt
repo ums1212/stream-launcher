@@ -184,6 +184,8 @@ class MainActivity : ComponentActivity() {
                                             onAppAssigned = { app, cell ->
                                                 viewModel.handleIntent(HomeIntent.AssignAppToCell(app, cell))
                                             },
+                                            onShowAppInfo = { viewModel.handleIntent(HomeIntent.ShowAppInfo(it.packageName)) },
+                                            onRequestUninstall = { viewModel.handleIntent(HomeIntent.RequestUninstall(it.packageName)) },
                                             columns = appDrawerColumns,
                                             rows = appDrawerRows,
                                             iconSizeRatio = uiState.appDrawerIconSizeRatio,

@@ -2,6 +2,43 @@
 
 ---
 
+## [2026-04-04] feat(apps-drawer): 앱 드로어 길게 누르기 컨텍스트 메뉴 (앱 정보 / 삭제)
+
+### 목표
+
+1. 앱 드로어에서 앱 아이콘을 길게 누르면 "앱 정보" / "삭제" 컨텍스트 메뉴(AlertDialog) 표시
+2. 기존 드래그 앤 드롭 배치 기능과 충돌 없이 공존
+3. 앱 삭제 후 드로어 목록 자동 갱신
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `feature/launcher/.../HomeContract.kt` | `ShowAppInfo`, `RequestUninstall` Intent 추가; `OpenAppInfo`, `UninstallApp` SideEffect 추가 |
+| `feature/launcher/.../HomeViewModel.kt` | 두 Intent → SideEffect 발송 핸들러 추가 |
+| `feature/apps-drawer/.../AppDrawerScreen.kt` | `detectDragGesturesAfterLongPress` + `clickable` 조합을 단일 `pointerInput`으로 교체; 500ms 장누름 → 드래그 활성화 + 1차 햅틱; 500ms 장누름 → 빨간 오버레이 + 2차 햅틱; 손 뗌 시 컨텍스트 메뉴; `AppContextMenuDialog` 컴포저블 추가; 타이머를 `awaitFirstDown` 이후에 시작하도록 수정(유령 오버레이 버그 수정) |
+| `feature/apps-drawer/.../res/values/strings.xml` | 메뉴 문자열 추가 (`app_drawer_menu_app_info`, `app_drawer_menu_uninstall`) |
+| `app/.../SideEffectHandlers.kt` | `OpenAppInfo` → `ACTION_APPLICATION_DETAILS_SETTINGS`; `UninstallApp` → `ACTION_DELETE` 처리 추가; `android.net.Uri` import 추가 |
+| `app/.../MainActivity.kt` | `AppDrawerScreen`에 `onShowAppInfo`, `onRequestUninstall` 콜백 연결 |
+| `app/src/main/AndroidManifest.xml` | `REQUEST_DELETE_PACKAGES` 권한 추가 (Android 14+ targetSdk 34↑ 필수) |
+| `core/data/.../AppRepositoryImpl.kt` | `flow { emit }` → `callbackFlow`로 교체; `ACTION_PACKAGE_REMOVED/ADDED/REPLACED` BroadcastReceiver 등록; `awaitClose { unregisterReceiver }` 정리; `@ApplicationContext Context` 주입 추가 |
+
+### 검증결과
+
+- `assembleDebug` BUILD SUCCESSFUL
+- `:feature:launcher:test`, `:core:domain:test` 전체 통과
+
+### 설계결정 및 근거
+
+- **단일 `pointerInput` 통합**: 기존에 `detectDragGesturesAfterLongPress` + `clickable`을 병렬 사용 시 길게 누르고 손을 떼면 `clickable.onClick`도 동시에 발화되는 버그가 있었음. 모든 제스처(탭·장누름·드래그)를 하나의 `pointerInput`으로 통합해 분기 처리.
+- **제스처 분기 기준**: ① touchSlop 초과 이동(장누름 전) → Pager 스크롤 위임 ② 500ms 후 dragThreshold(10dp) 이상 이동 → 드래그 모드 ③ 500ms 후 정지 → 빨간 오버레이 → 손 뗌 시 컨텍스트 메뉴 ④ 빠른 탭 → 앱 실행.
+- **타이머 위치 버그 수정**: 초기 구현에서 `longPressJob`/`contextMenuJob`을 `awaitFirstDown` 전에 `launch`하여, 제스처 종료 후 다음 이터레이션에서 손가락 없이 2초 타이머가 발화 → `showRedTint = true` 유령 오버레이 버그 발생. 타이머를 `awaitFirstDown` 이후(`gestureScope.launch`)로 이동해 해결.
+- **앱 삭제 후 자동 갱신**: `AppRepositoryImpl`을 `callbackFlow` + `BroadcastReceiver`로 교체하여 `ACTION_PACKAGE_REMOVED` 수신 시 앱 목록 재조회 후 emit. `HomeViewModel`이 해당 Flow를 collect 중이므로 별도 트리거 없이 드로어가 자동 갱신됨.
+- **`REQUEST_DELETE_PACKAGES` 권한**: Android 14 (API 34)부터 `ACTION_DELETE` 인텐트 사용에 필수. 런타임 권한이 아닌 normal 권한이므로 사용자 승인 불필요.
+- **시스템 앱 삭제 처리**: `ACTION_DELETE`는 시스템 앱에서 자동으로 "삭제 불가"를 표시하므로 별도 필터링 불필요.
+
+---
+
 ## [2026-04-04] fix(settings): 로컬 작업에 잘못 적용된 네트워크 에러 체크 제거 + 정적 배경화면 초기화 버튼 삭제
 
 ### 목표

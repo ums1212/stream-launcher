@@ -2,4 +2,6 @@
 <resources>
     <string name="app_drawer_search">앱 검색</string>
     <string name="app_drawer_clear_search">검색어 지우기</string>
+    <string name="app_drawer_menu_app_info">앱 정보</string>
+    <string name="app_drawer_menu_uninstall">삭제</string>
 </resources>

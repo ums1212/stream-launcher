@@ -38,6 +38,8 @@ sealed interface HomeIntent : UiIntent {
     data class UpdateCellCapacity(val cell: GridCell, val capacity: Int) : HomeIntent
     data class MoveAppInCell(val cell: GridCell, val fromIndex: Int, val toIndex: Int) : HomeIntent
     data class MoveAppBetweenCells(val app: AppEntity, val fromCell: GridCell, val toCell: GridCell, val toIndex: Int = -1) : HomeIntent
+    data class ShowAppInfo(val packageName: String) : HomeIntent
+    data class RequestUninstall(val packageName: String) : HomeIntent
 }
 
 sealed interface HomeSideEffect : UiSideEffect {
@@ -45,6 +47,8 @@ sealed interface HomeSideEffect : UiSideEffect {
     data class ShowError(val message: String) : HomeSideEffect
     data object SetDefaultHomeApp : HomeSideEffect
     data object ShowNetworkError : HomeSideEffect
+    data class OpenAppInfo(val packageName: String) : HomeSideEffect
+    data class UninstallApp(val packageName: String) : HomeSideEffect
 }
 
 const val DEFAULT_HOME_CELL_CAPACITY = 6

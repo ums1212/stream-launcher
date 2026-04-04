@@ -75,6 +75,8 @@ class HomeViewModel @Inject constructor(
             is HomeIntent.UpdateCellCapacity -> updateCellCapacity(intent.cell, intent.capacity)
             is HomeIntent.MoveAppInCell -> moveAppInCell(intent.cell, intent.fromIndex, intent.toIndex)
             is HomeIntent.MoveAppBetweenCells -> moveAppBetweenCells(intent.app, intent.fromCell, intent.toCell, intent.toIndex)
+            is HomeIntent.ShowAppInfo -> sendEffect(HomeSideEffect.OpenAppInfo(intent.packageName))
+            is HomeIntent.RequestUninstall -> sendEffect(HomeSideEffect.UninstallApp(intent.packageName))
         }
     }
 
