@@ -2,6 +2,35 @@
 
 ---
 
+## [2026-04-05] fix(apps-drawer): 검색창 포커스 해제 및 앱 그리드 겹침 수정
+
+### 목표
+
+1. 앱 서랍에서 빈 공간 탭·다른 화면 이동·키보드 닫기 시 검색창 포커스를 해제
+2. 앱 목록이 화면에 꽉 찰 때 검색창이 마지막 행·인디케이터와 겹치는 문제 수정
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `feature/apps-drawer/.../AppDrawerScreen.kt` | `detectTapGestures`로 빈 공간 탭 시 `focusManager.clearFocus()`; `snapshotFlow(WindowInsets.ime)` 관찰 → IME 높이 0 시 포커스 해제; `OutlinedTextField.onGloballyPositioned`로 검색창 높이 측정; Column 하단에 `Spacer(searchBarHeight)` 추가 |
+| `app/.../CrossPagerNavigation.kt` | 페이지 이탈 시 `focusManager.clearFocus()` 추가 (키보드 숨김과 함께) |
+
+### 검증결과
+
+- 빈 공간 탭 → 검색창 포커스 해제·키보드 닫힘
+- 상단 페이지로 스와이프 → 포커스 해제
+- 키보드 직접 닫기(뒤로가기 등) → 포커스 해제
+- 앱 목록이 꽉 차도 마지막 행과 인디케이터가 검색창에 가려지지 않음
+
+### 설계결정 및 근거
+
+- **`snapshotFlow(WindowInsets.ime.getBottom(density))`**: `adjustNothing` 모드에서 키보드가 완전히 닫힌 시점을 IME 인셋 = 0으로 정확히 감지. `KeyboardVisibilityEvent` 같은 외부 라이브러리 없이 Compose 내부 API만으로 처리.
+- **`Spacer(searchBarHeight)` 방식**: 검색창은 `Box`의 오버레이로 배치되어 Column 레이아웃에 영향을 주지 않음. Column 마지막에 검색창 실제 높이만큼 여백을 삽입해 겹침을 해소. 키보드 열림·닫힘과 관계없이 검색창의 키보드 미적용 높이를 기준으로 일정하게 동작.
+- **`CrossPagerNavigation`에서도 포커스 해제**: 앱 서랍 → 홈 스와이프 시 키보드만 숨기면 포커스가 잔류해 다음 진입 시 키보드가 즉시 재표시되는 문제를 방지.
+
+---
+
 ## [2026-04-05] feat(apps-drawer): 검색창 하단 배치 및 키보드 오버랩 처리
 
 ### 목표

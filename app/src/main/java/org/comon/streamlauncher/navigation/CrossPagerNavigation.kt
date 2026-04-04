@@ -30,6 +30,7 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -79,6 +80,7 @@ fun CrossPagerNavigation(
     val horizontalPagerState = rememberPagerState(initialPage = 1, pageCount = { 3 })
     val scope = rememberCoroutineScope()
     val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
     val dragDropState = LocalDragDropState.current
 
     // 드래그 시작 시 홈 화면으로 스크롤 콜백 등록
@@ -104,9 +106,10 @@ fun CrossPagerNavigation(
         }
     }
 
-    // DownPage(2)에서 벗어날 때 키보드 숨기기
+    // DownPage(2)에서 벗어날 때 키보드 숨기기 + 포커스 해제
     LaunchedEffect(verticalPagerState.currentPage) {
         if (verticalPagerState.currentPage != 2) {
+            focusManager.clearFocus()
             keyboardController?.hide()
         }
     }

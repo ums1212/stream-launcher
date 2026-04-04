@@ -38,12 +38,20 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.window.Dialog
 import android.app.Activity
 import android.view.WindowManager
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -100,6 +108,20 @@ fun AppDrawerScreen(
         onDispose { window.setSoftInputMode(prevMode) }
     }
 
+    val focusManager = LocalFocusManager.current
+    val density = LocalDensity.current
+    val imeInsets = WindowInsets.ime
+
+    LaunchedEffect(Unit) {
+        snapshotFlow { imeInsets.getBottom(density) }
+            .collect { imeBottom ->
+                if (imeBottom == 0) focusManager.clearFocus()
+            }
+    }
+
+    var searchBarHeightPx by remember { mutableIntStateOf(0) }
+    val searchBarHeight = with(density) { searchBarHeightPx.toDp() }
+
     val colors = StreamLauncherTheme.colors
     val appsPerPage = columns * rows
     val pageCount = if (filteredApps.isEmpty()) 1 else ceil(filteredApps.size / appsPerPage.toFloat()).toInt()
@@ -108,7 +130,10 @@ fun AppDrawerScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .statusBarsPadding(),
+            .statusBarsPadding()
+            .pointerInput(Unit) {
+                detectTapGestures { focusManager.clearFocus() }
+            },
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             HorizontalPager(
@@ -150,6 +175,9 @@ fun AppDrawerScreen(
                     smallDotSize = 6.dp,
                 )
             }
+
+            // 검색창이 마지막 행과 겹치지 않도록 검색창 높이만큼 공간 확보
+            Spacer(modifier = Modifier.height(searchBarHeight))
         }
 
         OutlinedTextField(
@@ -158,6 +186,7 @@ fun AppDrawerScreen(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
+                .onGloballyPositioned { searchBarHeightPx = it.size.height }
                 .imePadding()
                 .navigationBarsPadding()
                 .padding(horizontal = 16.dp, vertical = 12.dp),
