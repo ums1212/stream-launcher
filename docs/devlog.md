@@ -2,6 +2,51 @@
 
 ---
 
+## [2026-04-05] feat(apps-drawer): 검색창 하단 배치 및 키보드 오버랩 처리
+
+### 목표
+
+앱 서랍 검색창을 화면 상단에서 하단으로 이동하고, 키보드가 올라올 때 앱 그리드는 고정된 채 검색창만 키보드 바로 위에 위치하도록 처리.
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `feature/apps-drawer/.../AppDrawerScreen.kt` | 검색창 하단 이동; `Box` + `Column` 레이아웃 재구성; `DisposableEffect`로 `SOFT_INPUT_ADJUST_NOTHING` 적용; `imePadding()` + `navigationBarsPadding()` 검색창 배치; `glassSurface` 컨테이너 배경; `HorizontalPager` `weight(1f)` 수정 |
+| `app/.../CrossPagerNavigation.kt` | 잘못 수정한 `RightPage` `safeDrawingPadding()` 원복 |
+
+**최종 레이아웃 구조**
+
+```
+Box(fillMaxSize + statusBarsPadding)
+├── Column(fillMaxSize)               ← 앱 그리드 (고정)
+│   ├── HorizontalPager(weight 1f)
+│   └── PagerIndicator
+└── OutlinedTextField                 ← 검색창 (키보드 위로 이동)
+    align(BottomCenter)
+    + imePadding + navigationBarsPadding
+```
+
+**키보드 처리 핵심 흐름**
+- `AppDrawerScreen` 컴포지션 진입 시 `DisposableEffect` → `SOFT_INPUT_ADJUST_NOTHING` 적용
+- `onDispose` 시 원래 `softInputMode` 복원 → Settings 등 다른 화면은 영향 없음
+- `adjustNothing`이므로 윈도우 리사이즈/패닝 없음 → `imePadding()`이 검색창만 키보드 위로 이동
+
+### 검증결과
+
+- 키보드 열림 시 앱 그리드 고정, 검색창이 키보드 바로 위에 위치
+- Settings 화면 등 다른 화면 키보드 동작 정상
+
+### 설계결정 및 근거
+
+- **`adjustNothing` 전역 적용 대신 `DisposableEffect` 사용**: `VerticalPager`의 `beyondViewportPageCount = 0` 덕분에 홈/피드 화면에 있을 때는 DownPage가 컴포지션에서 제거됨 → `onDispose`가 원래 모드를 복원함. 전역 manifest 설정 없이 앱 서랍 화면에만 `adjustNothing` 적용 가능.
+- **`imePadding` 필요성**: `adjustNothing`은 윈도우를 움직이지 않으므로 키보드가 검색창을 덮음. Compose가 `WindowInsets.ime`를 읽어 검색창 하단 패딩을 추가하는 `imePadding()`이 검색창을 키보드 위로 띄우는 유일한 수단.
+- **이전에 `imePadding`이 이중 적용된 이유**: 기존에는 `adjustResize`/`adjustPan` 동작으로 윈도우가 이미 이동한 상태에서 `imePadding()`이 추가로 패딩을 넣어 두 배 효과 발생. `adjustNothing` 전환 후 해소됨.
+- **`glassSurface` 배경색**: 앱 아이콘과 검색창이 겹쳐 가독성 저하 문제 해결. 배경 레이어와 동일한 색상 적용으로 시각적 일관성 유지.
+- **`RightPage` 수정 오류 원복**: 앱 서랍이 `DownPage`임을 확인하지 않고 `RightPage`를 수정한 실수를 바로 원복.
+
+---
+
 ## [2026-04-04] refactor(apps-drawer): 앱 컨텍스트 메뉴 커스텀 다이얼로그 교체
 
 ### 목표

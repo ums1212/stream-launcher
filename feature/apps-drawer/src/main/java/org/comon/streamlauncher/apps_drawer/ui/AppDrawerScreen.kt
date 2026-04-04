@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
@@ -22,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -34,11 +36,15 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.window.Dialog
+import android.app.Activity
+import android.view.WindowManager
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -86,18 +92,74 @@ fun AppDrawerScreen(
     rows: Int = 6,
     iconSizeRatio: Float = 1.0f,
 ) {
+    val view = LocalView.current
+    DisposableEffect(view) {
+        val window = (view.context as Activity).window
+        val prevMode = window.attributes.softInputMode
+        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
+        onDispose { window.setSoftInputMode(prevMode) }
+    }
+
     val colors = StreamLauncherTheme.colors
     val appsPerPage = columns * rows
     val pageCount = if (filteredApps.isEmpty()) 1 else ceil(filteredApps.size / appsPerPage.toFloat()).toInt()
     val pagerState = rememberPagerState(pageCount = { pageCount })
 
-    Column(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .statusBarsPadding(),
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+            ) { page ->
+                val startIndex = page * appsPerPage
+                val endIndex = minOf(startIndex + appsPerPage, filteredApps.size)
+                val pageApps = if (startIndex < filteredApps.size) {
+                    filteredApps.subList(startIndex, endIndex)
+                } else {
+                    emptyList()
+                }
+
+                AppGridPage(
+                    apps = pageApps,
+                    columns = columns,
+                    rows = rows,
+                    iconSizeRatio = iconSizeRatio,
+                    onAppClick = onAppClick,
+                    onAppAssigned = onAppAssigned,
+                    onShowAppInfo = onShowAppInfo,
+                    onRequestUninstall = onRequestUninstall,
+                )
+            }
+
+            if (pageCount > 1) {
+                PagerIndicator(
+                    pageCount = pageCount,
+                    currentPage = pagerState.currentPage,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 12.dp),
+                    selectedColor = colors.accentPrimary,
+                    unselectedColor = colors.accentPrimary.copy(alpha = 0.3f),
+                    dotSize = 8.dp,
+                    smallDotSize = 6.dp,
+                )
+            }
+        }
+
         OutlinedTextField(
             value = searchQuery,
             onValueChange = onSearch,
             modifier = Modifier
+                .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .statusBarsPadding()
+                .imePadding()
+                .navigationBarsPadding()
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             placeholder = { Text(stringResource(R.string.app_drawer_search)) },
             leadingIcon = {
@@ -121,48 +183,10 @@ fun AppDrawerScreen(
                 focusedBorderColor = colors.searchBarFocused,
                 cursorColor = colors.accentPrimary,
                 focusedLeadingIconColor = colors.accentPrimary,
+                focusedContainerColor = colors.glassSurface,
+                unfocusedContainerColor = colors.glassSurface,
             ),
         )
-
-        HorizontalPager(
-            state = pagerState,
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f),
-        ) { page ->
-            val startIndex = page * appsPerPage
-            val endIndex = minOf(startIndex + appsPerPage, filteredApps.size)
-            val pageApps = if (startIndex < filteredApps.size) {
-                filteredApps.subList(startIndex, endIndex)
-            } else {
-                emptyList()
-            }
-
-            AppGridPage(
-                apps = pageApps,
-                columns = columns,
-                rows = rows,
-                iconSizeRatio = iconSizeRatio,
-                onAppClick = onAppClick,
-                onAppAssigned = onAppAssigned,
-                onShowAppInfo = onShowAppInfo,
-                onRequestUninstall = onRequestUninstall,
-            )
-        }
-
-        if (pageCount > 1) {
-            PagerIndicator(
-                pageCount = pageCount,
-                currentPage = pagerState.currentPage,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 12.dp),
-                selectedColor = colors.accentPrimary,
-                unselectedColor = colors.accentPrimary.copy(alpha = 0.3f),
-                dotSize = 8.dp,
-                smallDotSize = 6.dp,
-            )
-        }
     }
 }
 
