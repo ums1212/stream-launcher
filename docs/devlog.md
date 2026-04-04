@@ -2,6 +2,47 @@
 
 ---
 
+## [2026-04-04] refactor(apps-drawer): 앱 컨텍스트 메뉴 커스텀 다이얼로그 교체
+
+### 목표
+
+길게 누르기 시 표시되는 앱 컨텍스트 메뉴를 기본 `AlertDialog` 스타일에서 상단 정보 영역 + 하단 버튼 영역으로 분리된 커스텀 다이얼로그로 교체.
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `feature/apps-drawer/.../AppDrawerScreen.kt` | `AlertDialog` → `Dialog` 교체; `AppContextMenuDialog` 레이아웃 전면 재작성 |
+
+**다이얼로그 구조**
+
+```
+┌─────────────────────┐
+│   (앱 아이콘 64dp)  │  ← glassSurface 배경, accentPrimary 테두리
+│    앱 이름 텍스트   │
+├─────────┬───────────┤  ← HorizontalDivider
+│  삭제   │   정보    │  ← VerticalDivider, 각 버튼 weight(1f)
+└─────────┴───────────┘
+```
+
+**import 변경**
+- 제거: `AlertDialog`
+- 추가: `Dialog` (ui.window), `HorizontalDivider`, `VerticalDivider`, `RoundedCornerShape`, `border`, `clip`
+
+### 검증결과
+
+- `:feature:apps-drawer:assembleDebug` BUILD SUCCESSFUL (41s)
+- 컴파일 오류 없음
+
+### 설계결정 및 근거
+
+- **`Dialog` + 수동 레이아웃 선택**: `AlertDialog`는 icon/title/button 영역이 Material3 기본 레이아웃으로 고정되어 "상단 넓은 정보 영역 + 하단 버튼 행" 분리 구조를 만들기 어렵다. `Dialog`를 사용하면 Column → 상단 섹션 → `HorizontalDivider` → 하단 Row 로 완전히 자유롭게 구성 가능.
+- **`glassSurface` 배경 + `accentPrimary` 테두리**: StreamLauncher 전체 UI 톤(유리 효과, 포인트 컬러 테두리)과 일치시켜 시각적 통일감 확보.
+- **`VerticalDivider` 구분선**: 두 버튼의 영역을 시각적으로 명확히 나누고 탭 영역(각 버튼 `weight(1f)`)을 균등하게 분배. 버튼 모서리는 다이얼로그 전체 `RoundedCornerShape(16.dp)`에 맞춰 각각 `bottomStart` / `bottomEnd`만 둥글게 처리.
+- **삭제 버튼**: `colorScheme.error` 색상으로 파괴적 액션임을 명확히 표시.
+
+---
+
 ## [2026-04-04] fix(manifest): 불필요한 권한 제거 및 경고 해소
 
 ### 목표

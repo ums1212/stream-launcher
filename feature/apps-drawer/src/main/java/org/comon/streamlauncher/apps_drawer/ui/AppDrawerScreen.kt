@@ -21,7 +21,9 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.AlertDialog
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -29,6 +31,9 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.VerticalDivider
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.window.Dialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -394,32 +399,76 @@ private fun AppContextMenuDialog(
     onOpenAppInfo: () -> Unit,
     onRequestUninstall: () -> Unit,
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        icon = {
-            AppIcon(
-                packageName = app.packageName,
-                modifier = Modifier.size(48.dp),
-            )
-        },
-        title = {
-            Text(
-                text = app.label,
-                textAlign = TextAlign.Center,
-            )
-        },
-        confirmButton = {
-            TextButton(onClick = onOpenAppInfo) {
-                Text(stringResource(R.string.app_drawer_menu_app_info))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onRequestUninstall) {
+    val colors = StreamLauncherTheme.colors
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .border(
+                    width = 1.dp,
+                    color = colors.accentPrimary.copy(alpha = 0.3f),
+                    shape = RoundedCornerShape(16.dp),
+                )
+                .background(colors.glassSurface),
+        ) {
+            // 상단: 앱 아이콘 + 앱 이름
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 32.dp, horizontal = 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                AppIcon(
+                    packageName = app.packageName,
+                    modifier = Modifier.size(64.dp),
+                )
+                Spacer(modifier = Modifier.height(16.dp))
                 Text(
-                    text = stringResource(R.string.app_drawer_menu_uninstall),
-                    color = MaterialTheme.colorScheme.error,
+                    text = app.label,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = colors.glassOnSurface,
+                    textAlign = TextAlign.Center,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
-        },
-    )
+
+            HorizontalDivider(color = colors.accentPrimary.copy(alpha = 0.2f))
+
+            // 하단: 삭제 | 정보
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+            ) {
+                TextButton(
+                    onClick = onRequestUninstall,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
+                    shape = RoundedCornerShape(bottomStart = 16.dp),
+                ) {
+                    Text(
+                        text = stringResource(R.string.app_drawer_menu_uninstall),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+                VerticalDivider(color = colors.accentPrimary.copy(alpha = 0.2f))
+                TextButton(
+                    onClick = onOpenAppInfo,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
+                    shape = RoundedCornerShape(bottomEnd = 16.dp),
+                ) {
+                    Text(
+                        text = stringResource(R.string.app_drawer_menu_app_info),
+                        color = colors.accentPrimary,
+                    )
+                }
+            }
+        }
+    }
 }
