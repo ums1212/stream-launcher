@@ -2,6 +2,31 @@
 
 ---
 
+## [2026-04-04] fix(manifest): 불필요한 권한 제거 및 경고 해소
+
+### 목표
+
+1. `READ_MEDIA_IMAGES` 광범위 미디어 접근 권한 경고 해소
+2. `FOREGROUND_SERVICE` 중복 권한 선언 경고 해소
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `app/src/main/AndroidManifest.xml` | `READ_MEDIA_IMAGES` 권한 제거 (→ `READ_MEDIA_VISUAL_USER_SELECTED`만 유지); `FOREGROUND_SERVICE` 권한 제거 (→ `FOREGROUND_SERVICE_DATA_SYNC`로 대체) |
+
+### 검증결과
+
+- AndroidManifest Lint 경고 2건 해소
+- 기능 영향 없음 (배경이미지 선택은 `READ_MEDIA_VISUAL_USER_SELECTED`로 충분)
+
+### 설계결정 및 근거
+
+- **`READ_MEDIA_IMAGES` 제거**: Google Play 정책상 이 권한은 사진/영상에 빈번·지속적으로 접근하는 핵심 기능이 있어야 허용됨. 이 앱은 배경 이미지를 사용자가 직접 한 번 선택하는 용도이므로 `READ_MEDIA_VISUAL_USER_SELECTED`(선택적 미디어 접근)만으로 충분하며, 광범위 접근 권한은 불필요.
+- **`FOREGROUND_SERVICE` 제거**: Android 14+에서 전경 서비스 타입 명시가 필요하나 이미 `FOREGROUND_SERVICE_DATA_SYNC`가 선언되어 있고 각 서비스에 `foregroundServiceType="dataSync"`가 명시되어 있음. `FOREGROUND_SERVICE_DATA_SYNC`는 `FOREGROUND_SERVICE`를 포함하므로 별도 중복 선언 불필요.
+
+---
+
 ## [2026-04-04] feat(apps-drawer): 앱 드로어 길게 누르기 컨텍스트 메뉴 (앱 정보 / 삭제)
 
 ### 목표
