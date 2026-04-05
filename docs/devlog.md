@@ -2,6 +2,31 @@
 
 ---
 
+## [2026-04-05] fix(app): 라이브 배경화면 프로세스에서 MobileAds 충돌 수정
+
+### 목표
+
+라이브 배경화면 설정 화면으로 이동 시 `:wallpaper` 별도 프로세스에서 `MobileAds.initialize()`가 호출되어 WebView 데이터 디렉터리 잠금 충돌로 앱이 강제 종료되는 문제 해결.
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `app/.../StreamLauncherApplication.kt` | `isMainProcess()` 헬퍼 추가; `MobileAds.initialize(this)` 호출을 메인 프로세스에서만 실행하도록 조건 처리 |
+
+### 검증결과
+
+- 라이브 배경화면 설정 화면 진입 시 앱 강제 종료 없음
+- 메인 프로세스에서 AdMob 초기화 정상 동작
+
+### 설계결정 및 근거
+
+- **원인**: 라이브 배경화면 서비스가 `android:process=":wallpaper"` 별도 프로세스로 실행되면서 `StreamLauncherApplication.onCreate()`가 재호출됨. `MobileAds.initialize()`가 내부적으로 `WebSettings.getDefaultUserAgent()`를 호출하고, 이 시점에 WebView가 이미 메인 프로세스(`pid 20255`)에 의해 잠긴 상태여서 `AwDataDirLock` 충돌 발생.
+- **해결**: `ActivityManager.runningAppProcesses`에서 현재 PID의 프로세스명이 패키지명(`org.comon.streamlauncher`)과 일치할 때만 `MobileAds.initialize()`를 호출. `:wallpaper` 프로세스에서는 건너뜀.
+- **범위 최소화**: `createNotificationChannels()`와 `scheduleFeedSync()`는 멀티프로세스 환경에서 중복 실행되어도 부작용이 없으므로 조건 밖에 유지.
+
+---
+
 ## [2026-04-05] fix(apps-drawer): 검색창 포커스 해제 및 앱 그리드 겹침 수정
 
 ### 목표

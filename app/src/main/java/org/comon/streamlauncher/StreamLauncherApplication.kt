@@ -1,8 +1,10 @@
 package org.comon.streamlauncher
 
 import android.app.Application
+import android.app.ActivityManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.os.Process
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import androidx.work.Constraints
@@ -36,9 +38,19 @@ class StreamLauncherApplication : Application(), ImageLoaderFactory, Configurati
 
     override fun onCreate() {
         super.onCreate()
-        MobileAds.initialize(this)
+        if (isMainProcess()) {
+            MobileAds.initialize(this)
+        }
         createNotificationChannels()
         scheduleFeedSync()
+    }
+
+    private fun isMainProcess(): Boolean {
+        val pid = Process.myPid()
+        val manager = getSystemService(ACTIVITY_SERVICE) as ActivityManager
+        return manager.runningAppProcesses
+            ?.firstOrNull { it.pid == pid }
+            ?.processName == packageName
     }
 
     override fun newImageLoader(): ImageLoader {
