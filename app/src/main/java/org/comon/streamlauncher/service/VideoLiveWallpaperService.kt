@@ -286,6 +286,9 @@ class VideoLiveWallpaperService : WallpaperService() {
 
                 val cb = object : Choreographer.FrameCallback {
                     override fun doFrame(frameTimeNanos: Long) {
+                        // stopCurrent()이 호출되면 frameCallback이 null 또는 다른 콜백으로 교체된다.
+                        // 이미 큐에 올라간 stale 콜백이 Surface를 잠그지 않도록 자신이 현재 콜백인지 확인한다.
+                        if (frameCallback !== this) return
                         val h = surfaceHolder ?: return
                         if (!h.surface.isValid) return
                         val canvas = h.lockCanvas() ?: return

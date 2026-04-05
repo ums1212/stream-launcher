@@ -23,7 +23,7 @@ import org.comon.streamlauncher.settings.navigation.PresetMarketHost as PresetMa
 fun MainNavHost(
     navController: NavHostController,
     launcherContent: @Composable () -> Unit,
-    onLaunchLiveWallpaperPicker: () -> Unit,
+    onLaunchLiveWallpaperPicker: (landscapeNewId: Int?, landscapeNewUri: String?) -> Unit,
     onReloadWallpaper: () -> Unit,
     onRequireSignIn: () -> Unit,
     onStartDownloadService: (String) -> Unit,

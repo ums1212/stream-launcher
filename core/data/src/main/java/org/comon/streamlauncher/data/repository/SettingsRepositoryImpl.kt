@@ -1,6 +1,7 @@
 package org.comon.streamlauncher.data.repository
 
 import android.content.Context
+import android.content.Intent
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
@@ -9,10 +10,13 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -46,6 +50,35 @@ class SettingsRepositoryImpl @Inject constructor(
     /** :wallpaper 프로세스가 읽는 URI 파일 (filesDir 공유) */
     private val wallpaperUriFile get() = File(context.filesDir, "live_wallpaper_uri.txt")
     private val wallpaperLandscapeUriFile get() = File(context.filesDir, "live_wallpaper_uri_landscape.txt")
+
+    /**
+     * VideoLiveWallpaperService 브로드캐스트 액션.
+     * core:data 에서 app 모듈 직접 의존 없이 사용하기 위해 문자열로 유지.
+     */
+    private val actionReloadUri = "org.comon.streamlauncher.action.RELOAD_WALLPAPER_URI"
+
+    private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    init {
+        // 앱 시작 시 DataStore ↔ URI 파일 동기화.
+        // Activity가 가로 피커 플로우 도중 강제 종료되면 세로 파일에 가로 URI가 남을 수 있다.
+        // DataStore 가 source-of-truth 이므로 시작 시 파일을 덮어써서 불일치를 복구한다.
+        ioScope.launch {
+            try {
+                val prefs = dataStore.data.first()
+                val portraitUri = prefs[liveWallpaperUriKey]
+                val landscapeUri = prefs[liveWallpaperLandscapeUriKey]
+                if (portraitUri != null) wallpaperUriFile.writeText(portraitUri)
+                else if (wallpaperUriFile.exists()) wallpaperUriFile.delete()
+                if (landscapeUri != null) wallpaperLandscapeUriFile.writeText(landscapeUri)
+                else if (wallpaperLandscapeUriFile.exists()) wallpaperLandscapeUriFile.delete()
+                // 동기화 후 서비스에 reload 통보
+                context.sendBroadcast(
+                    Intent(actionReloadUri).apply { `package` = context.packageName }
+                )
+            } catch (_: Exception) { /* 초기 동기화 실패 시 무시 */ }
+        }
+    }
 
     private val hasShownHomeSettingsOnFirstLaunchKey = booleanPreferencesKey("has_shown_home_settings_on_first_launch")
     private val colorPresetIndexKey = intPreferencesKey("color_preset_index")
@@ -190,20 +223,26 @@ class SettingsRepositoryImpl @Inject constructor(
                 if (id != null) prefs[liveWallpaperLandscapeIdKey] = id else prefs.remove(liveWallpaperLandscapeIdKey)
                 if (uri != null) prefs[liveWallpaperLandscapeUriKey] = uri else prefs.remove(liveWallpaperLandscapeUriKey)
             }
-            // :wallpaper 프로세스가 FileObserver로 감지할 수 있도록 파일에도 동기화
             withContext(Dispatchers.IO) {
                 if (uri != null) wallpaperLandscapeUriFile.writeText(uri)
-                else wallpaperLandscapeUriFile.delete()
+                else if (wallpaperLandscapeUriFile.exists()) wallpaperLandscapeUriFile.delete()
+                // clear 포함 모든 경우에 서비스에 reload 통보
+                context.sendBroadcast(
+                    Intent(actionReloadUri).apply { `package` = context.packageName }
+                )
             }
         } else {
             dataStore.edit { prefs ->
                 if (id != null) prefs[liveWallpaperIdKey] = id else prefs.remove(liveWallpaperIdKey)
                 if (uri != null) prefs[liveWallpaperUriKey] = uri else prefs.remove(liveWallpaperUriKey)
             }
-            // :wallpaper 프로세스가 FileObserver로 감지할 수 있도록 파일에도 동기화
             withContext(Dispatchers.IO) {
                 if (uri != null) wallpaperUriFile.writeText(uri)
-                else wallpaperUriFile.delete()
+                else if (wallpaperUriFile.exists()) wallpaperUriFile.delete()
+                // clear 포함 모든 경우에 서비스에 reload 통보
+                context.sendBroadcast(
+                    Intent(actionReloadUri).apply { `package` = context.packageName }
+                )
             }
         }
     }

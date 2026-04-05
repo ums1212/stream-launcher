@@ -2,6 +2,37 @@
 
 ---
 
+## [2026-04-05] fix(settings): 라이브 배경화면 DataStore-파일 동기화 및 해제 로직 수정
+
+### 목표
+
+1. 앱 재시작 후 이전에 적용한 라이브 배경화면이 사라지는 문제 해결
+2. 세로 배경화면 설정 시 이전 가로 배경화면이 함께 유지되던 문제 해결
+3. 가로 배경화면 해제 시 세로/가로 모두 해제되던 문제 해결
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `core/data/.../SettingsRepositoryImpl.kt` | `ioScope` + `init` 블록 추가: 앱 시작 시 DataStore → URI 파일 비동기 동기화 + `ACTION_RELOAD_URI` broadcast 전송; `setLiveWallpaper`에 파일 조작 후 항상 broadcast 전송 추가 (clear 포함) |
+| `feature/settings/.../LiveWallpaperSettingsViewModel.kt` | `setActiveLiveWallpaper(PORTRAIT)` 시 가로 URI도 함께 초기화; `clearActiveLiveWallpaper` 재설계 — 가로 해제는 가로만 삭제(서비스 유지), 세로 해제는 가로+세로 모두 삭제 후 `WallpaperManager.clear()` |
+
+### 검증결과
+
+- `assembleDebug` BUILD SUCCESSFUL
+- 세로 배경화면 설정 후 화면 회전 → 세로 배경화면 유지 (가로 fallback)
+- 가로 탭에서 해제 → 가로만 해제, 세로 배경화면 서비스 유지
+- 세로 탭에서 해제 → 세로·가로 모두 해제, 서비스 비활성화
+
+### 설계결정 및 근거
+
+- **Bug 1 (재시작 후 배경화면 소실)**: 가로 피커 프리뷰를 위해 세로 URI 파일을 임시 교체한 상태에서 Activity가 강제 종료되면, 세로 파일에 가로 URI가 남고 `needsPortraitUriRestore` 플래그는 사라진다. 앱 재시작 시 DataStore를 source-of-truth로 삼아 파일을 덮어쓰는 시작 동기화로 복구. `ioScope.launch`로 비동기 처리해 UI 블로킹 없음.
+- **Bug 2 (세로 설정 시 가로 잔존)**: `VideoLiveWallpaperService.resolveActiveUri()`는 `landscapeUri != null`이면 가로 URI를 우선 반환. 세로 설정 시 가로 DataStore + 파일을 함께 삭제해 회전 시 세로 fallback이 작동하도록 수정.
+- **Bug 3 (가로 해제 시 전체 해제)**: 기존 코드가 orientation에 무관하게 `ReloadWallpaper` SideEffect → `WallpaperManager.clear()` 호출 → 라이브 배경화면 서비스 자체를 비활성화시켰음. 가로 해제 시에는 `setLiveWallpaperUseCase(null, null, LANDSCAPE)` 내부 broadcast만으로 서비스 통보; `WallpaperManager.clear()`는 세로 해제(서비스 완전 종료) 시에만 호출.
+- **broadcast 중앙화**: 기존에는 broadcast가 `MainActivity` 특정 경로에서만 전송되어 clear 시 서비스 미통보. `SettingsRepositoryImpl.setLiveWallpaper`에서 파일 조작 직후 항상 broadcast를 전송하도록 변경해 경로 누락 방지.
+
+---
+
 ## [2026-04-05] fix(app): 라이브 배경화면 프로세스에서 MobileAds 충돌 수정
 
 ### 목표

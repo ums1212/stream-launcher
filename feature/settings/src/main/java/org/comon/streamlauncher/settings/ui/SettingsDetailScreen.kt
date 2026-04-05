@@ -31,7 +31,7 @@ fun SettingsDetailScreen(
     onNavigateToMarket: () -> Unit = {},
     onNavigateToAddPreset: () -> Unit = {},
     onRequireSignIn: () -> Unit = {},
-    onLaunchLiveWallpaperPicker: () -> Unit = {},
+    onLaunchLiveWallpaperPicker: (landscapeNewId: Int?, landscapeNewUri: String?) -> Unit = { _, _ -> },
     onReloadWallpaper: () -> Unit = {},
     onStartUploadService: (String) -> Unit = {},
     onStopUploadService: () -> Unit = {},

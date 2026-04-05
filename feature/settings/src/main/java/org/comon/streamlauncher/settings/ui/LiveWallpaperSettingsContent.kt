@@ -76,7 +76,7 @@ import org.comon.streamlauncher.settings.livewallpaper.LiveWallpaperSettingsView
 internal fun LiveWallpaperSettingsContent(
     modifier: Modifier = Modifier,
     viewModel: LiveWallpaperSettingsViewModel = hiltViewModel(),
-    onLaunchLiveWallpaperPicker: () -> Unit = {},
+    onLaunchLiveWallpaperPicker: (landscapeNewId: Int?, landscapeNewUri: String?) -> Unit = { _, _ -> },
     onReloadWallpaper: () -> Unit = {},
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -86,7 +86,8 @@ internal fun LiveWallpaperSettingsContent(
     LaunchedEffect(Unit) {
         viewModel.effect.collect { effect ->
             when (effect) {
-                is LiveWallpaperSettingsSideEffect.LaunchLiveWallpaperPicker -> onLaunchLiveWallpaperPicker()
+                is LiveWallpaperSettingsSideEffect.LaunchLiveWallpaperPicker ->
+                    onLaunchLiveWallpaperPicker(effect.landscapeNewId, effect.landscapeNewUri)
                 is LiveWallpaperSettingsSideEffect.ReloadWallpaper -> onReloadWallpaper()
                 is LiveWallpaperSettingsSideEffect.ShowError -> snackbarHostState.showSnackbar(effect.message)
             }

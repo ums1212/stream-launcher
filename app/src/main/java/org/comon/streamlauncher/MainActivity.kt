@@ -63,8 +63,21 @@ class MainActivity : ComponentActivity() {
     private val widgetViewModel: WidgetViewModel by viewModels()
     private val feedViewModel: FeedViewModel by viewModels()
     private val settingsViewModel: SettingsViewModel by viewModels()
+    private val liveWallpaperSettingsViewModel: org.comon.streamlauncher.settings.livewallpaper.LiveWallpaperSettingsViewModel by viewModels()
 
     private var resetTrigger by mutableIntStateOf(0)
+
+    // ── 가로 배경화면 피커 상태 ──────────────────────────────────────────────────
+    /** 가로 배경화면 피커 플로우 진행 중 여부 */
+    private var isInLandscapePickerFlow = false
+    /** 피커에서 확정할 새 가로 배경화면 ID */
+    private var pendingLandscapeId: Int? = null
+    /** 피커에서 확정할 새 가로 배경화면 URI */
+    private var pendingLandscapeUri: String? = null
+    /** 세로 URI 파일을 미리보기용으로 임시 교체한 경우 true */
+    private var needsPortraitUriRestore = false
+    /** 임시 교체 전 원본 세로 URI (null 이면 파일이 없었음) */
+    private var originalPortraitUri: String? = null
 
     private val wallpaperManager = WallpaperSystemBarManager(this)
     private lateinit var widgetHostManager: AppWidgetHostManager
@@ -129,30 +142,37 @@ class MainActivity : ComponentActivity() {
 
                         MainNavHost(
                             navController = navController,
-                            onLaunchLiveWallpaperPicker = {
-                                val component = android.content.ComponentName(this@MainActivity, org.comon.streamlauncher.service.VideoLiveWallpaperService::class.java)
-                                val wallpaperManager = android.app.WallpaperManager.getInstance(this@MainActivity)
-                                val currentInfo = wallpaperManager.wallpaperInfo
-                                if (currentInfo?.serviceName == org.comon.streamlauncher.service.VideoLiveWallpaperService::class.java.name) {
+                            onLaunchLiveWallpaperPicker = { landscapeNewId, landscapeNewUri ->
+                                if (landscapeNewUri != null) {
+                                    // 가로 배경화면 플로우: DataStore 기록은 onResume에서 확정
+                                    isInLandscapePickerFlow = true
+                                    pendingLandscapeId = landscapeNewId
+                                    pendingLandscapeUri = landscapeNewUri
+                                    // 피커 세로 미리보기에 가로 콘텐츠가 보이도록 portrait 파일 임시 교체
+                                    val portraitFile = java.io.File(filesDir, "live_wallpaper_uri.txt")
+                                    originalPortraitUri = portraitFile.takeIf { it.exists() }
+                                        ?.readText()?.trim()?.takeIf { it.isNotBlank() }
+                                    portraitFile.writeText(landscapeNewUri)
+                                    needsPortraitUriRestore = true
                                     sendBroadcast(
                                         Intent(org.comon.streamlauncher.service.VideoLiveWallpaperService.ACTION_RELOAD_URI)
                                             .apply { `package` = packageName }
                                     )
-                                } else {
+                                }
+                                val component = android.content.ComponentName(this@MainActivity, org.comon.streamlauncher.service.VideoLiveWallpaperService::class.java)
+                                try {
+                                    startActivity(
+                                        Intent(android.app.WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER)
+                                            .putExtra(android.app.WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT, component)
+                                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    )
+                                } catch (_: android.content.ActivityNotFoundException) {
                                     try {
                                         startActivity(
-                                            Intent(android.app.WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER)
-                                                .putExtra(android.app.WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT, component)
+                                            Intent(android.app.WallpaperManager.ACTION_LIVE_WALLPAPER_CHOOSER)
                                                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                                         )
-                                    } catch (_: android.content.ActivityNotFoundException) {
-                                        try {
-                                            startActivity(
-                                                Intent(android.app.WallpaperManager.ACTION_LIVE_WALLPAPER_CHOOSER)
-                                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                            )
-                                        } catch (_: Exception) {}
-                                    }
+                                    } catch (_: Exception) {}
                                 }
                             },
                             onReloadWallpaper = {
@@ -262,6 +282,39 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         wallpaperManager.onResume()
+
+        if (isInLandscapePickerFlow) {
+            isInLandscapePickerFlow = false
+            val newId = pendingLandscapeId
+            val newUri = pendingLandscapeUri
+            pendingLandscapeId = null
+            pendingLandscapeUri = null
+
+            // 가로 배경화면을 DataStore에 확정 저장
+            liveWallpaperSettingsViewModel.handleIntent(
+                org.comon.streamlauncher.settings.livewallpaper.LiveWallpaperSettingsIntent.ConfirmLandscapeWallpaper(
+                    id = newId,
+                    uri = newUri,
+                )
+            )
+            // 가로 URI 파일 직접 기록 (서비스는 파일을 읽으므로 DataStore 코루틴보다 먼저 반영)
+            val landscapeFile = java.io.File(filesDir, "live_wallpaper_uri_landscape.txt")
+            if (newUri != null) landscapeFile.writeText(newUri) else landscapeFile.delete()
+        }
+
+        // portrait 파일 임시 교체를 원상 복원하고 서비스에 reload 브로드캐스트 전송
+        // (가로 플로우에서는 landscape 파일 기록 후 이 블록이 실행되므로 올바른 순서로 처리됨)
+        if (needsPortraitUriRestore) {
+            needsPortraitUriRestore = false
+            val portraitFile = java.io.File(filesDir, "live_wallpaper_uri.txt")
+            val orig = originalPortraitUri
+            originalPortraitUri = null
+            if (orig != null) portraitFile.writeText(orig) else portraitFile.delete()
+            sendBroadcast(
+                Intent(org.comon.streamlauncher.service.VideoLiveWallpaperService.ACTION_RELOAD_URI)
+                    .apply { `package` = packageName }
+            )
+        }
     }
 
     override fun onStop() {
