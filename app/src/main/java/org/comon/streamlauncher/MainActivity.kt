@@ -197,9 +197,7 @@ class MainActivity : ComponentActivity() {
                                     },
                                     appDrawerContent = {
                                         AppDrawerScreen(
-                                            searchQuery = uiState.searchQuery,
                                             filteredApps = uiState.filteredApps,
-                                            onSearch = { viewModel.handleIntent(HomeIntent.Search(it)) },
                                             onAppClick = { viewModel.handleIntent(HomeIntent.ClickApp(it)) },
                                             onAppAssigned = { app, cell ->
                                                 viewModel.handleIntent(HomeIntent.AssignAppToCell(app, cell))

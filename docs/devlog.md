@@ -2,6 +2,40 @@
 
 ---
 
+## [2026-04-13] feat(apps-drawer): 검색 오버레이(SearchOverlay) 구현
+
+### 목표
+
+앱 서랍 하단 검색창 클릭 시 별도의 검색 화면이 슬라이드 업 애니메이션으로 오버레이되고, 검색 결과를 리스트로 표시. 기존 앱 그리드는 검색 영향 없이 유지.
+
+### 변경사항
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `feature/apps-drawer/ui/SearchOverlay.kt` (신규) | `AnimatedVisibility` + `slideInVertically` (하단→상단 350ms) 슬라이드 업 오버레이; 로컬 `searchQuery` 상태로 ViewModel 미호출; `ChosungMatcher` 직접 사용해 `derivedStateOf`로 필터링; `FocusRequester` 300ms 지연 자동 포커스; `BackHandler` dismiss; 크기 0 더미 포커스 요소로 키보드 bounce 없이 포커스 해제; `SearchResultItem` (AppIcon 40dp + 앱명 Row) |
+| `feature/apps-drawer/ui/AppDrawerScreen.kt` | 기존 `OutlinedTextField` → 클릭 가능한 가짜 검색 바(동일 외형)로 교체; `isSearchOpen` 로컬 상태; `SearchOverlay(allApps = filteredApps)` 연결; snapshotFlow `!isSearchOpen` 조건으로 오버레이 열린 동안 `clearFocus()` 차단 |
+| `feature/apps-drawer/res/values/strings.xml` | `app_drawer_no_results` 문자열 추가 |
+| `feature/apps-drawer/build.gradle.kts` | `focusable()` 의존성 확인 (변경 없음) |
+
+### 검증결과
+
+- `:feature:apps-drawer:compileDebugKotlin` BUILD SUCCESSFUL
+- `assembleDebug` BUILD SUCCESSFUL
+- 검색창 클릭 → 오버레이 슬라이드 업 / 뒤로가기 → 닫힘
+- 초성·완성 검색 정상 동작 / 결과 없음 메시지 표시
+- 오버레이 검색 중 앱 그리드는 전체 앱 목록 유지 (ViewModel 미변경)
+- 홈 이탈 후 복귀 시 그리드 정상 복원
+
+### 설계결정 및 근거
+
+- **오버레이 구현 방식**: Dialog나 Navigation 대신 `AppDrawerScreen` 내부 `Box` 오버레이 선택. Dialog는 별도 Window라 좌표계 분리 문제, Navigation은 상위 시그니처 변경 필요. 로컬 상태 하나(`isSearchOpen`)로 제어해 feature 모듈 자급자족.
+- **검색 상태 분리**: SearchOverlay가 `searchQuery`와 필터링을 로컬에서 완전히 관리 (`ChosungMatcher` 직접 사용). ViewModel의 `filteredApps`를 변경하지 않아 그리드에 검색 결과가 반영되는 버그를 근본적으로 차단.
+- **키보드 bounce 해결**: `focusManager.clearFocus()` → Android View의 `requestDefaultFocus()` 트리거 → TextField 재포커스 → 키보드 재표시 사이클이 원인. 크기 0의 더미 포커스 요소(`dummyFocusRequester`)로 포커스를 이전하여 View 시스템이 "포커스 있음"으로 인식하게 해 `requestDefaultFocus()` 발동 차단. submit 버튼은 `SoftwareKeyboardController.hide()` 후 더미 포커스 이전.
+- **AppDrawerScreen의 clearFocus() 차단**: 기존 `snapshotFlow { imeBottom == 0 } → clearFocus()` 로직이 오버레이 열린 상태에서도 실행되어 bounce 유발. `isSearchOpen`을 snapshotFlow에서 함께 추적해 오버레이 열린 동안 차단.
+- **초기 목록 빈 상태**: 오버레이 진입 시 `searchQuery = ""` → `derivedStateOf`가 `emptyList()` 반환 → 초기 화면 비어있음. 타이핑 시작 시만 필터링 결과 표시.
+
+---
+
 ## [2026-04-05] fix(settings): 라이브 배경화면 DataStore-파일 동기화 및 해제 로직 수정
 
 ### 목표

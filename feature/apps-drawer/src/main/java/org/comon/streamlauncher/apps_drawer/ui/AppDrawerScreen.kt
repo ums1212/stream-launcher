@@ -14,23 +14,19 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.VerticalDivider
@@ -44,6 +40,9 @@ import androidx.compose.foundation.layout.ime
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -89,9 +88,7 @@ private const val CONTEXT_MENU_DELAY_MS = 500L
 
 @Composable
 fun AppDrawerScreen(
-    searchQuery: String,
     filteredApps: List<AppEntity>,
-    onSearch: (String) -> Unit,
     onAppClick: (AppEntity) -> Unit,
     onAppAssigned: (AppEntity, GridCell) -> Unit = { _, _ -> },
     onShowAppInfo: (AppEntity) -> Unit = {},
@@ -101,25 +98,43 @@ fun AppDrawerScreen(
     iconSizeRatio: Float = 1.0f,
 ) {
     val view = LocalView.current
-    DisposableEffect(view) {
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(view, lifecycleOwner) {
         val window = (view.context as Activity).window
         val prevMode = window.attributes.softInputMode
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
-        onDispose { window.setSoftInputMode(prevMode) }
+
+        // 외부 앱 실행 후 돌아올 때 다른 앱이 softInputMode를 덮어쓰므로
+        // ON_RESUME 마다 ADJUST_NOTHING을 재적용해 이중 패딩을 방지
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            window.setSoftInputMode(prevMode)
+        }
     }
 
     val focusManager = LocalFocusManager.current
     val density = LocalDensity.current
     val imeInsets = WindowInsets.ime
 
-    LaunchedEffect(Unit) {
-        snapshotFlow { imeInsets.getBottom(density) }
-            .collect { imeBottom ->
-                if (imeBottom == 0) focusManager.clearFocus()
-            }
-    }
+    var isSearchOpen by remember { mutableStateOf(false) }
 
     var searchBarHeightPx by remember { mutableIntStateOf(0) }
+
+    // SearchOverlay가 닫혀 있을 때만 IME 감지로 포커스 해제
+    // (SearchOverlay가 열린 상태에서 호출하면 clearFocus가 View 포커스 사이클을 트리거해 키보드가 재표시됨)
+    LaunchedEffect(Unit) {
+        snapshotFlow { imeInsets.getBottom(density) to isSearchOpen }
+            .collect { (imeBottom, searchOpen) ->
+                if (imeBottom == 0 && !searchOpen) focusManager.clearFocus()
+            }
+    }
     val searchBarHeight = with(density) { searchBarHeightPx.toDp() }
 
     val colors = StreamLauncherTheme.colors
@@ -180,41 +195,43 @@ fun AppDrawerScreen(
             Spacer(modifier = Modifier.height(searchBarHeight))
         }
 
-        OutlinedTextField(
-            value = searchQuery,
-            onValueChange = onSearch,
+        // 가짜 검색 바 (클릭 시 SearchOverlay 열림)
+        Row(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
                 .onGloballyPositioned { searchBarHeightPx = it.size.height }
-                .imePadding()
                 .navigationBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            placeholder = { Text(stringResource(R.string.app_drawer_search)) },
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.Default.Search,
-                    contentDescription = null,
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .border(
+                    width = 1.dp,
+                    color = colors.searchBarFocused.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(4.dp),
                 )
-            },
-            trailingIcon = {
-                if (searchQuery.isNotEmpty()) {
-                    IconButton(onClick = { onSearch("") }) {
-                        Icon(
-                            imageVector = Icons.Default.Clear,
-                            contentDescription = stringResource(R.string.app_drawer_clear_search),
-                        )
-                    }
-                }
-            },
-            singleLine = true,
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = colors.searchBarFocused,
-                cursorColor = colors.accentPrimary,
-                focusedLeadingIconColor = colors.accentPrimary,
-                focusedContainerColor = colors.glassSurface,
-                unfocusedContainerColor = colors.glassSurface,
-            ),
+                .background(colors.glassSurface)
+                .clickable { isSearchOpen = true }
+                .padding(horizontal = 16.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = Icons.Default.Search,
+                contentDescription = null,
+                tint = colors.glassOnSurface.copy(alpha = 0.6f),
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = stringResource(R.string.app_drawer_search),
+                style = MaterialTheme.typography.bodyLarge,
+                color = colors.glassOnSurface.copy(alpha = 0.5f),
+            )
+        }
+
+        SearchOverlay(
+            isVisible = isSearchOpen,
+            allApps = filteredApps,
+            onAppClick = onAppClick,
+            onDismiss = { isSearchOpen = false },
         )
     }
 }
