@@ -86,6 +86,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import kotlin.math.ceil
 
 private const val CONTEXT_MENU_DELAY_MS = 500L
@@ -141,6 +143,7 @@ fun AppDrawerScreen(
     }
     val searchBarHeight = with(density) { searchBarHeightPx.toDp() }
 
+    val scope = rememberCoroutineScope()
     val colors = StreamLauncherTheme.colors
     val appsPerPage = columns * rows
     val pageCount = if (filteredApps.isEmpty()) 1 else ceil(filteredApps.size / appsPerPage.toFloat()).toInt()
@@ -192,6 +195,12 @@ fun AppDrawerScreen(
                     unselectedColor = colors.accentPrimary.copy(alpha = 0.3f),
                     dotSize = 8.dp,
                     smallDotSize = 6.dp,
+                    onPageClick = { target ->
+                        scope.launch { pagerState.animateScrollToPage(target, animationSpec = tween(300)) }
+                    },
+                    onSwipe = { targetPage ->
+                        scope.launch { pagerState.animateScrollToPage(targetPage, animationSpec = tween(300)) }
+                    },
                 )
             }
 
