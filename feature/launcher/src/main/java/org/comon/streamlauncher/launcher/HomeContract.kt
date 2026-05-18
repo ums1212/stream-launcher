@@ -50,6 +50,7 @@ sealed interface HomeSideEffect : UiSideEffect {
     data object ShowNetworkError : HomeSideEffect
     data class OpenAppInfo(val packageName: String) : HomeSideEffect
     data class UninstallApp(val packageName: String) : HomeSideEffect
+    data class ShowToast(val message: String) : HomeSideEffect
 }
 
 const val DEFAULT_HOME_CELL_CAPACITY = 6

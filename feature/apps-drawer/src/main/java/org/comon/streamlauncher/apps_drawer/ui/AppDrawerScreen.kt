@@ -82,6 +82,10 @@ import org.comon.streamlauncher.ui.component.PagerIndicator
 import org.comon.streamlauncher.ui.component.calculateFixedAppGridMetrics
 import org.comon.streamlauncher.ui.dragdrop.LocalDragDropState
 import org.comon.streamlauncher.ui.theme.StreamLauncherTheme
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import kotlin.math.ceil
 
 private const val CONTEXT_MENU_DELAY_MS = 500L
@@ -261,37 +265,34 @@ private fun AppGridPage(
         )
         val fontSize = if (maxWidth < 360.dp) 10.sp else 11.sp
 
-        Column(modifier = Modifier.fillMaxSize()) {
-            for (rowIndex in 0 until gridMetrics.rows) {
-                Row(
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(gridMetrics.columns),
+            modifier = Modifier.fillMaxSize(),
+            userScrollEnabled = false,
+            verticalArrangement = Arrangement.SpaceEvenly,
+            horizontalArrangement = Arrangement.SpaceEvenly,
+        ) {
+            items(
+                items = apps,
+                key = { app -> app.packageName },
+            ) { app ->
+                AppDrawerGridItem(
+                    app = app,
+                    iconSize = gridMetrics.iconSize,
+                    textWidth = gridMetrics.textWidth,
+                    fontSize = fontSize,
+                    onClick = { onAppClick(app) },
+                    onAppAssigned = onAppAssigned,
+                    onShowAppInfo = onShowAppInfo,
+                    onRequestUninstall = onRequestUninstall,
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                ) {
-                    for (colIndex in 0 until gridMetrics.columns) {
-                        val appIndex = rowIndex * gridMetrics.columns + colIndex
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxHeight(),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            if (appIndex < apps.size) {
-                                AppDrawerGridItem(
-                                    app = apps[appIndex],
-                                    iconSize = gridMetrics.iconSize,
-                                    textWidth = gridMetrics.textWidth,
-                                    fontSize = fontSize,
-                                    onClick = { onAppClick(apps[appIndex]) },
-                                    onAppAssigned = onAppAssigned,
-                                    onShowAppInfo = onShowAppInfo,
-                                    onRequestUninstall = onRequestUninstall,
-                                )
-                            }
-                        }
-                    }
-                }
+                        .height(gridMetrics.itemHeight)
+                        .animateItem(
+                            fadeInSpec = tween(300),
+                            fadeOutSpec = tween(200),
+                            placementSpec = tween(300),
+                        ),
+                )
             }
         }
     }

@@ -2,6 +2,7 @@ package org.comon.streamlauncher.effect
 
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.widget.Toast
 import android.provider.Settings
 import android.util.Log
 import androidx.compose.material3.SnackbarDuration
@@ -93,6 +94,9 @@ fun HomeSideEffectHandler(
                     } catch (_: ActivityNotFoundException) {
                         Log.w("HomeSideEffectHandler", "앱 삭제 열기 실패: ${effect.packageName}")
                     }
+                }
+                is HomeSideEffect.ShowToast -> {
+                    Toast.makeText(context, effect.message, Toast.LENGTH_SHORT).show()
                 }
             }
         }

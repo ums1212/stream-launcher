@@ -122,6 +122,14 @@ class HomeViewModel @Inject constructor(
     private fun applyApps(apps: List<AppEntity>) {
         val unique = apps.distinctBy { it.packageName }
         val allSorted = unique.sortedBy { it.label }
+
+        val previousApps = currentState.allApps
+        if (previousApps.isNotEmpty()) {
+            allSorted
+                .filter { new -> previousApps.none { old -> old.packageName == new.packageName } }
+                .forEach { app -> sendEffect(HomeSideEffect.ShowToast("\"${app.label}\"이(가) 설치되었습니다.")) }
+        }
+
         updateState {
             copy(
                 allApps = allSorted,
