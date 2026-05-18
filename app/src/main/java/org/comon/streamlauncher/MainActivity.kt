@@ -275,6 +275,7 @@ class MainActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         widgetHostManager.onStart()
+        viewModel.handleIntent(HomeIntent.RefreshApps)
     }
 
     override fun onResume() {

@@ -12,6 +12,7 @@ import org.comon.streamlauncher.domain.model.AppEntity
 import org.comon.streamlauncher.domain.model.GridCell
 import org.comon.streamlauncher.domain.usecase.GetInstalledAppsUseCase
 import org.comon.streamlauncher.domain.usecase.GetLauncherSettingsUseCase
+import org.comon.streamlauncher.domain.usecase.RefreshInstalledAppsUseCase
 import org.comon.streamlauncher.domain.usecase.SaveCellAssignmentUseCase
 import org.comon.streamlauncher.domain.usecase.CheckFirstLaunchUseCase
 import org.comon.streamlauncher.domain.usecase.SetFirstLaunchUseCase
@@ -23,6 +24,7 @@ import javax.inject.Inject
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val getInstalledAppsUseCase: GetInstalledAppsUseCase,
+    private val refreshInstalledAppsUseCase: RefreshInstalledAppsUseCase,
     private val getLauncherSettingsUseCase: GetLauncherSettingsUseCase,
     private val saveCellAssignmentUseCase: SaveCellAssignmentUseCase,
     private val checkFirstLaunchUseCase: CheckFirstLaunchUseCase,
@@ -61,6 +63,7 @@ class HomeViewModel @Inject constructor(
     override fun handleIntent(intent: HomeIntent) {
         when (intent) {
             is HomeIntent.LoadApps -> loadApps()
+            is HomeIntent.RefreshApps -> refreshApps()
             is HomeIntent.ResetHome -> resetHome()
             is HomeIntent.CheckFirstLaunch -> checkFirstLaunch()
             is HomeIntent.ClickGrid -> toggleCell(intent.cell)
@@ -95,16 +98,7 @@ class HomeViewModel @Inject constructor(
             updateState { copy(isLoading = true) }
             try {
                 getInstalledAppsUseCase().collect { apps ->
-                    val unique = apps.distinctBy { it.packageName }
-                    val allSorted = unique.sortedBy { it.label }
-                    updateState {
-                        copy(
-                            allApps = allSorted,
-                            appsInCells = distributeApps(allSorted, cellAssignments),
-                            filteredApps = filterApps(allSorted, searchQuery),
-                            isLoading = false,
-                        )
-                    }
+                    applyApps(apps)
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -112,6 +106,29 @@ class HomeViewModel @Inject constructor(
                 updateState { copy(isLoading = false) }
                 sendEffect(HomeSideEffect.ShowError("앱 목록을 불러올 수 없습니다"))
             }
+        }
+    }
+
+    private fun refreshApps() {
+        viewModelScope.launch {
+            try {
+                applyApps(refreshInstalledAppsUseCase())
+            } catch (_: Exception) {
+                // callbackFlow가 백업이므로 silent 처리
+            }
+        }
+    }
+
+    private fun applyApps(apps: List<AppEntity>) {
+        val unique = apps.distinctBy { it.packageName }
+        val allSorted = unique.sortedBy { it.label }
+        updateState {
+            copy(
+                allApps = allSorted,
+                appsInCells = distributeApps(allSorted, cellAssignments),
+                filteredApps = filterApps(allSorted, searchQuery),
+                isLoading = false,
+            )
         }
     }
 

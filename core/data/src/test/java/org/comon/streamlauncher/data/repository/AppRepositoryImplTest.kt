@@ -1,5 +1,6 @@
 package org.comon.streamlauncher.data.repository
 
+import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
@@ -16,13 +17,15 @@ import org.junit.Test
 
 class AppRepositoryImplTest {
 
+    private lateinit var context: Context
     private lateinit var packageManager: PackageManager
     private lateinit var repository: AppRepositoryImpl
 
     @Before
     fun setUp() {
+        context = mockk(relaxed = true)
         packageManager = mockk()
-        repository = AppRepositoryImpl(packageManager)
+        repository = AppRepositoryImpl(context, packageManager)
     }
 
     @After
@@ -62,7 +65,7 @@ class AppRepositoryImplTest {
         repository.getInstalledApps().test {
             val items = awaitItem()
             assertTrue(items.isEmpty())
-            awaitComplete()
+            cancelAndIgnoreRemainingEvents()
         }
     }
 
@@ -86,7 +89,7 @@ class AppRepositoryImplTest {
                 ),
                 items[0],
             )
-            awaitComplete()
+            cancelAndIgnoreRemainingEvents()
         }
     }
 
@@ -105,17 +108,17 @@ class AppRepositoryImplTest {
             assertEquals("App A", items[0].label)
             assertEquals("App B", items[1].label)
             assertEquals("App C", items[2].label)
-            awaitComplete()
+            cancelAndIgnoreRemainingEvents()
         }
     }
 
     @Test
-    fun `Flow가 단일 emission 후 완료됨`() = runTest {
+    fun `Flow가 초기 앱 목록을 즉시 emit함`() = runTest {
         stubQueryIntentActivities(emptyList())
 
         repository.getInstalledApps().test {
             awaitItem()
-            awaitComplete()
+            cancelAndIgnoreRemainingEvents()
         }
     }
 
@@ -135,7 +138,7 @@ class AppRepositoryImplTest {
 
         repository.getInstalledApps().test {
             awaitItem()
-            awaitComplete()
+            cancelAndIgnoreRemainingEvents()
         }
 
         assertEquals(Intent.CATEGORY_LAUNCHER, categorySlot.captured)
@@ -148,7 +151,7 @@ class AppRepositoryImplTest {
 
         repository.getInstalledApps().test {
             awaitItem()
-            awaitComplete()
+            cancelAndIgnoreRemainingEvents()
         }
 
         verify { resolveInfo.loadLabel(packageManager) }
@@ -166,7 +169,22 @@ class AppRepositoryImplTest {
             val items = awaitItem()
             assertEquals(1, items.size)
             assertEquals("Valid App", items[0].label)
-            awaitComplete()
+            cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    @Test
+    fun `refreshInstalledApps는 현재 설치된 앱 목록을 즉시 반환함`() = runTest {
+        val apps = listOf(
+            createResolveInfo("pkg.a", "pkg.a.Main", "App A"),
+            createResolveInfo("pkg.b", "pkg.b.Main", "App B"),
+        )
+        stubQueryIntentActivities(apps)
+
+        val result = repository.refreshInstalledApps()
+
+        assertEquals(2, result.size)
+        assertEquals("App A", result[0].label)
+        assertEquals("App B", result[1].label)
     }
 }

@@ -15,6 +15,7 @@ import org.comon.streamlauncher.domain.model.GridCell
 import org.comon.streamlauncher.domain.model.LauncherSettings
 import org.comon.streamlauncher.domain.usecase.GetInstalledAppsUseCase
 import org.comon.streamlauncher.domain.usecase.GetLauncherSettingsUseCase
+import org.comon.streamlauncher.domain.usecase.RefreshInstalledAppsUseCase
 import org.comon.streamlauncher.domain.usecase.SaveCellAssignmentUseCase
 import org.comon.streamlauncher.domain.usecase.CheckFirstLaunchUseCase
 import org.comon.streamlauncher.domain.usecase.SetFirstLaunchUseCase
@@ -41,6 +42,7 @@ class HomeViewModelTest {
     }
 
     private lateinit var useCase: GetInstalledAppsUseCase
+    private lateinit var refreshInstalledAppsUseCase: RefreshInstalledAppsUseCase
     private lateinit var getLauncherSettingsUseCase: GetLauncherSettingsUseCase
     private lateinit var saveCellAssignmentUseCase: SaveCellAssignmentUseCase
     private lateinit var checkFirstLaunchUseCase: CheckFirstLaunchUseCase
@@ -52,6 +54,8 @@ class HomeViewModelTest {
         Dispatchers.setMain(testDispatcher)
         useCase = mockk()
         every { useCase() } returns flowOf(sampleApps)
+
+        refreshInstalledAppsUseCase = mockk(relaxed = true)
 
         getLauncherSettingsUseCase = mockk()
         every { getLauncherSettingsUseCase() } returns flowOf(LauncherSettings())
@@ -71,12 +75,14 @@ class HomeViewModelTest {
     /** 테스트용 ViewModel 생성 헬퍼 */
     private fun makeViewModel(
         appsUseCase: GetInstalledAppsUseCase = useCase,
+        refreshUseCase: RefreshInstalledAppsUseCase = refreshInstalledAppsUseCase,
         settingsUseCase: GetLauncherSettingsUseCase = getLauncherSettingsUseCase,
         cellAssignmentUseCase: SaveCellAssignmentUseCase = saveCellAssignmentUseCase,
         checkFirstLaunch: CheckFirstLaunchUseCase = checkFirstLaunchUseCase,
         setFirstLaunch: SetFirstLaunchUseCase = setFirstLaunchUseCase,
     ): HomeViewModel = HomeViewModel(
         appsUseCase,
+        refreshUseCase,
         settingsUseCase,
         cellAssignmentUseCase,
         checkFirstLaunch,
@@ -526,5 +532,26 @@ class HomeViewModelTest {
         val state = viewModel.uiState.value
         assertEquals(listOf(sourceApp.packageName), state.cellAssignments[GridCell.TOP_LEFT])
         assertEquals(listOf(targetApp.packageName), state.cellAssignments[GridCell.TOP_RIGHT])
+    }
+
+    // 26. RefreshApps 인텐트 처리 시 새 앱 반영
+    @Test
+    fun `RefreshApps 인텐트 처리 시 새 앱이 allApps에 반영됨`() = runTest {
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val newApp = AppEntity("com.new.app", "새앱", "com.new.app.Main")
+        val updatedApps = sampleApps + newApp
+        val refreshUseCase: RefreshInstalledAppsUseCase = mockk()
+        coEvery { refreshUseCase() } returns updatedApps
+
+        val vm = makeViewModel(refreshUseCase = refreshUseCase)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        vm.handleIntent(HomeIntent.RefreshApps)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val allApps = vm.uiState.value.allApps
+        assertTrue(allApps.any { it.packageName == newApp.packageName })
+        assertEquals(updatedApps.size, allApps.size)
     }
 }

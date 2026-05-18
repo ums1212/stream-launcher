@@ -59,4 +59,5 @@ class AppRepositoryTest {
 
 private class FakeAppRepository(private val apps: List<AppEntity>) : AppRepository {
     override fun getInstalledApps(): Flow<List<AppEntity>> = flowOf(apps)
+    override suspend fun refreshInstalledApps(): List<AppEntity> = apps
 }

@@ -5,4 +5,5 @@ import org.comon.streamlauncher.domain.model.AppEntity
 
 interface AppRepository {
     fun getInstalledApps(): Flow<List<AppEntity>>
+    suspend fun refreshInstalledApps(): List<AppEntity>
 }

@@ -22,6 +22,7 @@ import org.comon.streamlauncher.domain.util.WallpaperHelper
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -101,13 +102,20 @@ class LiveWallpaperSettingsViewModelTest {
     }
 
     @Test
-    fun `SetActiveLiveWallpaper LANDSCAPE 처리 시 setLiveWallpaperUseCase가 LANDSCAPE로 호출됨`() = runTest {
+    fun `SetActiveLiveWallpaper LANDSCAPE 처리 시 LaunchLiveWallpaperPicker SideEffect가 landscape 파라미터와 함께 발행됨`() = runTest {
         testDispatcher.scheduler.advanceUntilIdle()
 
-        viewModel.handleIntent(LiveWallpaperSettingsIntent.SetActiveLiveWallpaper(2, "/path/b.mp4", WallpaperOrientation.LANDSCAPE))
-        testDispatcher.scheduler.advanceUntilIdle()
+        viewModel.effect.test {
+            viewModel.handleIntent(LiveWallpaperSettingsIntent.SetActiveLiveWallpaper(2, "/path/b.mp4", WallpaperOrientation.LANDSCAPE))
+            testDispatcher.scheduler.advanceUntilIdle()
 
-        coVerify { setLiveWallpaperUseCase(2, "/path/b.mp4", WallpaperOrientation.LANDSCAPE) }
+            val effect = awaitItem()
+            assertTrue(effect is LiveWallpaperSettingsSideEffect.LaunchLiveWallpaperPicker)
+            val picker = effect as LiveWallpaperSettingsSideEffect.LaunchLiveWallpaperPicker
+            assertEquals(2, picker.landscapeNewId)
+            assertEquals("/path/b.mp4", picker.landscapeNewUri)
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 
     @Test
@@ -162,7 +170,7 @@ class LiveWallpaperSettingsViewModelTest {
             viewModel.handleIntent(LiveWallpaperSettingsIntent.SetActiveLiveWallpaper(1, "/path/a.mp4", WallpaperOrientation.PORTRAIT))
             testDispatcher.scheduler.advanceUntilIdle()
 
-            assertEquals(LiveWallpaperSettingsSideEffect.LaunchLiveWallpaperPicker, awaitItem())
+            assertTrue(awaitItem() is LiveWallpaperSettingsSideEffect.LaunchLiveWallpaperPicker)
         }
     }
 }

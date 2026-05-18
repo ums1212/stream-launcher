@@ -13,6 +13,7 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.withContext
 import org.comon.streamlauncher.domain.model.AppEntity
 import org.comon.streamlauncher.domain.repository.AppRepository
 import javax.inject.Inject
@@ -22,30 +23,27 @@ class AppRepositoryImpl @Inject constructor(
     private val packageManager: PackageManager,
 ) : AppRepository {
 
-    override fun getInstalledApps(): Flow<List<AppEntity>> = callbackFlow {
-        // 현재 설치된 앱 목록 조회
-        fun queryApps(): List<AppEntity> {
-            val intent = Intent(Intent.ACTION_MAIN).apply {
-                addCategory(Intent.CATEGORY_LAUNCHER)
-            }
-            val resolveInfoList = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                packageManager.queryIntentActivities(intent, PackageManager.ResolveInfoFlags.of(0L))
-            } else {
-                @Suppress("DEPRECATION")
-                packageManager.queryIntentActivities(intent, 0)
-            }
-            return resolveInfoList
-                .filter { it.activityInfo != null }
-                .map { it.toAppEntity() }
+    private fun queryInstalledApps(): List<AppEntity> {
+        val intent = Intent(Intent.ACTION_MAIN).apply {
+            addCategory(Intent.CATEGORY_LAUNCHER)
         }
+        val resolveInfoList = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            packageManager.queryIntentActivities(intent, PackageManager.ResolveInfoFlags.of(0L))
+        } else {
+            @Suppress("DEPRECATION")
+            packageManager.queryIntentActivities(intent, 0)
+        }
+        return resolveInfoList
+            .filter { it.activityInfo != null }
+            .map { it.toAppEntity() }
+    }
 
-        // 초기 앱 목록 emit
-        trySend(queryApps())
+    override fun getInstalledApps(): Flow<List<AppEntity>> = callbackFlow {
+        trySend(queryInstalledApps())
 
-        // 패키지 설치/삭제/업데이트 이벤트 수신 → 앱 목록 재조회
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
-                trySend(queryApps())
+                trySend(queryInstalledApps())
             }
         }
 
@@ -56,12 +54,20 @@ class AppRepositoryImpl @Inject constructor(
             addDataScheme("package")
         }
 
-        context.registerReceiver(receiver, filter)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("UnspecifiedRegisterReceiverFlag")
+            context.registerReceiver(receiver, filter)
+        }
 
         awaitClose {
             context.unregisterReceiver(receiver)
         }
     }.flowOn(Dispatchers.IO)
+
+    override suspend fun refreshInstalledApps(): List<AppEntity> =
+        withContext(Dispatchers.IO) { queryInstalledApps() }
 
     private fun ResolveInfo.toAppEntity(): AppEntity = AppEntity(
         packageName = activityInfo.packageName,
