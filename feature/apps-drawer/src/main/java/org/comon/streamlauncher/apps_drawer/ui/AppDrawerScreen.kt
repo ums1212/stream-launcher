@@ -87,7 +87,6 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.runtime.rememberCoroutineScope
-import kotlinx.coroutines.launch
 import kotlin.math.ceil
 
 private const val CONTEXT_MENU_DELAY_MS = 500L
@@ -295,7 +294,6 @@ private fun AppGridPage(
                     onShowAppInfo = onShowAppInfo,
                     onRequestUninstall = onRequestUninstall,
                     modifier = Modifier
-                        .height(gridMetrics.itemHeight)
                         .animateItem(
                             fadeInSpec = tween(300),
                             fadeOutSpec = tween(200),
