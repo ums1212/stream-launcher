@@ -34,6 +34,10 @@ class SuggestionViewModel @Inject constructor(
             sendEffect(SuggestionSideEffect.ShowError("건의 내용을 입력해주세요"))
             return
         }
+        if (connectivityChecker.isUnavailable()) {
+            sendEffect(SuggestionSideEffect.ShowNetworkError)
+            return
+        }
         val imageUri = currentState.selectedImageUri
         updateState { copy(isSubmitting = true) }
         viewModelScope.launch {

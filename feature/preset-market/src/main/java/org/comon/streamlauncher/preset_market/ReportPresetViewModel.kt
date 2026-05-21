@@ -58,6 +58,10 @@ class ReportPresetViewModel @Inject constructor(
             return
         }
         val reporter = getCurrentMarketUserUseCase() ?: return
+        if (connectivityChecker.isUnavailable()) {
+            sendEffect(ReportPresetSideEffect.ShowNetworkError)
+            return
+        }
         val imageUri = currentState.selectedImageUri
         updateState { copy(isSubmitting = true) }
         viewModelScope.launch {

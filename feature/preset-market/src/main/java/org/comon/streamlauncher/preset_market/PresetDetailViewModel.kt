@@ -130,6 +130,10 @@ class PresetDetailViewModel @Inject constructor(
 
     private fun toggleLike() {
         val presetId = currentState.preset?.id ?: return
+        if (connectivityChecker.isUnavailable()) {
+            sendEffect(PresetDetailSideEffect.ShowNetworkError)
+            return
+        }
         viewModelScope.launch {
             toggleMarketPresetLikeUseCase(presetId)
                 .onSuccess { isLikedNow ->
@@ -177,6 +181,10 @@ class PresetDetailViewModel @Inject constructor(
 
     private fun deletePreset() {
         val presetId = currentState.preset?.id ?: return
+        if (connectivityChecker.isUnavailable()) {
+            sendEffect(PresetDetailSideEffect.ShowNetworkError)
+            return
+        }
         viewModelScope.launch {
             deleteMarketPresetUseCase(presetId)
                 .onSuccess {
