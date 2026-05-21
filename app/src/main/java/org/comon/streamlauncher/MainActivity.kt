@@ -5,9 +5,11 @@ import android.content.res.Configuration
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -84,6 +86,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
 
         // registerForActivityResult 타이밍 요건: onCreate 내, onStart 이전
         widgetHostManager = AppWidgetHostManager(this, widgetViewModel)
@@ -251,7 +254,9 @@ class MainActivity : ComponentActivity() {
 
                         SnackbarHost(
                             hostState = snackbarHostState,
-                            modifier = Modifier.align(Alignment.BottomCenter),
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .navigationBarsPadding(),
                         ) { snackbarData ->
                             val dismissState = rememberSwipeToDismissBoxState()
                             LaunchedEffect(dismissState.currentValue) {

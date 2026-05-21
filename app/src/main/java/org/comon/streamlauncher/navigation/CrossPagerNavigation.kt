@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.VerticalPager
@@ -289,7 +288,7 @@ private fun UpPage(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .statusBarsPadding(),
+                .safeDrawingPadding(),
         ) {
             content()
         }
