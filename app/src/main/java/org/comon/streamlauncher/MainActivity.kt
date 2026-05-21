@@ -9,6 +9,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
@@ -49,6 +50,7 @@ import org.comon.streamlauncher.settings.SettingsViewModel
 import org.comon.streamlauncher.settings.ui.NoticeDialog
 import org.comon.streamlauncher.settings.ui.SettingsScreen
 import org.comon.streamlauncher.ui.GoogleSignInFlow
+import org.comon.streamlauncher.ui.LocalSnackbarHostState
 import org.comon.streamlauncher.ui.dragdrop.DragDropState
 import org.comon.streamlauncher.ui.dragdrop.LocalDragDropState
 import org.comon.streamlauncher.ui.theme.StreamLauncherTheme
@@ -112,16 +114,13 @@ class MainActivity : ComponentActivity() {
                 accentPrimaryOverride = Color(preset.accentPrimaryArgb),
                 accentSecondaryOverride = Color(preset.accentSecondaryArgb),
             ) {
-                CompositionLocalProvider(LocalDragDropState provides dragDropState) {
+                CompositionLocalProvider(
+                    LocalDragDropState provides dragDropState,
+                    LocalSnackbarHostState provides snackbarHostState,
+                ) {
                     Box(modifier = Modifier.fillMaxSize()) {
-                        HomeSideEffectHandler(
-                            effectFlow = viewModel.effect,
-                            snackbarHostState = snackbarHostState,
-                        )
-                        FeedSideEffectHandler(
-                            effectFlow = feedViewModel.effect,
-                            snackbarHostState = snackbarHostState,
-                        )
+                        HomeSideEffectHandler(effectFlow = viewModel.effect)
+                        FeedSideEffectHandler(effectFlow = feedViewModel.effect)
 
                         val onRequireSignIn = GoogleSignInFlow(
                             onSignInSuccess = { idToken ->
@@ -135,7 +134,6 @@ class MainActivity : ComponentActivity() {
                         SettingsSideEffectHandler(
                             effectFlow = settingsViewModel.effect,
                             navController = navController,
-                            snackbarHostState = snackbarHostState,
                         )
 
                         val configuration = LocalConfiguration.current
@@ -256,7 +254,8 @@ class MainActivity : ComponentActivity() {
                             hostState = snackbarHostState,
                             modifier = Modifier
                                 .align(Alignment.BottomCenter)
-                                .navigationBarsPadding(),
+                                .navigationBarsPadding()
+                                .imePadding(),
                         ) { snackbarData ->
                             val dismissState = rememberSwipeToDismissBoxState()
                             LaunchedEffect(dismissState.currentValue) {

@@ -27,6 +27,7 @@ import org.comon.streamlauncher.preset_market.PresetMarketUserInfoViewModel
 import org.comon.streamlauncher.preset_market.R
 import android.content.Intent
 import android.provider.Settings
+import org.comon.streamlauncher.ui.LocalSnackbarHostState
 import org.comon.streamlauncher.preset_market.ui.component.PresetStatsRow
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -38,7 +39,7 @@ fun PresetMarketUserInfoScreen(
     viewModel: PresetMarketUserInfoViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarHostState = LocalSnackbarHostState.current
     val context = androidx.compose.ui.platform.LocalContext.current
 
     LaunchedEffect(Unit) {
@@ -70,23 +71,6 @@ fun PresetMarketUserInfoScreen(
 
     Scaffold(
         modifier = modifier,
-        snackbarHost = {
-            SnackbarHost(snackbarHostState) { snackbarData ->
-                SwipeToDismissBox(
-                    state = rememberSwipeToDismissBoxState(
-                        confirmValueChange = { value ->
-                            if (value != SwipeToDismissBoxValue.Settled) {
-                                snackbarData.dismiss()
-                                true
-                            } else false
-                        }
-                    ),
-                    backgroundContent = {},
-                ) {
-                    Snackbar(snackbarData)
-                }
-            }
-        },
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.preset_market_user_info_title)) },

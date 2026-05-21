@@ -25,6 +25,7 @@ import android.content.Intent
 import android.provider.Settings
 import org.comon.streamlauncher.preset_market.*
 import org.comon.streamlauncher.preset_market.R
+import org.comon.streamlauncher.ui.LocalSnackbarHostState
 import org.comon.streamlauncher.ui.component.GoogleSignInRequiredDialog
 import org.comon.streamlauncher.ui.util.calculateIsCompactHeight
 
@@ -49,7 +50,7 @@ fun MarketHomeScreen(
     val recentPresets = viewModel.recentPresetsPaging.collectAsLazyPagingItems()
     var showSignIn by remember { mutableStateOf(false) }
     var showSignInDialog by remember { mutableStateOf(false) }
-    val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarHostState = LocalSnackbarHostState.current
     val scope = rememberCoroutineScope()
     val context = androidx.compose.ui.platform.LocalContext.current
     val isCompactLandscape = calculateIsCompactHeight()
@@ -127,23 +128,6 @@ fun MarketHomeScreen(
 
     Scaffold(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-        snackbarHost = {
-            SnackbarHost(snackbarHostState) { snackbarData ->
-                SwipeToDismissBox(
-                    state = rememberSwipeToDismissBoxState(
-                        confirmValueChange = { value ->
-                            if (value != SwipeToDismissBoxValue.Settled) {
-                                snackbarData.dismiss()
-                                true
-                            } else false
-                        }
-                    ),
-                    backgroundContent = {},
-                ) {
-                    Snackbar(snackbarData)
-                }
-            }
-        },
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.preset_market_title)) },

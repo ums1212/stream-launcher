@@ -43,6 +43,7 @@ import org.comon.streamlauncher.preset_market.*
 import org.comon.streamlauncher.preset_market.R
 import android.content.Intent
 import android.provider.Settings
+import org.comon.streamlauncher.ui.LocalSnackbarHostState
 import org.comon.streamlauncher.ui.component.GoogleSignInRequiredDialog
 import org.comon.streamlauncher.ui.component.PagerIndicator
 
@@ -61,7 +62,7 @@ fun PresetDetailScreen(
     viewModel: PresetDetailViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarHostState = LocalSnackbarHostState.current
     val scope = rememberCoroutineScope()
     val context = androidx.compose.ui.platform.LocalContext.current
 
@@ -244,23 +245,6 @@ fun PresetDetailScreen(
                     }
                 },
             )
-        },
-        snackbarHost = {
-            SnackbarHost(snackbarHostState) { snackbarData ->
-                SwipeToDismissBox(
-                    state = rememberSwipeToDismissBoxState(
-                        confirmValueChange = { value ->
-                            if (value != SwipeToDismissBoxValue.Settled) {
-                                snackbarData.dismiss()
-                                true
-                            } else false
-                        }
-                    ),
-                    backgroundContent = {},
-                ) {
-                    Snackbar(snackbarData)
-                }
-            }
         },
         bottomBar = {
             if (state.preset != null) {

@@ -6,7 +6,6 @@ import android.widget.Toast
 import android.provider.Settings
 import android.util.Log
 import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -18,13 +17,14 @@ import org.comon.streamlauncher.launcher.FeedSideEffect
 import org.comon.streamlauncher.launcher.HomeSideEffect
 import org.comon.streamlauncher.settings.SettingsSideEffect
 import org.comon.streamlauncher.settings.navigation.Launcher
+import org.comon.streamlauncher.ui.LocalSnackbarHostState
 
 @Composable
 fun HomeSideEffectHandler(
     effectFlow: Flow<HomeSideEffect>,
-    snackbarHostState: SnackbarHostState,
 ) {
     val context = LocalContext.current
+    val snackbarHostState = LocalSnackbarHostState.current
     LaunchedEffect(Unit) {
         effectFlow.collect { effect ->
             when (effect) {
@@ -106,9 +106,9 @@ fun HomeSideEffectHandler(
 @Composable
 fun FeedSideEffectHandler(
     effectFlow: Flow<FeedSideEffect>,
-    snackbarHostState: SnackbarHostState,
 ) {
     val context = LocalContext.current
+    val snackbarHostState = LocalSnackbarHostState.current
     LaunchedEffect(Unit) {
         effectFlow.collect { effect ->
             when (effect) {
@@ -147,8 +147,8 @@ fun FeedSideEffectHandler(
 fun SettingsSideEffectHandler(
     effectFlow: Flow<SettingsSideEffect>,
     navController: NavHostController,
-    snackbarHostState: SnackbarHostState,
 ) {
+    val snackbarHostState = LocalSnackbarHostState.current
     LaunchedEffect(Unit) {
         effectFlow.collect { effect ->
             when (effect) {

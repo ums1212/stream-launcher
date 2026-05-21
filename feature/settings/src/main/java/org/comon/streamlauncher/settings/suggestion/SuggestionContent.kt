@@ -15,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material3.*
+import org.comon.streamlauncher.ui.LocalSnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -38,7 +39,7 @@ fun SuggestionContent(
     viewModel: SuggestionViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarHostState = LocalSnackbarHostState.current
     val context = LocalContext.current
 
     val appVersion = remember {
@@ -96,11 +97,10 @@ fun SuggestionContent(
         }
     }
 
-    Box(modifier = modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState()),
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             // 이메일 입력 (선택)
@@ -200,28 +200,6 @@ fun SuggestionContent(
                 Text(stringResource(R.string.suggestion_submit))
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
-        }
-
-        SnackbarHost(
-            hostState = snackbarHostState,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .imePadding(),
-        ) { snackbarData ->
-            SwipeToDismissBox(
-                state = rememberSwipeToDismissBoxState(
-                    confirmValueChange = { value ->
-                        if (value != SwipeToDismissBoxValue.Settled) {
-                            snackbarData.dismiss()
-                            true
-                        } else false
-                    }
-                ),
-                backgroundContent = {},
-            ) {
-                Snackbar(snackbarData)
-            }
-        }
+        Spacer(modifier = Modifier.height(8.dp))
     }
 }

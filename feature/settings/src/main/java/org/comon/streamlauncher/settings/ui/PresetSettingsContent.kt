@@ -9,7 +9,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -28,6 +27,7 @@ import org.comon.streamlauncher.settings.R
 import org.comon.streamlauncher.settings.preset.PresetSettingsIntent
 import org.comon.streamlauncher.settings.preset.PresetSettingsSideEffect
 import org.comon.streamlauncher.settings.preset.PresetSettingsViewModel
+import org.comon.streamlauncher.ui.LocalSnackbarHostState
 import org.comon.streamlauncher.ui.component.GoogleSignInRequiredDialog
 import org.comon.streamlauncher.ui.util.calculateIsCompactHeight
 
@@ -43,7 +43,7 @@ internal fun PresetSettingsContent(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarHostState = LocalSnackbarHostState.current
     val isCompactLandscape = calculateIsCompactHeight()
 
     var presetToLoad by remember { mutableStateOf<Preset?>(null) }

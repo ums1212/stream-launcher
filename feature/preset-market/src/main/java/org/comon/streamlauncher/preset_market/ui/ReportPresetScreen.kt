@@ -31,6 +31,7 @@ import org.comon.streamlauncher.preset_market.R
 import org.comon.streamlauncher.preset_market.ReportPresetIntent
 import org.comon.streamlauncher.preset_market.ReportPresetSideEffect
 import org.comon.streamlauncher.preset_market.ReportPresetViewModel
+import org.comon.streamlauncher.ui.LocalSnackbarHostState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,7 +42,7 @@ fun ReportPresetScreen(
     viewModel: ReportPresetViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarHostState = LocalSnackbarHostState.current
     val context = LocalContext.current
 
     val networkErrorMessage = stringResource(R.string.preset_market_report_network_error)
@@ -89,23 +90,6 @@ fun ReportPresetScreen(
                     }
                 },
             )
-        },
-        snackbarHost = {
-            SnackbarHost(snackbarHostState) { snackbarData ->
-                SwipeToDismissBox(
-                    state = rememberSwipeToDismissBoxState(
-                        confirmValueChange = { value ->
-                            if (value != SwipeToDismissBoxValue.Settled) {
-                                snackbarData.dismiss()
-                                true
-                            } else false
-                        }
-                    ),
-                    backgroundContent = {},
-                ) {
-                    Snackbar(snackbarData)
-                }
-            }
         },
         bottomBar = {
             Surface(tonalElevation = 3.dp) {
